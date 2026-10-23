@@ -1,4 +1,4 @@
-```js
+
 import 'dotenv/config';
 import express from 'express';
 import session from 'express-session';
@@ -328,4 +328,3 @@ app.get('*', (_req, res) => {
 app.listen(port, () => {
   console.log(`Maut AI запущен на порту ${port}`);
 });
-```
