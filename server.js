@@ -53,8 +53,12 @@ app.use(session({
   }
 }));
 
-// Файлы сайта лежат рядом с server.js
-app.use(express.static(__dirname));
+// Раздаём только публичные файлы сайта из корня проекта.
+// API-маршруты объявлены ниже.
+app.use(express.static(__dirname, {
+  index: false,
+  dotfiles: 'deny'
+}));
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -84,10 +88,7 @@ const requireAuth = (req, res, next) =>
       });
 
 app.get('/api/health', (_req, res) => {
-  res.json({
-    ok: true,
-    app: 'Maut AI'
-  });
+  res.json({ ok: true, app: 'Maut AI' });
 });
 
 app.get('/api/auth/me', (req, res) => {
@@ -107,7 +108,8 @@ app.get('/api/auth/me', (req, res) => {
   res.json({ user: safeUser(user) });
 });
 
-app.post('/api/chat', apiLimiter, requireAuth, async (req, res) => {
+// Регистрация аккаунта
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 40);
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
@@ -118,10 +120,8 @@ app.post('/api/chat', apiLimiter, requireAuth, async (req, res) => {
     });
   }
 
-  if (
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    email.length > 254
-  ) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+      email.length > 254) {
     return res.status(400).json({
       error: 'Введи корректный email.'
     });
@@ -144,12 +144,21 @@ app.post('/api/chat', apiLimiter, requireAuth, async (req, res) => {
 
     req.session.userId = Number(result.lastInsertRowid);
 
-    res.json({
-      user: {
-        id: Number(result.lastInsertRowid),
-        email,
-        name
+    req.session.save(err => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.status(500).json({
+          error: 'Аккаунт создан, но не удалось сохранить сессию. Войди в аккаунт.'
+        });
       }
+
+      res.json({
+        user: {
+          id: Number(result.lastInsertRowid),
+          email,
+          name
+        }
+      });
     });
   } catch (e) {
     if (String(e.code).includes('SQLITE_CONSTRAINT')) {
@@ -158,14 +167,14 @@ app.post('/api/chat', apiLimiter, requireAuth, async (req, res) => {
       });
     }
 
-    console.error(e);
-
+    console.error('Register error:', e);
     res.status(500).json({
       error: 'Не удалось создать аккаунт.'
     });
   }
 });
 
+// Вход в аккаунт
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
@@ -174,10 +183,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     .prepare('SELECT * FROM users WHERE email=?')
     .get(email);
 
-  if (
-    !user ||
-    !(await bcrypt.compare(password, user.password_hash))
-  ) {
+  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
     return res.status(401).json({
       error: 'Неверный email или пароль.'
     });
@@ -199,13 +205,12 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
         });
       }
 
-      res.json({
-        user: safeUser(user)
-      });
+      res.json({ user: safeUser(user) });
     });
   });
 });
 
+// Выход из аккаунта
 app.post('/api/auth/logout', (req, res) => {
   req.session.destroy(err => {
     if (err) {
@@ -219,20 +224,20 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
+// Чат Maut AI через облачный Groq API
 app.post('/api/chat', apiLimiter, requireAuth, async (req, res) => {
   const messages = req.body.messages;
 
-  if (
-    !Array.isArray(messages) ||
-    messages.length < 1 ||
-    messages.length > 30
-  ) {
+  if (!Array.isArray(messages) ||
+      messages.length < 1 ||
+      messages.length > 30) {
     return res.status(400).json({
       error: 'Отправь от 1 до 30 сообщений.'
     });
   }
 
   const input = messages
+    .filter(m => m && typeof m === 'object')
     .map(m => ({
       role: m.role === 'assistant' ? 'assistant' : 'user',
       content: String(m.content || '').slice(0, 12000)
@@ -245,32 +250,37 @@ app.post('/api/chat', apiLimiter, requireAuth, async (req, res) => {
     });
   }
 
+  if (!process.env.GROQ_API_KEY) {
+    return res.status(500).json({
+      error: 'Не задан GROQ_API_KEY в настройках Render.'
+    });
+  }
+
   try {
     const response = await fetch(
-      'http://127.0.0.1:11434/api/chat',
+      'https://api.groq.com/openai/v1/chat/completions',
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
         },
         body: JSON.stringify({
-          model: process.env.OLLAMA_MODEL || 'qwen2.5:3b',
+          model: 'llama-3.3-70b-versatile',
           messages: [
             {
               role: 'system',
               content:
                 'Ты — Maut AI, полезный, честный и дружелюбный ИИ-помощник. ' +
                 'Твой создатель — Den Whelan, директор компании Liches maut. ' +
-                'Если пользователь спрашивает, кто тебя создал, кто твой ' +
-                'разработчик или кто руководит компанией, отвечай: ' +
+                'Если пользователь спрашивает, кто тебя создал, отвечай: ' +
                 '«Меня создал Den Whelan, директор компании Liches maut». ' +
-                'Не называй другого создателя. Отвечай на языке пользователя. ' +
-                'Если не уверен в ответе на другой вопрос — скажи об этом. ' +
-                'Форматируй ответы понятным текстом.'
+                'Отвечай на языке пользователя. Если не уверен в ответе — скажи об этом.'
             },
             ...input
           ],
-          stream: false
+          temperature: 0.7,
+          max_tokens: 1024
         })
       }
     );
@@ -278,32 +288,42 @@ app.post('/api/chat', apiLimiter, requireAuth, async (req, res) => {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(
-        data.error || `Ollama вернула ошибку (${response.status}).`
+      console.error(
+        'Groq API error:',
+        response.status,
+        data.error?.message || 'Unknown API error'
       );
+
+      if (response.status === 401) {
+        return res.status(502).json({
+          error: 'Ключ Groq недействителен. Проверь GROQ_API_KEY в Render.'
+        });
+      }
+
+      if (response.status === 429) {
+        return res.status(503).json({
+          error: 'Достигнут лимит запросов Groq. Попробуй позже.'
+        });
+      }
+
+      return res.status(502).json({
+        error: 'Groq не смог обработать запрос. Проверь доступность модели и настройки API.'
+      });
     }
 
     res.json({
-      text:
-        data.message?.content ||
-        'Локальная модель не вернула текстовый ответ.'
+      text: data.choices?.[0]?.message?.content ||
+        'ИИ не вернул текстовый ответ.'
     });
   } catch (e) {
-    console.error('Local AI error:', e.message);
-
-    const refused =
-      e.cause?.code === 'ECONNREFUSED' ||
-      /fetch failed/i.test(e.message);
-
-    res.status(503).json({
-      error: refused
-        ? 'Ollama не запущена. Запусти Ollama и нужную модель командой: ollama run qwen2.5:3b'
-        : e.message ||
-          'Ошибка при обращении к локальной ИИ-модели.'
+    console.error('Groq connection error:', e.message);
+    res.status(502).json({
+      error: 'Не удалось подключиться к облачному ИИ.'
     });
   }
 });
 
+// Генерация изображений пока не подключена
 app.post('/api/images', apiLimiter, requireAuth, async (req, res) => {
   const prompt = String(req.body.prompt || '').trim().slice(0, 4000);
 
@@ -314,13 +334,11 @@ app.post('/api/images', apiLimiter, requireAuth, async (req, res) => {
   }
 
   res.status(501).json({
-    error:
-      'Бесплатная локальная версия пока поддерживает текстовый чат. ' +
-      'Для генерации изображений требуется отдельная локальная модель.'
+    error: 'Генерация изображений пока не подключена.'
   });
 });
 
-// Главная страница теперь ищется рядом с server.js
+// Главная страница
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
