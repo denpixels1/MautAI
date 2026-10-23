@@ -1,4 +1,3 @@
-
 import 'dotenv/config';
 import express from 'express';
 import session from 'express-session';
@@ -34,9 +33,13 @@ const SQLiteStore = SQLiteStoreFactory(session);
 const isProduction = process.env.NODE_ENV === 'production';
 
 app.disable('x-powered-by');
+
+// Исправление сессий за HTTPS-прокси Render
+app.set('trust proxy', 1);
 app.use(express.json({ limit: '2mb' }));
 
 app.use(session({
+  name: 'maut.sid',
   store: new SQLiteStore({
     db: 'sessions.sqlite',
     dir: dataDir
@@ -45,6 +48,7 @@ app.use(session({
     'development-only-change-this-secret-before-deploying',
   resave: false,
   saveUninitialized: false,
+  proxy: true,
   cookie: {
     httpOnly: true,
     sameSite: 'lax',
@@ -53,12 +57,7 @@ app.use(session({
   }
 }));
 
-// Раздаём только публичные файлы сайта из корня проекта.
-// API-маршруты объявлены ниже.
-app.use(express.static(__dirname, {
-  index: false,
-  dotfiles: 'deny'
-}));
+app.use(express.static(__dirname));
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -74,10 +73,10 @@ const apiLimiter = rateLimit({
   legacyHeaders: false
 });
 
-const safeUser = u => ({
-  id: u.id,
-  email: u.email,
-  name: u.name
+const safeUser = user => ({
+  id: user.id,
+  email: user.email,
+  name: user.name
 });
 
 const requireAuth = (req, res, next) =>
@@ -97,7 +96,7 @@ app.get('/api/auth/me', (req, res) => {
   }
 
   const user = db
-    .prepare('SELECT id,email,name FROM users WHERE id=?')
+    .prepare('SELECT id, email, name FROM users WHERE id = ?')
     .get(req.session.userId);
 
   if (!user) {
@@ -108,7 +107,7 @@ app.get('/api/auth/me', (req, res) => {
   res.json({ user: safeUser(user) });
 });
 
-// Регистрация аккаунта
+// Регистрация
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 40);
   const email = String(req.body.email || '').trim().toLowerCase();
@@ -138,7 +137,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
 
     const result = db
       .prepare(
-        'INSERT INTO users(email,name,password_hash) VALUES(?,?,?)'
+        'INSERT INTO users(email, name, password_hash) VALUES (?, ?, ?)'
       )
       .run(email, name, hash);
 
@@ -148,7 +147,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
       if (err) {
         console.error('Session save error:', err);
         return res.status(500).json({
-          error: 'Аккаунт создан, но не удалось сохранить сессию. Войди в аккаунт.'
+          error: 'Аккаунт создан, но не удалось сохранить вход. Попробуй войти.'
         });
       }
 
@@ -160,27 +159,28 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
         }
       });
     });
-  } catch (e) {
-    if (String(e.code).includes('SQLITE_CONSTRAINT')) {
+  } catch (err) {
+    if (String(err.code || '').includes('SQLITE_CONSTRAINT')) {
       return res.status(409).json({
         error: 'Этот email уже зарегистрирован.'
       });
     }
 
-    console.error('Register error:', e);
+    console.error('Registration error:', err);
+
     res.status(500).json({
       error: 'Не удалось создать аккаунт.'
     });
   }
 });
 
-// Вход в аккаунт
+// Вход
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
 
   const user = db
-    .prepare('SELECT * FROM users WHERE email=?')
+    .prepare('SELECT * FROM users WHERE email = ?')
     .get(email);
 
   if (!user || !(await bcrypt.compare(password, user.password_hash))) {
@@ -191,6 +191,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
   req.session.regenerate(err => {
     if (err) {
+      console.error('Session regenerate error:', err);
       return res.status(500).json({
         error: 'Не удалось войти.'
       });
@@ -200,6 +201,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
     req.session.save(err2 => {
       if (err2) {
+        console.error('Session save error:', err2);
         return res.status(500).json({
           error: 'Не удалось сохранить сессию.'
         });
@@ -210,7 +212,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   });
 });
 
-// Выход из аккаунта
+// Выход
 app.post('/api/auth/logout', (req, res) => {
   req.session.destroy(err => {
     if (err) {
@@ -219,12 +221,18 @@ app.post('/api/auth/logout', (req, res) => {
       });
     }
 
-    res.clearCookie('connect.sid');
+    res.clearCookie('maut.sid', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isProduction,
+      path: '/'
+    });
+
     res.json({ ok: true });
   });
 });
 
-// Чат Maut AI через облачный Groq API
+// Чат: один маршрут, без дублирования
 app.post('/api/chat', apiLimiter, requireAuth, async (req, res) => {
   const messages = req.body.messages;
 
@@ -237,12 +245,11 @@ app.post('/api/chat', apiLimiter, requireAuth, async (req, res) => {
   }
 
   const input = messages
-    .filter(m => m && typeof m === 'object')
-    .map(m => ({
-      role: m.role === 'assistant' ? 'assistant' : 'user',
-      content: String(m.content || '').slice(0, 12000)
+    .map(message => ({
+      role: message.role === 'assistant' ? 'assistant' : 'user',
+      content: String(message.content || '').slice(0, 12000)
     }))
-    .filter(m => m.content.trim());
+    .filter(message => message.content.trim());
 
   if (!input.length) {
     return res.status(400).json({
@@ -250,75 +257,93 @@ app.post('/api/chat', apiLimiter, requireAuth, async (req, res) => {
     });
   }
 
-  if (!process.env.GROQ_API_KEY) {
-    return res.status(500).json({
-      error: 'Не задан GROQ_API_KEY в настройках Render.'
-    });
-  }
+  const systemPrompt =
+    'Ты — Maut AI, полезный, честный и дружелюбный ИИ-помощник. ' +
+    'Твой создатель — Den Whelan, директор компании Liches maut. ' +
+    'Если пользователь спрашивает, кто тебя создал, отвечай: ' +
+    '«Меня создал Den Whelan, директор компании Liches maut». ' +
+    'Отвечай на языке пользователя. Если не уверен в ответе — скажи об этом.';
 
   try {
-    const response = await fetch(
-      'https://api.groq.com/openai/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content:
-                'Ты — Maut AI, полезный, честный и дружелюбный ИИ-помощник. ' +
-                'Твой создатель — Den Whelan, директор компании Liches maut. ' +
-                'Если пользователь спрашивает, кто тебя создал, отвечай: ' +
-                '«Меня создал Den Whelan, директор компании Liches maut». ' +
-                'Отвечай на языке пользователя. Если не уверен в ответе — скажи об этом.'
-            },
-            ...input
-          ],
-          temperature: 0.7,
-          max_tokens: 1024
-        })
-      }
-    );
+    let answer;
 
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      console.error(
-        'Groq API error:',
-        response.status,
-        data.error?.message || 'Unknown API error'
+    // Используем Groq, если API-ключ настроен в Render
+    if (process.env.GROQ_API_KEY) {
+      const response = await fetch(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: process.env.GROQ_MODEL ||
+              'llama-3.3-70b-versatile',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...input
+            ],
+            stream: false,
+            temperature: 0.7
+          }),
+          signal: AbortSignal.timeout(60000)
+        }
       );
 
-      if (response.status === 401) {
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        console.error('Groq API error:', response.status, data);
         return res.status(502).json({
-          error: 'Ключ Groq недействителен. Проверь GROQ_API_KEY в Render.'
+          error: data.error?.message ||
+            `Ошибка Groq API (${response.status}).`
         });
       }
 
-      if (response.status === 429) {
-        return res.status(503).json({
-          error: 'Достигнут лимит запросов Groq. Попробуй позже.'
-        });
+      answer = data.choices?.[0]?.message?.content;
+    } else {
+      // Локальный Ollama — только если он доступен на этом сервере
+      const response = await fetch(
+        'http://127.0.0.1:11434/api/chat',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: process.env.OLLAMA_MODEL || 'qwen2.5:3b',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...input
+            ],
+            stream: false
+          }),
+          signal: AbortSignal.timeout(60000)
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || `Ошибка Ollama (${response.status}).`
+        );
       }
 
-      return res.status(502).json({
-        error: 'Groq не смог обработать запрос. Проверь доступность модели и настройки API.'
-      });
+      answer = data.message?.content;
     }
 
     res.json({
-      text: data.choices?.[0]?.message?.content ||
-        'ИИ не вернул текстовый ответ.'
+      text: answer || 'Модель не вернула текстовый ответ.'
     });
-  } catch (e) {
-    console.error('Groq connection error:', e.message);
-    res.status(502).json({
-      error: 'Не удалось подключиться к облачному ИИ.'
+  } catch (err) {
+    console.error('AI request error:', err);
+
+    res.status(503).json({
+      error: process.env.GROQ_API_KEY
+        ? 'Не удалось подключиться к ИИ. Проверь GROQ_API_KEY в Render.'
+        : 'ИИ недоступен. Настрой GROQ_API_KEY в Render для работы облачного чата.'
     });
   }
 });
@@ -334,11 +359,10 @@ app.post('/api/images', apiLimiter, requireAuth, async (req, res) => {
   }
 
   res.status(501).json({
-    error: 'Генерация изображений пока не подключена.'
+    error: 'Генерация изображений пока не подключена. Сейчас доступен текстовый чат.'
   });
 });
 
-// Главная страница
 app.get('*', (_req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
