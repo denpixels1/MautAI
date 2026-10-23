@@ -1,3 +1,4 @@
+```js
 import 'dotenv/config';
 import express from 'express';
 import session from 'express-session';
@@ -52,7 +53,8 @@ app.use(session({
   }
 }));
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Файлы сайта лежат рядом с server.js
+app.use(express.static(__dirname));
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -318,10 +320,12 @@ app.post('/api/images', apiLimiter, requireAuth, async (req, res) => {
   });
 });
 
+// Главная страница теперь ищется рядом с server.js
 app.get('*', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(port, () => {
-  console.log(`Maut AI запущен: http://localhost:${port}`);
+  console.log(`Maut AI запущен на порту ${port}`);
 });
+```
