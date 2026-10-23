@@ -1,4 +1,3 @@
-
 import 'dotenv/config';
 import express from 'express';
 import session from 'express-session';
@@ -22,7 +21,7 @@ if (isProduction) app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(express.json({ limit: '15mb' }));
 
-// Постоянная папка для базы данных.
+// Папка для базы данных
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -36,8 +35,29 @@ db.exec(`
     username TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
+  )
+`);
 
+const userColumns = db.prepare('PRAGMA table_info(users)')
+  .all()
+  .map(column => column.name);
+
+if (!userColumns.includes('display_name')) {
+  db.exec('ALTER TABLE users ADD COLUMN display_name TEXT');
+}
+
+if (!userColumns.includes('email')) {
+  db.exec('ALTER TABLE users ADD COLUMN email TEXT');
+}
+
+db.exec(`
+  CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
+  ON users(email)
+  WHERE email IS NOT NULL AND email != ''
+`);
+
+// Таблицы истории чатов
+db.exec(`
   CREATE TABLE IF NOT EXISTS conversations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -50,22 +70,23 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     conversation_id INTEGER NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
     content TEXT NOT NULL,
     image TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id)
-      ON DELETE CASCADE
+    FOREIGN KEY (conversation_id)
+      REFERENCES conversations(id) ON DELETE CASCADE
   );
 
-  CREATE INDEX IF NOT EXISTS idx_conversations_user
-    ON conversations(user_id, updated_at);
+  CREATE INDEX IF NOT EXISTS conversations_user_updated
+  ON conversations(user_id, updated_at DESC);
 
-  CREATE INDEX IF NOT EXISTS idx_messages_conversation
-    ON messages(conversation_id, id);
+  CREATE INDEX IF NOT EXISTS messages_conversation_id
+  ON messages(conversation_id, id);
 `);
 
 const SQLiteStore = SQLiteStoreFactory(session);
+
 const sessionStore = new SQLiteStore({
   db: 'sessions.db',
   dir: DATA_DIR,
@@ -114,7 +135,10 @@ const imageLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 4,
   standardHeaders: 'draft-7',
-  legacyHeaders: false
+  legacyHeaders: false,
+  message: {
+    error: 'Слишком много генераций. Подожди минуту.'
+  }
 });
 
 function requireAuth(req, res, next) {
@@ -123,34 +147,49 @@ function requireAuth(req, res, next) {
       error: 'Сначала войди в аккаунт.'
     });
   }
+
   next();
 }
 
-function normalizeUsername(value) {
+function normalizeDisplayName(value) {
   if (typeof value !== 'string') return null;
-  const username = value.trim();
 
-  return /^[a-zA-Z0-9_-]{3,24}$/.test(username)
-    ? username
-    : null;
+  const name = value.trim().replace(/\s+/g, ' ');
+
+  if (!name || [...name].length > 60) return null;
+
+  return name;
 }
 
-function getUsername(body = {}) {
-  return normalizeUsername(body.username || body.name || body.email);
+function normalizeEmail(value) {
+  if (typeof value !== 'string') return null;
+
+  const email = value.trim().toLowerCase();
+
+  if (
+    email.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  ) {
+    return null;
+  }
+
+  return email;
 }
 
 function publicUser(row) {
   return {
     id: row.id,
     username: row.username,
-    name: row.username
+    name: row.display_name || row.username,
+    email: row.email || null
   };
 }
 
 function createLoginSession(req, res, user, statusCode = 200) {
   req.session.regenerate(err => {
     if (err) {
-      console.error('Session error:', err);
+      console.error('Session regenerate error:', err);
+
       return res.status(500).json({
         error: 'Не удалось создать сессию.'
       });
@@ -161,6 +200,7 @@ function createLoginSession(req, res, user, statusCode = 200) {
     req.session.save(saveErr => {
       if (saveErr) {
         console.error('Session save error:', saveErr);
+
         return res.status(500).json({
           error: 'Не удалось сохранить вход.'
         });
@@ -171,29 +211,31 @@ function createLoginSession(req, res, user, statusCode = 200) {
   });
 }
 
-function getOwnedChat(chatId, userId) {
-  return db.prepare(`
-    SELECT id, user_id, title, created_at, updated_at
-    FROM conversations
-    WHERE id = ? AND user_id = ?
-  `).get(chatId, userId);
-}
-
-// Проверка авторизации.
+// Проверка авторизации
 app.get('/api/auth/me', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json({ user: req.session.user || null });
 });
 
-// Регистрация.
+// Регистрация
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
-    const username = getUsername(req.body);
+    const name = normalizeDisplayName(
+      req.body?.name || req.body?.username
+    );
+
+    const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
 
-    if (!username) {
+    if (!name) {
       return res.status(400).json({
-        error: 'Имя: 3–24 латинских символа, цифры, _ или -.'
+        error: 'Введи имя длиной от 1 до 60 символов.'
+      });
+    }
+
+    if (!email) {
+      return res.status(400).json({
+        error: 'Введи корректный email.'
       });
     }
 
@@ -207,72 +249,89 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
       });
     }
 
-    const exists = db.prepare(
-      'SELECT id FROM users WHERE username = ?'
-    ).get(username);
+    const existing = db.prepare(
+      'SELECT id FROM users WHERE email = ?'
+    ).get(email);
 
-    if (exists) {
+    if (existing) {
       return res.status(409).json({
-        error: 'Это имя уже занято.'
+        error: 'Аккаунт с таким email уже существует. Войди в него.'
       });
     }
 
     const hash = await bcrypt.hash(password, 12);
 
     const result = db.prepare(`
-      INSERT INTO users (username, password_hash)
-      VALUES (?, ?)
-    `).run(username, hash);
+      INSERT INTO users
+        (username, password_hash, display_name, email)
+      VALUES (?, ?, ?, ?)
+    `).run(email, hash, name, email);
 
-    createLoginSession(req, res, {
+    const user = {
       id: Number(result.lastInsertRowid),
-      username,
-      name: username
-    }, 201);
+      username: email,
+      name,
+      email
+    };
+
+    createLoginSession(req, res, user, 201);
   } catch (err) {
     console.error('Registration error:', err);
+
     res.status(500).json({
       error: 'Ошибка регистрации на сервере.'
     });
   }
 });
 
-// Вход.
+// Вход
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
-    const username = getUsername(req.body);
+    const loginValue = typeof req.body?.email === 'string'
+      ? req.body.email.trim().toLowerCase()
+      : (
+          typeof req.body?.username === 'string'
+            ? req.body.username.trim()
+            : ''
+        );
+
     const password = req.body?.password;
 
     if (
-      !username ||
+      !loginValue ||
+      loginValue.length > 254 ||
       typeof password !== 'string' ||
       password.length > 128
     ) {
       return res.status(400).json({
-        error: 'Проверь имя пользователя и пароль.'
+        error: 'Введи email и пароль.'
       });
     }
 
     const row = db.prepare(`
-      SELECT id, username, password_hash
+      SELECT id, username, password_hash, display_name, email
       FROM users
-      WHERE username = ?
-    `).get(username);
+      WHERE email = ? OR username = ?
+      LIMIT 1
+    `).get(loginValue, loginValue);
 
     if (!row || !(await bcrypt.compare(password, row.password_hash))) {
       return res.status(401).json({
-        error: 'Неверное имя пользователя или пароль.'
+        error: 'Неверный email или пароль.'
       });
     }
 
     createLoginSession(req, res, publicUser(row));
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: 'Ошибка входа на сервере.' });
+
+    res.status(500).json({
+      error: 'Ошибка входа на сервере.'
+    });
   }
 });
 
-// Выход.
+// Выход
 app.post('/api/auth/logout', (req, res) => {
   req.session.destroy(err => {
     if (err) {
@@ -292,187 +351,223 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
-// =====================================================
-// ИСТОРИЯ ЧАТОВ
-// =====================================================
-
-// Получить список чатов текущего пользователя.
-app.get('/api/chats', requireAuth, (req, res) => {
-  const chats = db.prepare(`
-    SELECT
-      id,
-      title,
-      created_at,
-      updated_at
-    FROM conversations
-    WHERE user_id = ?
-    ORDER BY updated_at DESC, id DESC
-  `).all(req.session.user.id);
-
-  res.set('Cache-Control', 'no-store');
-  res.json({ chats });
-});
-
-// Создать новый чат.
+// Создать новый чат
 app.post('/api/chats', requireAuth, (req, res) => {
-  const title = typeof req.body?.title === 'string'
-    ? req.body.title.trim().slice(0, 200)
-    : '';
-
-  const result = db.prepare(`
-    INSERT INTO conversations (user_id, title)
-    VALUES (?, ?)
-  `).run(req.session.user.id, title || 'Новый чат');
-
-  const chat = getOwnedChat(
-    Number(result.lastInsertRowid),
-    req.session.user.id
-  );
-
-  res.status(201).json({ chat });
-});
-
-// Загрузить конкретный чат вместе с сообщениями.
-app.get('/api/chats/:id', requireAuth, (req, res) => {
-  const id = Number(req.params.id);
-
-  if (!Number.isSafeInteger(id) || id < 1) {
-    return res.status(400).json({ error: 'Неверный ID чата.' });
-  }
-
-  const chat = getOwnedChat(id, req.session.user.id);
-
-  if (!chat) {
-    return res.status(404).json({ error: 'Чат не найден.' });
-  }
-
-  const messages = db.prepare(`
-    SELECT id, role, content, image, created_at
-    FROM messages
-    WHERE conversation_id = ?
-    ORDER BY id ASC
-  `).all(id);
-
-  res.set('Cache-Control', 'no-store');
-  res.json({ chat, messages });
-});
-
-// Сохранить сообщение в конкретный чат.
-app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
-  const id = Number(req.params.id);
-  const { role, content, image } = req.body || {};
-
-  if (!Number.isSafeInteger(id) || id < 1) {
-    return res.status(400).json({ error: 'Неверный ID чата.' });
-  }
-
-  const chat = getOwnedChat(id, req.session.user.id);
-
-  if (!chat) {
-    return res.status(404).json({ error: 'Чат не найден.' });
-  }
-
-  if (!['user', 'assistant'].includes(role)) {
-    return res.status(400).json({ error: 'Неверная роль сообщения.' });
-  }
-
-  if (typeof content !== 'string' || content.length > 100000) {
-    return res.status(400).json({
-      error: 'Сообщение слишком длинное.'
-    });
-  }
-
-  if (
-    image != null &&
-    (typeof image !== 'string' || image.length > 10_000_000)
-  ) {
-    return res.status(400).json({
-      error: 'Изображение слишком большое.'
-    });
-  }
-
-  const insert = db.transaction(() => {
+  try {
     const result = db.prepare(`
-      INSERT INTO messages (conversation_id, role, content, image)
+      INSERT INTO conversations (user_id, title)
+      VALUES (?, ?)
+    `).run(req.session.user.id, 'Новый чат');
+
+    const chat = db.prepare(`
+      SELECT id, title, created_at, updated_at
+      FROM conversations
+      WHERE id = ? AND user_id = ?
+    `).get(result.lastInsertRowid, req.session.user.id);
+
+    res.status(201).json({ chat });
+  } catch (err) {
+    console.error('Create chat error:', err);
+
+    res.status(500).json({
+      error: 'Не удалось создать чат.'
+    });
+  }
+});
+
+// Получить список чатов пользователя
+app.get('/api/chats', requireAuth, (req, res) => {
+  try {
+    const chats = db.prepare(`
+      SELECT
+        c.id,
+        c.title,
+        c.created_at,
+        c.updated_at,
+        COUNT(m.id) AS message_count
+      FROM conversations c
+      LEFT JOIN messages m ON m.conversation_id = c.id
+      WHERE c.user_id = ?
+      GROUP BY c.id
+      ORDER BY c.updated_at DESC, c.id DESC
+    `).all(req.session.user.id);
+
+    res.set('Cache-Control', 'no-store');
+    res.json({ chats });
+  } catch (err) {
+    console.error('List chats error:', err);
+
+    res.status(500).json({
+      error: 'Не удалось загрузить список чатов.'
+    });
+  }
+});
+
+// Открыть чат и его сообщения
+app.get('/api/chats/:id', requireAuth, (req, res) => {
+  try {
+    const chatId = Number(req.params.id);
+
+    if (!Number.isSafeInteger(chatId) || chatId <= 0) {
+      return res.status(400).json({
+        error: 'Неверный ID чата.'
+      });
+    }
+
+    const chat = db.prepare(`
+      SELECT id, title, created_at, updated_at
+      FROM conversations
+      WHERE id = ? AND user_id = ?
+    `).get(chatId, req.session.user.id);
+
+    if (!chat) {
+      return res.status(404).json({
+        error: 'Чат не найден.'
+      });
+    }
+
+    const messages = db.prepare(`
+      SELECT id, role, content, image, created_at
+      FROM messages
+      WHERE conversation_id = ?
+      ORDER BY id ASC
+    `).all(chatId);
+
+    res.set('Cache-Control', 'no-store');
+    res.json({ chat, messages });
+  } catch (err) {
+    console.error('Open chat error:', err);
+
+    res.status(500).json({
+      error: 'Не удалось открыть чат.'
+    });
+  }
+});
+
+// Сохранить сообщение в чате
+app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
+  try {
+    const chatId = Number(req.params.id);
+    const { role, content, image } = req.body || {};
+
+    if (!Number.isSafeInteger(chatId) || chatId <= 0) {
+      return res.status(400).json({
+        error: 'Неверный ID чата.'
+      });
+    }
+
+    if (!['user', 'assistant'].includes(role)) {
+      return res.status(400).json({
+        error: 'Недопустимая роль сообщения.'
+      });
+    }
+
+    if (typeof content !== 'string' || content.length > 12000) {
+      return res.status(400).json({
+        error: 'Сообщение слишком длинное или отсутствует.'
+      });
+    }
+
+    if (
+      image != null &&
+      (typeof image !== 'string' || image.length > 10000000)
+    ) {
+      return res.status(400).json({
+        error: 'Изображение слишком большое.'
+      });
+    }
+
+    const chat = db.prepare(`
+      SELECT id, title
+      FROM conversations
+      WHERE id = ? AND user_id = ?
+    `).get(chatId, req.session.user.id);
+
+    if (!chat) {
+      return res.status(404).json({
+        error: 'Чат не найден.'
+      });
+    }
+
+    const insert = db.prepare(`
+      INSERT INTO messages
+        (conversation_id, role, content, image)
       VALUES (?, ?, ?, ?)
-    `).run(id, role, content, image || null);
+    `).run(chatId, role, content, image || null);
 
-    // Название чата берётся из первого сообщения пользователя.
-    if (role === 'user') {
-      const firstUserMessage = db.prepare(`
-        SELECT content
-        FROM messages
-        WHERE conversation_id = ? AND role = 'user'
-        ORDER BY id ASC
-        LIMIT 1
-      `).get(id);
+    let title = chat.title;
 
-      if (firstUserMessage) {
-        const title = firstUserMessage.content.trim()
-          .replace(/\s+/g, ' ')
-          .slice(0, 70) || 'Новый чат';
+    if (role === 'user' && title === 'Новый чат') {
+      title = content.trim().replace(/\s+/g, ' ').slice(0, 60) || 'Новый чат';
 
-        db.prepare(`
-          UPDATE conversations
-          SET title = ?, updated_at = CURRENT_TIMESTAMP
-          WHERE id = ? AND user_id = ?
-        `).run(title, id, req.session.user.id);
-      }
+      db.prepare(`
+        UPDATE conversations
+        SET title = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND user_id = ?
+      `).run(title, chatId, req.session.user.id);
     } else {
       db.prepare(`
         UPDATE conversations
         SET updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND user_id = ?
-      `).run(id, req.session.user.id);
+      `).run(chatId, req.session.user.id);
     }
 
-    return Number(result.lastInsertRowid);
-  });
+    res.status(201).json({
+      message: {
+        id: Number(insert.lastInsertRowid),
+        role,
+        content,
+        image: image || null
+      },
+      title
+    });
+  } catch (err) {
+    console.error('Save message error:', err);
 
-  const messageId = insert();
-
-  const savedMessage = db.prepare(`
-    SELECT id, role, content, image, created_at
-    FROM messages WHERE id = ?
-  `).get(messageId);
-
-  const updatedChat = getOwnedChat(id, req.session.user.id);
-
-  res.status(201).json({
-    message: savedMessage,
-    chat: updatedChat
-  });
-});
-
-// Удалить чат и все его сообщения.
-app.delete('/api/chats/:id', requireAuth, (req, res) => {
-  const id = Number(req.params.id);
-
-  if (!Number.isSafeInteger(id) || id < 1) {
-    return res.status(400).json({ error: 'Неверный ID чата.' });
-  }
-
-  const result = db.prepare(`
-    DELETE FROM conversations
-    WHERE id = ? AND user_id = ?
-  `).run(id, req.session.user.id);
-
-  if (result.changes === 0) {
-    return res.status(404).json({
-      error: 'Чат не найден или уже удалён.'
+    res.status(500).json({
+      error: 'Не удалось сохранить сообщение.'
     });
   }
-
-  res.json({ success: true });
 });
 
-// =====================================================
-// ИИ-ЧАТ
-// =====================================================
+// Удалить чат
+app.delete('/api/chats/:id', requireAuth, (req, res) => {
+  try {
+    const chatId = Number(req.params.id);
 
+    if (!Number.isSafeInteger(chatId) || chatId <= 0) {
+      return res.status(400).json({
+        error: 'Неверный ID чата.'
+      });
+    }
+
+    const result = db.prepare(`
+      DELETE FROM conversations
+      WHERE id = ? AND user_id = ?
+    `).run(chatId, req.session.user.id);
+
+    if (!result.changes) {
+      return res.status(404).json({
+        error: 'Чат не найден.'
+      });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Delete chat error:', err);
+
+    res.status(500).json({
+      error: 'Не удалось удалить чат.'
+    });
+  }
+});
+
+// Maut AI — чат с ИИ
 app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
     const message = req.body?.message;
+
     const history = Array.isArray(req.body?.history)
       ? req.body.history
           .filter(item =>
@@ -500,7 +595,14 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
     const messages = [
       {
         role: 'system',
-        content: 'Ты Maut AI — полезный и дружелюбный ИИ-помощник. Отвечай на языке пользователя.'
+        content: `Ты — Maut AI, полезный и дружелюбный ИИ-помощник. Всегда отвечай на языке пользователя.
+
+Создатель проекта Maut AI: Мухаммад Умаров Манучехрович, также известный как Den Whelan. Он является директором компании Liches maut.
+
+Если пользователь спрашивает, кто создал Maut AI, кто твой создатель или кто руководит компанией Liches maut, ответь ясно и уважительно:
+«Проект Maut AI создал Мухаммад Умаров Манучехрович (Den Whelan), директор компании Liches maut».
+
+Не утверждай, что он создал базовую языковую модель или сторонние ИИ-сервисы, если это не подтверждено. Различай создателя проекта Maut AI и поставщиков используемых моделей.`
       },
       ...history,
       { role: 'user', content: message.trim() }
@@ -529,7 +631,9 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data?.error?.message || 'Ошибка Groq API');
+          throw new Error(
+            data?.error?.message || 'Ошибка Groq API'
+          );
         }
 
         const reply = data?.choices?.[0]?.message?.content;
@@ -547,14 +651,19 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       }
     }
 
-    const ollamaUrl = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
-    const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
+    const ollamaUrl =
+      process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
+
+    const ollamaModel =
+      process.env.OLLAMA_MODEL || 'llama3.2';
 
     const response = await fetch(
       `${ollamaUrl.replace(/\/$/, '')}/api/chat`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           model: ollamaModel,
           messages,
@@ -575,19 +684,25 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
     const reply = data?.message?.content;
 
     if (typeof reply !== 'string' || !reply.trim()) {
-      return res.status(502).json({ error: 'ИИ вернул пустой ответ.' });
+      return res.status(502).json({
+        error: 'ИИ вернул пустой ответ.'
+      });
     }
 
-    res.json({ reply: reply.trim(), provider: 'ollama' });
+    res.json({
+      reply: reply.trim(),
+      provider: 'ollama'
+    });
   } catch (err) {
     console.error('Chat error:', err);
+
     res.status(502).json({
       error: 'Не удалось получить ответ от ИИ.'
     });
   }
 });
 
-// Генерация изображений Nano Banana.
+// Генерация изображений через Gemini API
 app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
   const prompt = req.body?.prompt;
 
@@ -599,7 +714,7 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
 
   if (prompt.length > 4000) {
     return res.status(400).json({
-      error: 'Описание изображения слишком длинное.'
+      error: 'Описание изображения слишком длинное (максимум 4000 символов).'
     });
   }
 
@@ -615,7 +730,8 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
   const timeout = setTimeout(() => controller.abort(), 55000);
 
   try {
-    const model = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
+    const model =
+      process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -643,8 +759,10 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
 
     if (!response.ok) {
       console.error('Gemini API error:', data);
+
       return res.status(502).json({
-        error: data?.error?.message || 'Не удалось создать изображение.'
+        error: data?.error?.message ||
+          'Не удалось создать изображение через Gemini.'
       });
     }
 
@@ -667,13 +785,14 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
 
     res.json({
       image: `data:${mimeType};base64,${imagePart.inlineData.data}`,
-      provider: 'Nano Banana'
+      provider: 'Gemini'
     });
   } catch (err) {
     console.error('Image generation error:', err);
+
     res.status(err.name === 'AbortError' ? 504 : 502).json({
       error: err.name === 'AbortError'
-        ? 'Генерация заняла слишком много времени.'
+        ? 'Генерация заняла слишком много времени. Попробуй ещё раз.'
         : 'Не удалось подключиться к Gemini API.'
     });
   } finally {
@@ -681,7 +800,7 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
   }
 });
 
-// Статические файлы сайта.
+// Статические файлы сайта
 app.use(express.static(__dirname));
 
 app.get('/', (req, res) => {
@@ -689,7 +808,9 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api', (req, res) => {
-  res.status(404).json({ error: 'API маршрут не найден.' });
+  res.status(404).json({
+    error: 'API маршрут не найден.'
+  });
 });
 
 app.use((err, req, res, next) => {
