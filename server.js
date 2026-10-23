@@ -22,12 +22,13 @@ if (isProduction) app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
 
-// Persistent storage
+// Persistent database storage
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const db = new Database(path.join(DATA_DIR, 'maut.db'));
 db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -38,7 +39,28 @@ db.exec(`
   )
 `);
 
+// Add new columns without deleting existing users.
+const userColumns = db
+  .prepare('PRAGMA table_info(users)')
+  .all()
+  .map(column => column.name);
+
+if (!userColumns.includes('display_name')) {
+  db.exec('ALTER TABLE users ADD COLUMN display_name TEXT');
+}
+
+if (!userColumns.includes('email')) {
+  db.exec('ALTER TABLE users ADD COLUMN email TEXT');
+}
+
+db.exec(`
+  CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
+  ON users(email)
+  WHERE email IS NOT NULL AND email != ''
+`);
+
 const SQLiteStore = SQLiteStoreFactory(session);
+
 const sessionStore = new SQLiteStore({
   db: 'sessions.db',
   dir: DATA_DIR,
@@ -48,7 +70,9 @@ const sessionStore = new SQLiteStore({
 const SESSION_SECRET = process.env.SESSION_SECRET;
 
 if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
-  throw new Error('Установи SESSION_SECRET длиной минимум 32 символа в Render.');
+  throw new Error(
+    'Установи SESSION_SECRET длиной минимум 32 символа в Render.'
+  );
 }
 
 app.use(session({
@@ -86,128 +110,218 @@ const imageLimiter = rateLimit({
   limit: 4,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { error: 'Слишком много генераций. Подожди минуту.' }
+  message: {
+    error: 'Слишком много генераций. Подожди минуту.'
+  }
 });
 
 function requireAuth(req, res, next) {
   if (!req.session.user) {
-    return res.status(401).json({ error: 'Сначала войди в аккаунт.' });
+    return res.status(401).json({
+      error: 'Сначала войди в аккаунт.'
+    });
   }
+
   next();
 }
 
-function normalizeUsername(value) {
+// Accept Cyrillic, Latin characters, spaces, punctuation and emoji.
+function normalizeDisplayName(value) {
   if (typeof value !== 'string') return null;
-  const username = value.trim();
 
-  if (!/^[a-zA-Z0-9_-]{3,24}$/.test(username)) return null;
-  return username;
+  const name = value.trim().replace(/\s+/g, ' ');
+
+  if (!name || [...name].length > 60) return null;
+
+  return name;
 }
 
-function getUsername(body = {}) {
-  return normalizeUsername(body.username || body.name || body.email);
+function normalizeEmail(value) {
+  if (typeof value !== 'string') return null;
+
+  const email = value.trim().toLowerCase();
+
+  if (
+    email.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  ) {
+    return null;
+  }
+
+  return email;
 }
 
 function publicUser(row) {
-  return { id: row.id, username: row.username, name: row.username };
+  return {
+    id: row.id,
+    username: row.username,
+    name: row.display_name || row.username,
+    email: row.email || null
+  };
 }
 
 function createLoginSession(req, res, user, statusCode = 200) {
   req.session.regenerate(err => {
     if (err) {
       console.error('Session regenerate error:', err);
-      return res.status(500).json({ error: 'Не удалось создать сессию.' });
+
+      return res.status(500).json({
+        error: 'Не удалось создать сессию.'
+      });
     }
 
     req.session.user = user;
+
     req.session.save(saveErr => {
       if (saveErr) {
         console.error('Session save error:', saveErr);
-        return res.status(500).json({ error: 'Не удалось сохранить вход.' });
+
+        return res.status(500).json({
+          error: 'Не удалось сохранить вход.'
+        });
       }
+
       res.status(statusCode).json({ user });
     });
   });
 }
 
-// Check current session
+// Check current account
 app.get('/api/auth/me', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.json({ user: req.session.user || null });
+
+  res.json({
+    user: req.session.user || null
+  });
 });
 
-// Register
+// Register a new account
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
-    const username = getUsername(req.body);
+    const name = normalizeDisplayName(
+      req.body?.name || req.body?.username
+    );
+
+    const email = normalizeEmail(req.body?.email);
     const password = req.body?.password;
 
-    if (!username) {
+    if (!name) {
       return res.status(400).json({
-        error: 'Имя: 3–24 латинских символа, цифры, _ или -.'
+        error: 'Введи имя длиной от 1 до 60 символов.'
       });
     }
 
-    if (typeof password !== 'string' ||
-        password.length < 8 ||
-        password.length > 128) {
+    if (!email) {
+      return res.status(400).json({
+        error: 'Введи корректный email.'
+      });
+    }
+
+    if (
+      typeof password !== 'string' ||
+      password.length < 8 ||
+      password.length > 128
+    ) {
       return res.status(400).json({
         error: 'Пароль должен содержать от 8 до 128 символов.'
       });
     }
 
-    const exists = db.prepare(
-      'SELECT id FROM users WHERE username = ?'
-    ).get(username);
+    const existing = db.prepare(
+      'SELECT id FROM users WHERE email = ?'
+    ).get(email);
 
-    if (exists) {
-      return res.status(409).json({ error: 'Это имя уже занято.' });
+    if (existing) {
+      return res.status(409).json({
+        error: 'Аккаунт с таким email уже существует. Войди в него.'
+      });
     }
 
     const hash = await bcrypt.hash(password, 12);
-    const result = db.prepare(
-      'INSERT INTO users (username, password_hash) VALUES (?, ?)'
-    ).run(username, hash);
+
+    // Keep username populated for compatibility with older databases.
+    const result = db.prepare(`
+      INSERT INTO users (
+        username,
+        password_hash,
+        display_name,
+        email
+      )
+      VALUES (?, ?, ?, ?)
+    `).run(email, hash, name, email);
 
     const user = {
       id: Number(result.lastInsertRowid),
-      username,
-      name: username
+      username: email,
+      name,
+      email
     };
 
     createLoginSession(req, res, user, 201);
   } catch (err) {
     console.error('Registration error:', err);
-    res.status(500).json({ error: 'Ошибка регистрации на сервере.' });
-  }
-});
 
-// Login
-app.post('/api/auth/login', authLimiter, async (req, res) => {
-  try {
-    const username = getUsername(req.body);
-    const password = req.body?.password;
-
-    if (!username || typeof password !== 'string' || password.length > 128) {
-      return res.status(400).json({
-        error: 'Проверь имя пользователя и пароль.'
+    if (String(err.message).includes('UNIQUE constraint failed')) {
+      return res.status(409).json({
+        error: 'Этот email уже зарегистрирован. Попробуй войти.'
       });
     }
 
-    const row = db.prepare(
-      'SELECT id, username, password_hash FROM users WHERE username = ?'
-    ).get(username);
+    res.status(500).json({
+      error: 'Ошибка регистрации на сервере.'
+    });
+  }
+});
+
+// Login with email and password
+app.post('/api/auth/login', authLimiter, async (req, res) => {
+  try {
+    const loginValue = typeof req.body?.email === 'string'
+      ? req.body.email.trim().toLowerCase()
+      : (
+          typeof req.body?.username === 'string'
+            ? req.body.username.trim()
+            : ''
+        );
+
+    const password = req.body?.password;
+
+    if (
+      !loginValue ||
+      loginValue.length > 254 ||
+      typeof password !== 'string' ||
+      password.length > 128
+    ) {
+      return res.status(400).json({
+        error: 'Введи email и пароль.'
+      });
+    }
+
+    const row = db.prepare(`
+      SELECT
+        id,
+        username,
+        password_hash,
+        display_name,
+        email
+      FROM users
+      WHERE email = ? OR username = ?
+      LIMIT 1
+    `).get(loginValue, loginValue);
 
     if (!row || !(await bcrypt.compare(password, row.password_hash))) {
       return res.status(401).json({
-        error: 'Неверное имя пользователя или пароль.'
+        error: 'Неверный email или пароль.'
       });
     }
 
     createLoginSession(req, res, publicUser(row));
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: 'Ошибка входа на сервере.' });
+
+    res.status(500).json({
+      error: 'Ошибка входа на сервере.'
+    });
   }
 });
 
@@ -215,7 +329,9 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 app.post('/api/auth/logout', (req, res) => {
   req.session.destroy(err => {
     if (err) {
-      return res.status(500).json({ error: 'Не удалось выйти из аккаунта.' });
+      return res.status(500).json({
+        error: 'Не удалось выйти из аккаунта.'
+      });
     }
 
     res.clearCookie('maut.sid', {
@@ -229,10 +345,11 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
-// Chat
+// Chat endpoint
 app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
     const message = req.body?.message;
+
     const history = Array.isArray(req.body?.history)
       ? req.body.history
           .filter(item =>
@@ -247,21 +364,30 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
           }))
       : [];
 
-    if (typeof message !== 'string' ||
-        !message.trim() ||
-        message.length > 12000) {
-      return res.status(400).json({ error: 'Пустое или слишком длинное сообщение.' });
+    if (
+      typeof message !== 'string' ||
+      !message.trim() ||
+      message.length > 12000
+    ) {
+      return res.status(400).json({
+        error: 'Пустое или слишком длинное сообщение.'
+      });
     }
 
     const messages = [
       {
         role: 'system',
-        content: 'Ты Maut AI — полезный и дружелюбный ИИ-помощник. Отвечай на языке пользователя.'
+        content:
+          'Ты Maut AI — полезный и дружелюбный ИИ-помощник. Отвечай на языке пользователя.'
       },
       ...history,
-      { role: 'user', content: message.trim() }
+      {
+        role: 'user',
+        content: message.trim()
+      }
     ];
 
+    // Groq chat
     if (process.env.GROQ_API_KEY) {
       try {
         const response = await fetch(
@@ -273,7 +399,9 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+              model:
+                process.env.GROQ_MODEL ||
+                'openai/gpt-oss-120b',
               messages,
               temperature: 0.7,
               max_tokens: 2048
@@ -285,12 +413,18 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data?.error?.message || 'Ошибка Groq API');
+          throw new Error(
+            data?.error?.message || 'Ошибка Groq API'
+          );
         }
 
         const reply = data?.choices?.[0]?.message?.content;
+
         if (typeof reply === 'string' && reply.trim()) {
-          return res.json({ reply: reply.trim(), provider: 'groq' });
+          return res.json({
+            reply: reply.trim(),
+            provider: 'groq'
+          });
         }
 
         throw new Error('Groq вернул пустой ответ.');
@@ -299,15 +433,25 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       }
     }
 
-    const ollamaUrl = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
-    const ollamaModel = process.env.OLLAMA_MODEL || 'llama3.2';
+    // Optional Ollama fallback
+    const ollamaUrl =
+      process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
+
+    const ollamaModel =
+      process.env.OLLAMA_MODEL || 'llama3.2';
 
     const response = await fetch(
       `${ollamaUrl.replace(/\/$/, '')}/api/chat`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: ollamaModel, messages, stream: false }),
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: ollamaModel,
+          messages,
+          stream: false
+        }),
         signal: AbortSignal.timeout(45000)
       }
     );
@@ -321,23 +465,34 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
     }
 
     const reply = data?.message?.content;
+
     if (typeof reply !== 'string' || !reply.trim()) {
-      return res.status(502).json({ error: 'ИИ вернул пустой ответ.' });
+      return res.status(502).json({
+        error: 'ИИ вернул пустой ответ.'
+      });
     }
 
-    res.json({ reply: reply.trim(), provider: 'ollama' });
+    res.json({
+      reply: reply.trim(),
+      provider: 'ollama'
+    });
   } catch (err) {
     console.error('Chat error:', err);
-    res.status(502).json({ error: 'Не удалось получить ответ от ИИ.' });
+
+    res.status(502).json({
+      error: 'Не удалось получить ответ от ИИ.'
+    });
   }
 });
 
-// Nano Banana 2 image generation through Gemini API
+// Image generation through Pollinations
 app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
   const prompt = req.body?.prompt;
 
   if (typeof prompt !== 'string' || !prompt.trim()) {
-    return res.status(400).json({ error: 'Напиши описание изображения.' });
+    return res.status(400).json({
+      error: 'Напиши описание изображения.'
+    });
   }
 
   if (prompt.length > 4000) {
@@ -346,10 +501,11 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
     });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.POLLINATIONS_API_KEY;
+
   if (!apiKey) {
     return res.status(503).json({
-      error: 'Добавь GEMINI_API_KEY в переменные окружения Render.'
+      error: 'Добавь POLLINATIONS_API_KEY в переменные окружения Render.'
     });
   }
 
@@ -357,61 +513,81 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
   const timeout = setTimeout(() => controller.abort(), 55000);
 
   try {
-    const model = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
+    // Pollinations API may change. Confirm the supported model and endpoint
+    // in the current Pollinations API documentation for your account.
+    const model = process.env.POLLINATIONS_IMAGE_MODEL || 'flux';
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: `Create one image based on this prompt: ${prompt.trim()}` }]
-          }],
-          generationConfig: {
-            responseModalities: ['TEXT', 'IMAGE']
-          }
-        }),
-        signal: controller.signal
-      }
-    );
+    const imageUrl =
+      `https://gen.pollinations.ai/image/${encodeURIComponent(prompt.trim())}` +
+      `?model=${encodeURIComponent(model)}`;
 
-    const data = await response.json();
+    const response = await fetch(imageUrl, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${apiKey}`
+      },
+      signal: controller.signal
+    });
 
     if (!response.ok) {
-      console.error('Gemini API error:', data);
+      const errorText = await response.text();
+
+      console.error(
+        'Pollinations API error:',
+        response.status,
+        errorText.slice(0, 1000)
+      );
+
       return res.status(502).json({
-        error: data?.error?.message || 'Nano Banana 2 не смог создать изображение.'
+        error:
+          `Pollinations не смог создать изображение (HTTP ${response.status}). ` +
+          'Проверь API-ключ, доступ к модели и баланс аккаунта.'
       });
     }
 
-    const parts = data?.candidates?.[0]?.content?.parts || [];
-    const imagePart = parts.find(part => part.inlineData?.data);
+    const contentType =
+      response.headers.get('content-type') || 'image/png';
 
-    if (!imagePart) {
+    if (!contentType.startsWith('image/')) {
+      const responseText = await response.text();
+
+      console.error(
+        'Pollinations returned non-image response:',
+        responseText.slice(0, 500)
+      );
+
       return res.status(502).json({
-        error: 'Модель не вернула картинку. Попробуй изменить описание.'
+        error: 'Сервис не вернул изображение. Проверь настройки Pollinations.'
       });
     }
 
-    const mimeType = imagePart.inlineData.mimeType || 'image/png';
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(mimeType)) {
-      return res.status(502).json({ error: 'Формат картинки не поддерживается.' });
+    const imageBuffer = Buffer.from(await response.arrayBuffer());
+
+    if (!imageBuffer.length || imageBuffer.length > 15 * 1024 * 1024) {
+      return res.status(502).json({
+        error: 'Изображение пустое или слишком большое.'
+      });
     }
+
+    const safeMimeType = [
+      'image/png',
+      'image/jpeg',
+      'image/webp'
+    ].includes(contentType.split(';')[0])
+      ? contentType.split(';')[0]
+      : 'image/png';
 
     res.json({
-      image: `data:${mimeType};base64,${imagePart.inlineData.data}`,
-      provider: 'Nano Banana 2'
+      image: `data:${safeMimeType};base64,${imageBuffer.toString('base64')}`,
+      provider: 'Pollinations'
     });
   } catch (err) {
     console.error('Image generation error:', err);
+
     res.status(err.name === 'AbortError' ? 504 : 502).json({
       error: err.name === 'AbortError'
         ? 'Генерация заняла слишком много времени. Попробуй ещё раз.'
-        : 'Не удалось подключиться к Gemini API.'
+        : 'Не удалось подключиться к Pollinations.'
     });
   } finally {
     clearTimeout(timeout);
@@ -426,13 +602,19 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api', (req, res) => {
-  res.status(404).json({ error: 'API маршрут не найден.' });
+  res.status(404).json({
+    error: 'API маршрут не найден.'
+  });
 });
 
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
+
   if (res.headersSent) return next(err);
-  res.status(500).json({ error: 'Внутренняя ошибка сервера.' });
+
+  res.status(500).json({
+    error: 'Внутренняя ошибка сервера.'
+  });
 });
 
 const server = app.listen(PORT, '0.0.0.0', () => {
