@@ -22,13 +22,12 @@ if (isProduction) app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
 
-// Persistent database storage
+// Постоянное хранилище
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const db = new Database(path.join(DATA_DIR, 'maut.db'));
 db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -39,28 +38,7 @@ db.exec(`
   )
 `);
 
-// Add new columns without deleting existing users.
-const userColumns = db
-  .prepare('PRAGMA table_info(users)')
-  .all()
-  .map(column => column.name);
-
-if (!userColumns.includes('display_name')) {
-  db.exec('ALTER TABLE users ADD COLUMN display_name TEXT');
-}
-
-if (!userColumns.includes('email')) {
-  db.exec('ALTER TABLE users ADD COLUMN email TEXT');
-}
-
-db.exec(`
-  CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
-  ON users(email)
-  WHERE email IS NOT NULL AND email != ''
-`);
-
 const SQLiteStore = SQLiteStoreFactory(session);
-
 const sessionStore = new SQLiteStore({
   db: 'sessions.db',
   dir: DATA_DIR,
@@ -71,7 +49,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET;
 
 if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
   throw new Error(
-    'Установи SESSION_SECRET длиной минимум 32 символа в Render.'
+    'Добавь SESSION_SECRET длиной минимум 32 символа в Render.'
   );
 }
 
@@ -121,42 +99,36 @@ function requireAuth(req, res, next) {
       error: 'Сначала войди в аккаунт.'
     });
   }
-
   next();
 }
 
-// Accept Cyrillic, Latin characters, spaces, punctuation and emoji.
-function normalizeDisplayName(value) {
+// Имя может содержать буквы разных языков, пробелы и символы.
+// Ограничение длины защищает от чрезмерно длинных имён.
+function normalizeUsername(value) {
   if (typeof value !== 'string') return null;
 
-  const name = value.trim().replace(/\s+/g, ' ');
-
-  if (!name || [...name].length > 60) return null;
-
-  return name;
-}
-
-function normalizeEmail(value) {
-  if (typeof value !== 'string') return null;
-
-  const email = value.trim().toLowerCase();
+  const username = value.trim();
 
   if (
-    email.length > 254 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    username.length < 1 ||
+    username.length > 60 ||
+    /[\u0000-\u001F\u007F]/u.test(username)
   ) {
     return null;
   }
 
-  return email;
+  return username;
+}
+
+function getUsername(body = {}) {
+  return normalizeUsername(body.username || body.name || body.email);
 }
 
 function publicUser(row) {
   return {
     id: row.id,
     username: row.username,
-    name: row.display_name || row.username,
-    email: row.email || null
+    name: row.username
   };
 }
 
@@ -164,7 +136,6 @@ function createLoginSession(req, res, user, statusCode = 200) {
   req.session.regenerate(err => {
     if (err) {
       console.error('Session regenerate error:', err);
-
       return res.status(500).json({
         error: 'Не удалось создать сессию.'
       });
@@ -175,7 +146,6 @@ function createLoginSession(req, res, user, statusCode = 200) {
     req.session.save(saveErr => {
       if (saveErr) {
         console.error('Session save error:', saveErr);
-
         return res.status(500).json({
           error: 'Не удалось сохранить вход.'
         });
@@ -186,34 +156,21 @@ function createLoginSession(req, res, user, statusCode = 200) {
   });
 }
 
-// Check current account
+// Проверка текущего пользователя
 app.get('/api/auth/me', (req, res) => {
   res.set('Cache-Control', 'no-store');
-
-  res.json({
-    user: req.session.user || null
-  });
+  res.json({ user: req.session.user || null });
 });
 
-// Register a new account
+// Регистрация
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
-    const name = normalizeDisplayName(
-      req.body?.name || req.body?.username
-    );
-
-    const email = normalizeEmail(req.body?.email);
+    const username = getUsername(req.body);
     const password = req.body?.password;
 
-    if (!name) {
+    if (!username) {
       return res.status(400).json({
         error: 'Введи имя длиной от 1 до 60 символов.'
-      });
-    }
-
-    if (!email) {
-      return res.status(400).json({
-        error: 'Введи корректный email.'
       });
     }
 
@@ -227,108 +184,83 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
       });
     }
 
-    const existing = db.prepare(
-      'SELECT id FROM users WHERE email = ?'
-    ).get(email);
+    const exists = db.prepare(
+      'SELECT id FROM users WHERE username = ?'
+    ).get(username);
 
-    if (existing) {
+    if (exists) {
       return res.status(409).json({
-        error: 'Аккаунт с таким email уже существует. Войди в него.'
+        error: 'Это имя уже занято. Попробуй другое.'
       });
     }
 
     const hash = await bcrypt.hash(password, 12);
 
-    // Keep username populated for compatibility with older databases.
-    const result = db.prepare(`
-      INSERT INTO users (
-        username,
-        password_hash,
-        display_name,
-        email
-      )
-      VALUES (?, ?, ?, ?)
-    `).run(email, hash, name, email);
+    const result = db.prepare(
+      'INSERT INTO users (username, password_hash) VALUES (?, ?)'
+    ).run(username, hash);
 
     const user = {
       id: Number(result.lastInsertRowid),
-      username: email,
-      name,
-      email
+      username,
+      name: username
     };
 
     createLoginSession(req, res, user, 201);
   } catch (err) {
-    console.error('Registration error:', err);
-
-    if (String(err.message).includes('UNIQUE constraint failed')) {
+    if (err?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(409).json({
-        error: 'Этот email уже зарегистрирован. Попробуй войти.'
+        error: 'Это имя уже занято. Попробуй другое.'
       });
     }
 
+    console.error('Registration error:', err);
     res.status(500).json({
       error: 'Ошибка регистрации на сервере.'
     });
   }
 });
 
-// Login with email and password
+// Вход
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
-    const loginValue = typeof req.body?.email === 'string'
-      ? req.body.email.trim().toLowerCase()
-      : (
-          typeof req.body?.username === 'string'
-            ? req.body.username.trim()
-            : ''
-        );
-
+    const username = getUsername(req.body);
     const password = req.body?.password;
 
     if (
-      !loginValue ||
-      loginValue.length > 254 ||
+      !username ||
       typeof password !== 'string' ||
       password.length > 128
     ) {
       return res.status(400).json({
-        error: 'Введи email и пароль.'
+        error: 'Проверь имя пользователя и пароль.'
       });
     }
 
-    const row = db.prepare(`
-      SELECT
-        id,
-        username,
-        password_hash,
-        display_name,
-        email
-      FROM users
-      WHERE email = ? OR username = ?
-      LIMIT 1
-    `).get(loginValue, loginValue);
+    const row = db.prepare(
+      'SELECT id, username, password_hash FROM users WHERE username = ?'
+    ).get(username);
 
     if (!row || !(await bcrypt.compare(password, row.password_hash))) {
       return res.status(401).json({
-        error: 'Неверный email или пароль.'
+        error: 'Неверное имя пользователя или пароль.'
       });
     }
 
     createLoginSession(req, res, publicUser(row));
   } catch (err) {
     console.error('Login error:', err);
-
     res.status(500).json({
       error: 'Ошибка входа на сервере.'
     });
   }
 });
 
-// Logout
+// Выход
 app.post('/api/auth/logout', (req, res) => {
   req.session.destroy(err => {
     if (err) {
+      console.error('Logout error:', err);
       return res.status(500).json({
         error: 'Не удалось выйти из аккаунта.'
       });
@@ -345,13 +277,52 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
-// Chat endpoint
+// Чат
 app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
-    const message = req.body?.message;
+    // Поддерживаем и новый формат { message, history },
+    // и формат фронтенда { messages }.
+    let message = req.body?.message;
+    let history = req.body?.history;
 
-    const history = Array.isArray(req.body?.history)
-      ? req.body.history
+    if (Array.isArray(req.body?.messages)) {
+      const validMessages = req.body.messages.filter(item =>
+        item &&
+        ['user', 'assistant'].includes(item.role) &&
+        typeof (item.content ?? item.text) === 'string'
+      );
+
+      const lastUserMessage = [...validMessages]
+        .reverse()
+        .find(item => item.role === 'user');
+
+      if (!message && lastUserMessage) {
+        message = lastUserMessage.content ?? lastUserMessage.text;
+      }
+
+      if (!Array.isArray(history)) {
+        history = validMessages
+          .filter(item => item !== lastUserMessage)
+          .slice(-12)
+          .map(item => ({
+            role: item.role,
+            content: item.content ?? item.text
+          }));
+      }
+    }
+
+    if (
+      typeof message !== 'string' ||
+      !message.trim() ||
+      message.length > 12000
+    ) {
+      return res.status(400).json({
+        error: 'Пустое или слишком длинное сообщение.'
+      });
+    }
+
+    const safeHistory = Array.isArray(history)
+      ? history
           .filter(item =>
             item &&
             ['user', 'assistant'].includes(item.role) &&
@@ -364,44 +335,29 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
           }))
       : [];
 
-    if (
-      typeof message !== 'string' ||
-      !message.trim() ||
-      message.length > 12000
-    ) {
-      return res.status(400).json({
-        error: 'Пустое или слишком длинное сообщение.'
-      });
-    }
-
     const messages = [
       {
         role: 'system',
-        content:
-          'Ты Maut AI — полезный и дружелюбный ИИ-помощник. Отвечай на языке пользователя.'
+        content: 'Ты Maut AI — полезный и дружелюбный ИИ-помощник. Отвечай на языке пользователя.'
       },
-      ...history,
-      {
-        role: 'user',
-        content: message.trim()
-      }
+      ...safeHistory,
+      { role: 'user', content: message.trim() }
     ];
 
-    // Groq chat
-    if (process.env.GROQ_API_KEY) {
+    const groqKey = process.env.GROQ_API_KEY;
+
+    if (groqKey) {
       try {
         const response = await fetch(
           'https://api.groq.com/openai/v1/chat/completions',
           {
             method: 'POST',
             headers: {
-              Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+              Authorization: `Bearer ${groqKey}`,
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              model:
-                process.env.GROQ_MODEL ||
-                'openai/gpt-oss-120b',
+              model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
               messages,
               temperature: 0.7,
               max_tokens: 2048
@@ -413,9 +369,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(
-            data?.error?.message || 'Ошибка Groq API'
-          );
+          throw new Error(data?.error?.message || 'Ошибка Groq API');
         }
 
         const reply = data?.choices?.[0]?.message?.content;
@@ -423,6 +377,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
         if (typeof reply === 'string' && reply.trim()) {
           return res.json({
             reply: reply.trim(),
+            text: reply.trim(),
             provider: 'groq'
           });
         }
@@ -433,10 +388,8 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       }
     }
 
-    // Optional Ollama fallback
     const ollamaUrl =
       process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
-
     const ollamaModel =
       process.env.OLLAMA_MODEL || 'llama3.2';
 
@@ -444,9 +397,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       `${ollamaUrl.replace(/\/$/, '')}/api/chat`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: ollamaModel,
           messages,
@@ -474,18 +425,18 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
 
     res.json({
       reply: reply.trim(),
+      text: reply.trim(),
       provider: 'ollama'
     });
   } catch (err) {
     console.error('Chat error:', err);
-
     res.status(502).json({
-      error: 'Не удалось получить ответ от ИИ.'
+      error: 'Не удалось получить ответ от ИИ. Проверь настройки API.'
     });
   }
 });
 
-// Image generation through Pollinations
+// Генерация изображений через Pollinations
 app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
   const prompt = req.body?.prompt;
 
@@ -501,11 +452,11 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
     });
   }
 
-  const apiKey = process.env.POLLINATIONS_API_KEY;
+  const apiKey = process.env.POLLINATIONS_API_KEY?.trim();
 
   if (!apiKey) {
     return res.status(503).json({
-      error: 'Добавь POLLINATIONS_API_KEY в переменные окружения Render.'
+      error: 'В Render добавь секрет POLLINATIONS_API_KEY.'
     });
   }
 
@@ -513,10 +464,7 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
   const timeout = setTimeout(() => controller.abort(), 55000);
 
   try {
-    // Pollinations API may change. Confirm the supported model and endpoint
-    // in the current Pollinations API documentation for your account.
     const model = process.env.POLLINATIONS_IMAGE_MODEL || 'flux';
-
     const imageUrl =
       `https://gen.pollinations.ai/image/${encodeURIComponent(prompt.trim())}` +
       `?model=${encodeURIComponent(model)}`;
@@ -524,77 +472,92 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
     const response = await fetch(imageUrl, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${apiKey}`
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'image/*'
       },
       signal: controller.signal
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-
-      console.error(
-        'Pollinations API error:',
-        response.status,
-        errorText.slice(0, 1000)
-      );
-
-      return res.status(502).json({
-        error:
-          `Pollinations не смог создать изображение (HTTP ${response.status}). ` +
-          'Проверь API-ключ, доступ к модели и баланс аккаунта.'
+      const details = await response.text().catch(() => '');
+      console.error('Pollinations API error:', {
+        status: response.status,
+        details: details.slice(0, 1000)
       });
+
+      let message;
+
+      if (response.status === 401) {
+        message = 'Pollinations отклонил API-ключ. Проверь POLLINATIONS_API_KEY: нужен секретный ключ для сервера.';
+      } else if (response.status === 402) {
+        message = 'На аккаунте Pollinations недостаточно средств или Pollen для генерации.';
+      } else if (response.status === 403) {
+        message = 'У API-ключа Pollinations нет разрешения на эту операцию.';
+      } else if (response.status === 429) {
+        message = 'Pollinations временно ограничил запросы. Подожди и попробуй снова.';
+      } else {
+        message = `Pollinations вернул ошибку HTTP ${response.status}. Попробуй позже или проверь настройки ключа и модели.`;
+      }
+
+      return res.status(502).json({ error: message });
     }
 
-    const contentType =
-      response.headers.get('content-type') || 'image/png';
+    const contentType = (
+      response.headers.get('content-type') || ''
+    ).split(';')[0].trim().toLowerCase();
 
-    if (!contentType.startsWith('image/')) {
-      const responseText = await response.text();
-
-      console.error(
-        'Pollinations returned non-image response:',
-        responseText.slice(0, 500)
-      );
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(contentType)) {
+      const details = await response.text().catch(() => '');
+      console.error('Pollinations returned non-image response:', {
+        contentType,
+        details: details.slice(0, 500)
+      });
 
       return res.status(502).json({
-        error: 'Сервис не вернул изображение. Проверь настройки Pollinations.'
+        error: 'Pollinations ответил, но не вернул картинку. Проверь название модели.'
       });
     }
 
     const imageBuffer = Buffer.from(await response.arrayBuffer());
 
-    if (!imageBuffer.length || imageBuffer.length > 15 * 1024 * 1024) {
+    if (!imageBuffer.length) {
       return res.status(502).json({
-        error: 'Изображение пустое или слишком большое.'
+        error: 'Pollinations вернул пустое изображение.'
       });
     }
 
-    const safeMimeType = [
-      'image/png',
-      'image/jpeg',
-      'image/webp'
-    ].includes(contentType.split(';')[0])
-      ? contentType.split(';')[0]
-      : 'image/png';
+    if (imageBuffer.length > 15 * 1024 * 1024) {
+      return res.status(502).json({
+        error: 'Изображение слишком большое. Попробуй более короткое описание.'
+      });
+    }
 
-    res.json({
-      image: `data:${safeMimeType};base64,${imageBuffer.toString('base64')}`,
+    return res.json({
+      image: `data:${contentType};base64,${imageBuffer.toString('base64')}`,
       provider: 'Pollinations'
     });
   } catch (err) {
-    console.error('Image generation error:', err);
+    const timedOut =
+      err.name === 'AbortError' ||
+      err.name === 'TimeoutError';
 
-    res.status(err.name === 'AbortError' ? 504 : 502).json({
-      error: err.name === 'AbortError'
-        ? 'Генерация заняла слишком много времени. Попробуй ещё раз.'
-        : 'Не удалось подключиться к Pollinations.'
+    console.error('Pollinations connection error:', {
+      name: err.name,
+      message: err.message,
+      cause: err.cause?.message
+    });
+
+    return res.status(timedOut ? 504 : 502).json({
+      error: timedOut
+        ? 'Pollinations не ответил за 55 секунд. Попробуй ещё раз.'
+        : `Ошибка подключения к Pollinations: ${err.cause?.message || err.message || 'неизвестная ошибка сети'}`
     });
   } finally {
     clearTimeout(timeout);
   }
 });
 
-// Static website
+// Статические файлы
 app.use(express.static(__dirname));
 
 app.get('/', (req, res) => {
@@ -602,9 +565,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/api', (req, res) => {
-  res.status(404).json({
-    error: 'API маршрут не найден.'
-  });
+  res.status(404).json({ error: 'API маршрут не найден.' });
 });
 
 app.use((err, req, res, next) => {
