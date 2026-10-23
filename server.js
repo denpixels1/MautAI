@@ -107,7 +107,7 @@ app.get('/api/auth/me', (req, res) => {
   res.json({ user: safeUser(user) });
 });
 
-app.post('/api/auth/register', authLimiter, async (req, res) => {
+app.post('/api/chat', apiLimiter, requireAuth, async (req, res) => {
   const name = String(req.body.name || '').trim().slice(0, 40);
   const email = String(req.body.email || '').trim().toLowerCase();
   const password = String(req.body.password || '');
