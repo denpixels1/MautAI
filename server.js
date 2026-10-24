@@ -16,10 +16,15 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Лимиты длинных сообщений
+const MAX_MESSAGE_LENGTH = 30000;
+const MAX_HISTORY_MESSAGES = 10;
+const MAX_HISTORY_TOTAL_LENGTH = 12000;
+
 if (isProduction) app.set('trust proxy', 1);
 
 app.disable('x-powered-by');
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json({ limit: '20mb' }));
 
 // Папка для базы данных
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
@@ -444,7 +449,7 @@ app.get('/api/chats/:id', requireAuth, (req, res) => {
   }
 });
 
-// Сохранить сообщение в чате
+// Сохранить сообщение в чате — до 30 000 символов
 app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -462,9 +467,12 @@ app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
       });
     }
 
-    if (typeof content !== 'string' || content.length > 12000) {
+    if (
+      typeof content !== 'string' ||
+      content.length > MAX_MESSAGE_LENGTH
+    ) {
       return res.status(400).json({
-        error: 'Сообщение слишком длинное или отсутствует.'
+        error: `Сообщение должно содержать не более ${MAX_MESSAGE_LENGTH} символов.`
       });
     }
 
@@ -568,34 +576,53 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
     const message = req.body?.message;
 
-    const history = Array.isArray(req.body?.history)
-      ? req.body.history
-          .filter(item =>
-            item &&
-            ['user', 'assistant'].includes(item.role) &&
-            typeof item.content === 'string'
-          )
-          .slice(-12)
-          .map(item => ({
-            role: item.role,
-            content: item.content.slice(0, 12000)
-          }))
-      : [];
-
     if (
       typeof message !== 'string' ||
       !message.trim() ||
-      message.length > 12000
+      message.length > MAX_MESSAGE_LENGTH
     ) {
       return res.status(400).json({
-        error: 'Пустое или слишком длинное сообщение.'
+        error: `Сообщение пустое или превышает лимит ${MAX_MESSAGE_LENGTH} символов.`
       });
+    }
+
+    // Берём только последние сообщения и ограничиваем общий размер истории.
+    // Это позволяет избежать чрезмерно больших запросов к ИИ.
+    const rawHistory = Array.isArray(req.body?.history)
+      ? req.body.history.filter(item =>
+          item &&
+          ['user', 'assistant'].includes(item.role) &&
+          typeof item.content === 'string'
+        ).slice(-MAX_HISTORY_MESSAGES)
+      : [];
+
+    const history = [];
+    let historyLength = 0;
+
+    for (let i = rawHistory.length - 1; i >= 0; i--) {
+      const item = rawHistory[i];
+      const remaining = MAX_HISTORY_TOTAL_LENGTH - historyLength;
+
+      if (remaining <= 0) break;
+
+      const content = item.content.slice(0, remaining);
+
+      if (!content) continue;
+
+      history.unshift({
+        role: item.role,
+        content
+      });
+
+      historyLength += content.length;
     }
 
     const messages = [
       {
         role: 'system',
         content: `Ты — Maut AI, полезный и дружелюбный ИИ-помощник. Всегда отвечай на языке пользователя.
+
+Старайся давать полные, подробные и полезные ответы, когда пользователь просит объяснение, инструкцию, анализ или большой текст. Не обрывай ответ без необходимости. Если пользователь просит продолжить, продолжай с того места, где остановился.
 
 Создатель проекта Maut AI: Мухаммад Умаров Манучехрович, также известный как Den Whelan. Он является директором компании Liches maut.
 
@@ -608,9 +635,14 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       { role: 'user', content: message.trim() }
     ];
 
+    // Если задан Groq API key, используем Groq.
+    // Ошибка Groq возвращается пользователю вместо незаметного переключения
+    // на Ollama, которая может быть недоступна на облачном хостинге.
     if (process.env.GROQ_API_KEY) {
+      let response;
+
       try {
-        const response = await fetch(
+        response = await fetch(
           'https://api.groq.com/openai/v1/chat/completions',
           {
             method: 'POST',
@@ -622,62 +654,118 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
               model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
               messages,
               temperature: 0.7,
-              max_tokens: 2048
+              max_tokens: 4096
             }),
-            signal: AbortSignal.timeout(45000)
+            signal: AbortSignal.timeout(60000)
           }
         );
+      } catch (err) {
+        console.error('Groq connection error:', err);
 
-        const data = await response.json();
+        return res.status(502).json({
+          error: 'Не удалось подключиться к Groq. Проверь интернет-соединение сервера и доступность Groq API.'
+        });
+      }
 
-        if (!response.ok) {
-          throw new Error(
-            data?.error?.message || 'Ошибка Groq API'
-          );
-        }
+      let data;
 
-        const reply = data?.choices?.[0]?.message?.content;
+      try {
+        data = await response.json();
+      } catch {
+        return res.status(502).json({
+          error: 'Groq вернул ответ в неизвестном формате.'
+        });
+      }
 
-        if (typeof reply === 'string' && reply.trim()) {
-          return res.json({
-            reply: reply.trim(),
-            provider: 'groq'
+      if (!response.ok) {
+        console.error('Groq API error:', response.status, data);
+
+        const apiMessage = data?.error?.message;
+
+        if (response.status === 429) {
+          return res.status(429).json({
+            error: 'Превышен лимит запросов Groq. Подожди немного и попробуй снова.'
           });
         }
 
-        throw new Error('Groq вернул пустой ответ.');
-      } catch (err) {
-        console.error('Groq error:', err.message);
+        if (response.status === 401 || response.status === 403) {
+          return res.status(502).json({
+            error: 'Groq отклонил API-ключ. Проверь GROQ_API_KEY в переменных окружения.'
+          });
+        }
+
+        return res.status(502).json({
+          error: apiMessage
+            ? `Ошибка Groq: ${apiMessage}`
+            : `Groq API вернул ошибку ${response.status}.`
+        });
       }
+
+      const reply = data?.choices?.[0]?.message?.content;
+
+      if (typeof reply === 'string' && reply.trim()) {
+        return res.json({
+          reply: reply.trim(),
+          provider: 'groq'
+        });
+      }
+
+      console.error('Groq returned an empty response:', data);
+
+      return res.status(502).json({
+        error: 'Groq вернул пустой ответ. Попробуй отправить сообщение ещё раз.'
+      });
     }
 
+    // Ollama используется только тогда, когда GROQ_API_KEY не задан.
     const ollamaUrl =
       process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 
     const ollamaModel =
       process.env.OLLAMA_MODEL || 'llama3.2';
 
-    const response = await fetch(
-      `${ollamaUrl.replace(/\/$/, '')}/api/chat`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: ollamaModel,
-          messages,
-          stream: false
-        }),
-        signal: AbortSignal.timeout(45000)
-      }
-    );
+    let response;
 
-    const data = await response.json();
+    try {
+      response = await fetch(
+        `${ollamaUrl.replace(/\/$/, '')}/api/chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: ollamaModel,
+            messages,
+            stream: false
+          }),
+          signal: AbortSignal.timeout(60000)
+        }
+      );
+    } catch (err) {
+      console.error('Ollama connection error:', err);
+
+      return res.status(502).json({
+        error: 'Не удалось подключиться к Ollama. Настрой GROQ_API_KEY для работы через Groq или проверь OLLAMA_URL.'
+      });
+    }
+
+    let data;
+
+    try {
+      data = await response.json();
+    } catch {
+      return res.status(502).json({
+        error: 'Ollama вернула ответ в неизвестном формате.'
+      });
+    }
 
     if (!response.ok) {
+      console.error('Ollama API error:', response.status, data);
+
       return res.status(502).json({
-        error: 'ИИ-сервис недоступен. Проверь настройки Groq или Ollama.'
+        error: data?.error ||
+          `Ollama API вернула ошибку ${response.status}.`
       });
     }
 
@@ -689,14 +777,14 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       reply: reply.trim(),
       provider: 'ollama'
     });
   } catch (err) {
     console.error('Chat error:', err);
 
-    res.status(502).json({
+    return res.status(502).json({
       error: 'Не удалось получить ответ от ИИ.'
     });
   }
@@ -817,6 +905,13 @@ app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
 
   if (res.headersSent) return next(err);
+
+  // Ошибка возникает, например, если JSON-запрос превышает лимит тела.
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({
+      error: 'Запрос слишком большой. Уменьши размер сообщения или изображения.'
+    });
+  }
 
   res.status(500).json({
     error: 'Внутренняя ошибка сервера.'
