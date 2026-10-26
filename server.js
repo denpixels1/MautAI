@@ -1,3 +1,6 @@
+// Maut AI — server.js
+// Полный объединённый сервер
+
 import 'dotenv/config';
 import express from 'express';
 import session from 'express-session';
@@ -16,7 +19,6 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Лимиты длинных сообщений
 const MAX_MESSAGE_LENGTH = 30000;
 const MAX_HISTORY_MESSAGES = 10;
 const MAX_HISTORY_TOTAL_LENGTH = 12000;
@@ -26,7 +28,7 @@ if (isProduction) app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(express.json({ limit: '20mb' }));
 
-// Папка для базы данных
+// База данных
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -61,7 +63,6 @@ db.exec(`
   WHERE email IS NOT NULL AND email != ''
 `);
 
-// Таблицы истории чатов
 db.exec(`
   CREATE TABLE IF NOT EXISTS conversations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -90,6 +91,7 @@ db.exec(`
   ON messages(conversation_id, id);
 `);
 
+// Сессии
 const SQLiteStore = SQLiteStoreFactory(session);
 
 const sessionStore = new SQLiteStore({
@@ -102,7 +104,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET;
 
 if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
   throw new Error(
-    'Установи SESSION_SECRET длиной минимум 32 символа в Render.'
+    'Установи SESSION_SECRET длиной минимум 32 символа в переменных окружения.'
   );
 }
 
@@ -122,6 +124,7 @@ app.use(session({
   }
 }));
 
+// Ограничение частоты запросов
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
@@ -146,6 +149,7 @@ const imageLimiter = rateLimit({
   }
 });
 
+// Вспомогательные функции
 function requireAuth(req, res, next) {
   if (!req.session.user) {
     return res.status(401).json({
@@ -216,7 +220,7 @@ function createLoginSession(req, res, user, statusCode = 200) {
   });
 }
 
-// Проверка авторизации
+// Авторизация: текущий пользователь
 app.get('/api/auth/me', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json({ user: req.session.user || null });
@@ -380,7 +384,7 @@ app.post('/api/chats', requireAuth, (req, res) => {
   }
 });
 
-// Получить список чатов пользователя
+// Получить список чатов
 app.get('/api/chats', requireAuth, (req, res) => {
   try {
     const chats = db.prepare(`
@@ -408,7 +412,7 @@ app.get('/api/chats', requireAuth, (req, res) => {
   }
 });
 
-// Открыть чат и его сообщения
+// Открыть чат
 app.get('/api/chats/:id', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -449,7 +453,7 @@ app.get('/api/chats/:id', requireAuth, (req, res) => {
   }
 });
 
-// Сохранить сообщение в чате — до 30 000 символов
+// Сохранить сообщение в чате
 app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -506,7 +510,8 @@ app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
     let title = chat.title;
 
     if (role === 'user' && title === 'Новый чат') {
-      title = content.trim().replace(/\s+/g, ' ').slice(0, 60) || 'Новый чат';
+      title = content.trim().replace(/\s+/g, ' ').slice(0, 60)
+        || 'Новый чат';
 
       db.prepare(`
         UPDATE conversations
@@ -571,7 +576,7 @@ app.delete('/api/chats/:id', requireAuth, (req, res) => {
   }
 });
 
-// Maut AI — чат с ИИ
+// Чат с Maut AI
 app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
     const message = req.body?.message;
@@ -586,8 +591,6 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       });
     }
 
-    // Берём только последние сообщения и ограничиваем общий размер истории.
-    // Это позволяет избежать чрезмерно больших запросов к ИИ.
     const rawHistory = Array.isArray(req.body?.history)
       ? req.body.history.filter(item =>
           item &&
@@ -620,13 +623,32 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
     const messages = [
       {
         role: 'system',
-        content: `Ты — Maut AI, полезный и дружелюбный ИИ-помощник. Всегда отвечай на языке пользователя.
+        content: `Ты — Maut AI, ИИ-помощник проекта Maut AI.
 
-Старайся давать полные, подробные и полезные ответы, когда пользователь просит объяснение, инструкцию, анализ или большой текст. Не обрывай ответ без необходимости. Если пользователь просит продолжить, продолжай с того места, где остановился.
+КАЧЕСТВО ОТВЕТОВ
+- Отвечай на языке пользователя, если он не попросил другой язык.
+- Пиши грамотно, понятно, последовательно и естественно.
+- Сначала отвечай по существу вопроса.
+- Не придумывай факты. Если не уверен, честно сообщи об этом.
+- Не повторяй одну и ту же мысль без необходимости.
+- Если пользователь просит код, предоставляй цельный код и поясняй, куда его вставить.
+- Если пользователь просит подробный ответ, раскрывай тему достаточно полно, но не добавляй бессмысленные повторы.
 
+ФОРМАТИРОВАНИЕ
+- Используй Markdown для удобного чтения.
+- Для длинных ответов используй понятные заголовки ## и ###.
+- Отделяй абзацы пустой строкой.
+- Для перечислений используй маркированные списки, для последовательных инструкций — нумерованные.
+- Таблицы используй только тогда, когда они действительно помогают сравнить информацию.
+- Код оформляй в блоках с указанием языка, например \`\`\`js.
+- Не превращай каждый абзац в отдельный пункт списка.
+- Не делай весь ответ жирным.
+- Не обрывай ответ намеренно, если можно дать полный ответ в пределах доступного лимита.
+
+СОЗДАТЕЛЬ ПРОЕКТА
 Создатель проекта Maut AI: Мухаммад Умаров Манучехрович, также известный как Den Whelan. Он является директором компании Liches maut.
 
-Если пользователь спрашивает, кто создал Maut AI, кто твой создатель или кто руководит компанией Liches maut, ответь ясно и уважительно:
+Если пользователь спрашивает, кто создал Maut AI, кто создатель проекта или кто руководит компанией Liches maut, ответь:
 «Проект Maut AI создал Мухаммад Умаров Манучехрович (Den Whelan), директор компании Liches maut».
 
 Не утверждай, что он создал базовую языковую модель или сторонние ИИ-сервисы, если это не подтверждено. Различай создателя проекта Maut AI и поставщиков используемых моделей.`
@@ -635,9 +657,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       { role: 'user', content: message.trim() }
     ];
 
-    // Если задан Groq API key, используем Groq.
-    // Ошибка Groq возвращается пользователю вместо незаметного переключения
-    // на Ollama, которая может быть недоступна на облачном хостинге.
+    // Используем Groq, если API-ключ задан
     if (process.env.GROQ_API_KEY) {
       let response;
 
@@ -653,8 +673,8 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
             body: JSON.stringify({
               model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
               messages,
-              temperature: 0.7,
-              max_tokens: 4096
+              temperature: 0.5,
+              max_tokens: Number(process.env.GROQ_MAX_TOKENS) || 4096
             }),
             signal: AbortSignal.timeout(60000)
           }
@@ -663,7 +683,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
         console.error('Groq connection error:', err);
 
         return res.status(502).json({
-          error: 'Не удалось подключиться к Groq. Проверь интернет-соединение сервера и доступность Groq API.'
+          error: 'Не удалось подключиться к Groq. Проверь доступность API.'
         });
       }
 
@@ -684,13 +704,13 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
 
         if (response.status === 429) {
           return res.status(429).json({
-            error: 'Превышен лимит запросов Groq. Подожди немного и попробуй снова.'
+            error: 'Превышен лимит запросов Groq. Подожди немного.'
           });
         }
 
         if (response.status === 401 || response.status === 403) {
           return res.status(502).json({
-            error: 'Groq отклонил API-ключ. Проверь GROQ_API_KEY в переменных окружения.'
+            error: 'Groq отклонил API-ключ. Проверь GROQ_API_KEY.'
           });
         }
 
@@ -713,11 +733,11 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       console.error('Groq returned an empty response:', data);
 
       return res.status(502).json({
-        error: 'Groq вернул пустой ответ. Попробуй отправить сообщение ещё раз.'
+        error: 'Groq вернул пустой ответ. Попробуй ещё раз.'
       });
     }
 
-    // Ollama используется только тогда, когда GROQ_API_KEY не задан.
+    // Если Groq не настроен, используем Ollama
     const ollamaUrl =
       process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 
@@ -746,7 +766,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       console.error('Ollama connection error:', err);
 
       return res.status(502).json({
-        error: 'Не удалось подключиться к Ollama. Настрой GROQ_API_KEY для работы через Groq или проверь OLLAMA_URL.'
+        error: 'Не удалось подключиться к Ollama. Проверь OLLAMA_URL или настрой GROQ_API_KEY.'
       });
     }
 
@@ -790,7 +810,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   }
 });
 
-// Генерация изображений через Gemini API
+// Генерация изображений через Gemini
 app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
   const prompt = req.body?.prompt;
 
@@ -810,7 +830,7 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
 
   if (!apiKey) {
     return res.status(503).json({
-      error: 'Добавь GEMINI_API_KEY в переменные окружения Render.'
+      error: 'Добавь GEMINI_API_KEY в переменные окружения.'
     });
   }
 
@@ -895,18 +915,19 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Неизвестные API-маршруты
 app.use('/api', (req, res) => {
   res.status(404).json({
     error: 'API маршрут не найден.'
   });
 });
 
+// Обработка ошибок
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
 
   if (res.headersSent) return next(err);
 
-  // Ошибка возникает, например, если JSON-запрос превышает лимит тела.
   if (err.type === 'entity.too.large') {
     return res.status(413).json({
       error: 'Запрос слишком большой. Уменьши размер сообщения или изображения.'
@@ -918,10 +939,12 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Запуск сервера
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Maut AI запущен на порту ${PORT}`);
 });
 
+// Корректное завершение
 function shutdown() {
   server.close(() => {
     sessionStore.close?.();
