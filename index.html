@@ -1,9 +1,11 @@
+
 <!doctype html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#212121">
+<link rel="icon" type="image/png" href="/maut-ai-logo.png">
 <title>Maut AI — искусственный интеллект</title>
 <meta name="description" content="Maut AI — персональный ИИ-ассистент. Задавай вопросы, общайся с искусственным интеллектом и создавай изображения.">
 <meta name="robots" content="index, follow">
@@ -17,7 +19,7 @@ button{cursor:pointer;color:inherit}
 .layout{display:flex;height:100dvh;min-height:0;overflow:hidden}
 .sidebar{width:260px;flex:0 0 260px;background:var(--side);padding:12px;display:flex;flex-direction:column;min-height:0;height:100%;overflow-y:auto}
 .brand{height:46px;display:flex;align-items:center;gap:10px;padding:0 9px;text-decoration:none;color:var(--text);font-weight:650;font-size:17px}
-.brand-icon{font-size:25px;color:#f1f1f1}
+.brand-icon{width:34px;height:34px;object-fit:cover;border-radius:9px;display:block;flex-shrink:0}
 .new-chat{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #414141;background:transparent;border-radius:9px;padding:11px 12px;margin:12px 0 24px}
 .new-chat:hover,.side-action:hover{background:#242424}
 .history-label{font-size:12px;color:#aaa;padding:0 10px 8px}
@@ -45,7 +47,8 @@ button{cursor:pointer;color:inherit}
 .mobile-menu{display:none;background:transparent;border:0;font-size:20px}
 .chat-area{width:min(790px,100%);padding:30px 24px 20px;margin:0 auto;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column}
 .welcome{margin:auto 0;text-align:center;padding:25px 0 40px}
-.welcome-icon{font-size:31px;line-height:1;margin-bottom:18px;color:#eee}
+.welcome-icon{line-height:1;margin-bottom:18px;display:flex;justify-content:center}
+.welcome-icon img{width:64px;height:64px;object-fit:cover;border-radius:15px}
 .welcome h1{font-size:clamp(27px,4vw,34px);font-weight:600;letter-spacing:-.8px;margin:0 0 10px}
 .welcome p{margin:0;color:#aaa;font-size:15px}
 .suggestions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:580px;margin:28px auto 0;text-align:left}
@@ -73,7 +76,8 @@ button{cursor:pointer;color:inherit}
 .bubble{max-width:88%;min-width:0;overflow-wrap:anywhere;font-size:15px;line-height:1.7}
 .message.user .bubble{white-space:pre-wrap;background:#303030;border-radius:20px;padding:10px 15px;max-width:80%}
 .message.assistant .bubble{padding:2px 0;flex:1;white-space:normal}
-.message-mark{width:28px;height:28px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;background:#ececec;color:#222;font-size:17px}
+.message-mark{width:28px;height:28px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;background:transparent;color:#222;font-size:17px;overflow:hidden}
+.message-mark img{width:28px;height:28px;object-fit:cover;border-radius:50%}
 .message-image{display:block;max-width:min(100%,520px);border-radius:12px;margin-top:12px}
 .download-link{display:inline-block;margin-top:8px;color:#b7d9ff}
 .status{display:none;margin:0 auto 10px;width:100%;font-size:13px;color:#d7d7d7}
@@ -103,7 +107,8 @@ button{cursor:pointer;color:inherit}
 .modal-layer.open{display:grid}
 .modal{position:relative;width:min(410px,100%);background:#242424;border:1px solid #454545;border-radius:20px;padding:28px;box-shadow:0 20px 80px #0007}
 .modal-x{position:absolute;right:14px;top:12px;background:transparent;border:0;font-size:24px;color:#aaa}
-.modal-brand{text-align:center;font-size:27px;margin:0 0 10px}
+.modal-brand{text-align:center;margin:0 0 10px;display:flex;justify-content:center}
+.modal-brand img{width:54px;height:54px;object-fit:cover;border-radius:13px}
 .modal h2{text-align:center;margin:0 0 6px;font-size:22px}
 .modal>p{text-align:center;color:#aaa;font-size:13px;margin:0 0 22px}
 .modal label{display:block;font-size:12px;color:#ccc;margin:12px 0}
@@ -135,7 +140,10 @@ button{cursor:pointer;color:inherit}
 <body>
 <div class="layout">
 <aside class="sidebar" id="sidebar">
-<a class="brand" href="/"><span class="brand-icon">✳</span><span>Maut AI</span></a>
+<a class="brand" href="/">
+<img class="brand-icon" src="/maut-ai-logo.png" alt="Maut AI">
+<span>Maut AI</span>
+</a>
 <button class="new-chat" id="newChat">＋ <span>Новый чат</span></button>
 <div class="history-label">Недавние</div>
 <div id="history" class="history"><p class="muted small">Твои чаты появятся здесь</p></div>
@@ -158,7 +166,9 @@ button{cursor:pointer;color:inherit}
 
 <section class="chat-area" id="chatArea">
 <div class="welcome" id="welcome">
-<div class="welcome-icon">✳</div>
+<div class="welcome-icon">
+<img src="/maut-ai-logo.png" alt="Maut AI">
+</div>
 <h1>С чего начнём?</h1>
 <p>Спроси о чём угодно или придумай что-то новое.</p>
 <div class="suggestions">
@@ -191,7 +201,9 @@ button{cursor:pointer;color:inherit}
 <div class="modal-layer" id="authModal" aria-hidden="true">
 <section class="modal">
 <button class="modal-x" id="closeModal" aria-label="Закрыть">×</button>
-<div class="modal-brand">✳</div>
+<div class="modal-brand">
+<img src="/maut-ai-logo.png" alt="Maut AI">
+</div>
 <h2 id="modalTitle">Войти в Maut AI</h2>
 <p id="modalSubtitle">Продолжи общение с ИИ.</p>
 <form id="authForm">
@@ -315,7 +327,11 @@ function addMessage(role, content, image=null) {
   if (role === 'assistant') {
     const mark = document.createElement('div');
     mark.className = 'message-mark';
-    mark.textContent = '✳';
+
+    const logo = document.createElement('img');
+    logo.src = '/maut-ai-logo.png';
+    logo.alt = 'Maut AI';
+    mark.append(logo);
     mark.setAttribute('aria-hidden','true');
     row.append(mark);
   }
