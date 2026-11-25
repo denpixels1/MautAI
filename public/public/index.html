@@ -1,327 +1,453 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#212121">
 <title>Maut AI</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 <style>
 :root{color-scheme:dark;--bg:#212121;--side:#171717;--panel:#2f2f2f;--panel-hover:#383838;--line:#383838;--text:#ececec;--muted:#a0a0a0;--green:#10a37f}
 *{box-sizing:border-box}
 html,body{width:100%;height:100%;margin:0;overflow:hidden}
 body{background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-button,input,textarea{font:inherit}button{cursor:pointer;color:inherit}
-.layout{display:flex;height:100dvh;min-height:0;overflow:hidden}
-.sidebar{width:260px;flex:0 0 260px;background:var(--side);padding:12px;display:flex;flex-direction:column;min-height:0;height:100%;overflow-y:auto}
+button,input,textarea{font:inherit}
+button{cursor:pointer;color:inherit}
+.layout{display:flex;width:100%;height:100dvh;min-height:0;overflow:hidden}
+.sidebar{width:260px;flex:0 0 260px;background:var(--side);padding:12px;display:flex;flex-direction:column;height:100%;min-height:0;overflow-y:auto;transition:width .2s,flex-basis .2s,padding .2s}
+.layout.sidebar-collapsed .sidebar{width:0;flex-basis:0;padding-left:0;padding-right:0;overflow:hidden;border:0}
 .brand{height:46px;display:flex;align-items:center;gap:10px;padding:0 9px;text-decoration:none;color:var(--text);font-weight:650;font-size:17px}
-.brand-icon{font-size:25px;color:#f1f1f1}
+.brand-icon{width:30px;height:30px;display:grid;place-items:center;flex:0 0 30px;border-radius:7px;background:#080808;color:#fff;font-size:20px;font-weight:800;line-height:1}
 .new-chat{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #414141;background:transparent;border-radius:9px;padding:11px 12px;margin:12px 0 24px}
 .new-chat:hover,.side-action:hover{background:#242424}
 .history-label{font-size:12px;color:#aaa;padding:0 10px 8px}
 .history{overflow:auto;min-height:0}
 .history-item{display:block;width:100%;padding:9px 10px;border:0;background:transparent;border-radius:8px;text-align:left;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:13px}
-.history-item:hover,.history-item.active{background:#303030}
-.muted{color:var(--muted)}.small{font-size:12px;padding:0 10px}
+.history-item:hover,.history-item.active{background:#292929}
+.muted{color:var(--muted)}
+.small{font-size:12px;padding:0 10px}
 .side-bottom{margin-top:auto}
 .side-action{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;border-radius:9px;text-align:left;padding:11px 10px}
 .profile{display:flex;align-items:center;gap:9px;border-top:1px solid #303030;margin-top:12px;padding:14px 3px 3px}
 .avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#6559a6;font-weight:650;flex-shrink:0}
-.profile-info{flex:1;min-width:0}.profile-info strong,.profile-info span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.profile-info strong{font-size:13px;font-weight:600}.profile-info span{font-size:11px;color:var(--muted)}
+.profile-info{flex:1;min-width:0}
+.profile-info strong,.profile-info span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.profile-info strong{font-size:13px;font-weight:600}
+.profile-info span{font-size:11px;color:var(--muted)}
 .dots{border:0;background:transparent;font-size:20px}
 .main{min-width:0;flex:1;height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .topbar{height:60px;flex:0 0 60px;display:flex;align-items:center;padding:0 25px;gap:12px}
-.model-label{font-size:16px;font-weight:600}.model-label span{color:#999;margin-left:4px}.top-right{margin-left:auto}
-.login-button{background:transparent;border:1px solid #555;border-radius:20px;padding:7px 15px;font-size:13px}.login-button:hover{background:#333}
-.mobile-menu{display:none;background:transparent;border:0;font-size:20px}
+.model-label{font-size:16px;font-weight:600}
+.model-label span{color:#999;margin-left:4px}
+.top-right{margin-left:auto}
+.login-button{background:transparent;border:1px solid #555;border-radius:20px;padding:7px 15px;font-size:13px}
+.login-button:hover{background:#333}
+.mobile-menu{display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex:0 0 36px;background:transparent;border:1px solid #444;border-radius:9px;font-size:18px;color:#eee}
+.mobile-menu:hover{background:#303030}
 .chat-area{width:min(790px,100%);padding:30px 24px 20px;margin:0 auto;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column}
 .welcome{margin:auto 0;text-align:center;padding:25px 0 40px}
-.welcome-icon{font-size:31px;line-height:1;margin-bottom:18px;color:#eee}
+.welcome-icon{width:48px;height:48px;display:grid;place-items:center;margin:0 auto 18px;border-radius:10px;background:#080808;color:#fff;font-size:31px;font-weight:800;line-height:1}
 .welcome h1{font-size:clamp(27px,4vw,34px);font-weight:600;letter-spacing:-.8px;margin:0 0 10px}
 .welcome p{margin:0;color:#aaa;font-size:15px}
 .suggestions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:580px;margin:28px auto 0;text-align:left}
 .suggestion{min-height:84px;position:relative;display:grid;grid-template-columns:24px 1fr;grid-template-rows:auto auto;align-content:center;column-gap:9px;text-align:left;padding:15px;border:1px solid #454545;background:transparent;border-radius:13px}
-.suggestion:hover{background:#2b2b2b}.suggestion>span{grid-row:1/3;font-size:18px;color:#c2c2c2}.suggestion b{font-size:13px;font-weight:550}.suggestion small{font-size:12px;color:#999;margin-top:3px}
-.composer-wrap{width:min(790px,100%);flex:0 0 auto;position:relative;z-index:5;background:var(--bg);padding:8px 24px max(18px,env(safe-area-inset-bottom));margin:0 auto}
+.suggestion:hover{background:#2b2b2b}
+.suggestion>span{grid-row:1/3;font-size:18px;color:#c2c2c2}
+.suggestion b{font-size:13px;font-weight:550}
+.suggestion small{font-size:12px;color:#999;margin-top:3px}
+.composer-wrap{width:min(790px,100%);flex:0 0 auto;position:relative;z-index:5;padding:0 24px max(18px,env(safe-area-inset-bottom));margin:0 auto;background:var(--bg)}
 .composer{background:#2f2f2f;border:1px solid #484848;border-radius:25px;padding:12px 13px 10px;box-shadow:0 5px 20px #00000012}
 .composer:focus-within{border-color:#666}
-.composer textarea{width:100%;resize:none;max-height:180px;min-height:31px;outline:0;border:0;background:transparent;color:var(--text);padding:4px 4px 12px}
-.composer textarea::placeholder{color:#aaa}.composer-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.composer textarea{display:block;width:100%;resize:none;max-height:180px;min-height:31px;outline:0;border:0;background:transparent;color:var(--text);padding:4px 4px 12px}
+.composer textarea::placeholder{color:#aaa}
+.composer-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .composer-actions{display:flex;align-items:center;gap:10px;min-width:0}
-.tool{border:1px solid #555;background:transparent;border-radius:18px;padding:6px 11px;font-size:12px;color:#ddd}.tool:hover{background:#404040}
-.hint{font-size:10px;color:#858585}.send{width:34px;height:34px;border:0;border-radius:50%;background:#eee;color:#202020;font-size:22px;line-height:1;flex-shrink:0}
-.send:disabled{opacity:.45;cursor:wait}.fine-print{text-align:center;color:#858585;font-size:11px;margin:9px 0 0}
+.tool{border:1px solid #555;background:transparent;border-radius:18px;padding:6px 11px;font-size:12px;color:#ddd}
+.tool:hover{background:#404040}
+.hint{font-size:10px;color:#858585}
+.send{width:34px;height:34px;border:0;border-radius:50%;background:#eee;color:#202020;font-size:22px;line-height:1;flex-shrink:0}
+.send:disabled{opacity:.45;cursor:wait}
+.fine-print{text-align:center;color:#858585;font-size:11px;margin:9px 0 0}
 .messages{display:flex;flex-direction:column;gap:25px;min-width:0}
-.message{display:flex;gap:12px;align-items:flex-start;min-width:0}.message.user{justify-content:flex-end}
-.bubble{max-width:88%;min-width:0;overflow-wrap:anywhere;font-size:15px;line-height:1.7}
-.message.user .bubble{white-space:pre-wrap;background:#303030;border-radius:20px;padding:10px 15px;max-width:80%}
-.message.assistant .bubble{padding:2px 0;flex:1;white-space:normal}
-.message-mark{width:28px;height:28px;flex-shrink:0;border-radius:50%;display:grid;place-items:center;background:#ececec;color:#222;font-size:17px}
+.message{display:flex;gap:12px;align-items:flex-start;min-width:0}
+.message.user{justify-content:flex-end}
+.bubble{max-width:88%;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.7}
+.message.user .bubble{background:#303030;border-radius:20px;padding:10px 15px;max-width:80%}
+.message.assistant .bubble{padding:2px 0;flex:1;max-width:100%;white-space:normal;line-height:1.75}
+.message-mark{width:28px;height:28px;flex-shrink:0;border-radius:7px;display:grid;place-items:center;background:#080808;color:#fff;font-size:18px;font-weight:800}
 .message-image{display:block;max-width:min(100%,520px);border-radius:12px;margin-top:12px}
-.download-link{display:inline-block;margin-top:8px;color:#b7d9ff}.status{display:none;margin:0 auto 10px;width:100%;font-size:13px;color:#d7d7d7}
-.status.show{display:block}.status.error{color:#ffaaa7}
-.bubble h1,.bubble h2,.bubble h3,.bubble h4{line-height:1.35;margin:24px 0 12px;font-weight:650}
-.bubble h1{font-size:26px}.bubble h2{font-size:22px}.bubble h3{font-size:18px}.bubble p{margin:0 0 14px}.bubble p:last-child{margin-bottom:0}
-.bubble ul,.bubble ol{padding-left:26px;margin:10px 0 18px}.bubble li{padding-left:4px;margin:5px 0}.bubble strong{font-weight:700;color:#fff}
-.bubble a{color:#9ecbff;text-decoration:underline;text-underline-offset:3px}
-.bubble blockquote{margin:16px 0;padding:10px 16px;border-left:3px solid #777;background:#292929;color:#ccc;border-radius:0 8px 8px 0}
-.bubble pre{max-width:100%;overflow:auto;padding:16px;margin:14px 0;border:1px solid #404040;border-radius:12px;background:#171717;line-height:1.6}
-.bubble pre code{padding:0;background:transparent;white-space:pre}.bubble :not(pre)>code{padding:2px 6px;border-radius:5px;background:#373737;font-family:Consolas,Monaco,monospace;font-size:.9em}
-.bubble table{display:block;width:100%;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:16px 0}
-.bubble th,.bubble td{border:1px solid #454545;padding:9px 12px;text-align:left}.bubble th{background:#303030;font-weight:650}.bubble tr:nth-child(even){background:#292929}
-.bubble hr{border:0;border-top:1px solid #414141;margin:22px 0}.bubble img{max-width:100%;height:auto;border-radius:10px}
-.modal-layer{position:fixed;inset:0;z-index:10;background:#0009;display:none;place-items:center;padding:20px}.modal-layer.open{display:grid}
-.modal{position:relative;width:min(410px,100%);background:#242424;border:1px solid #454545;border-radius:20px;padding:28px;box-shadow:0 20px 80px #0007}
+.download-link{display:inline-block;margin-top:8px;color:#b7d9ff}
+.status{display:none;margin:0 auto 10px;width:100%;font-size:13px;color:#d7d7d7}
+.status.show{display:block}
+.status.error{color:#ffaaa7}
+.modal-layer{position:fixed;inset:0;z-index:20;background:#0009;display:none;place-items:center;padding:20px}
+.modal-layer.open{display:grid}
+.modal{position:relative;width:min(410px,100%);max-height:90dvh;overflow:auto;background:#242424;border:1px solid #454545;border-radius:20px;padding:28px;box-shadow:0 20px 80px #0007}
 .modal-x{position:absolute;right:14px;top:12px;background:transparent;border:0;font-size:24px;color:#aaa}
-.modal-brand{text-align:center;font-size:27px;margin:0 0 10px}.modal h2{text-align:center;margin:0 0 6px;font-size:22px}
-.modal>p{text-align:center;color:#aaa;font-size:13px;margin:0 0 22px}.modal label{display:block;font-size:12px;color:#ccc;margin:12px 0}
+.modal-brand{width:42px;height:42px;display:grid;place-items:center;margin:0 auto 12px;border-radius:9px;background:#080808;color:#fff;font-size:28px;font-weight:800}
+.modal h2{text-align:center;margin:0 0 6px;font-size:22px}
+.modal>p{text-align:center;color:#aaa;font-size:13px;margin:0 0 22px}
+.modal label{display:block;font-size:12px;color:#ccc;margin:12px 0}
 .modal input{display:block;width:100%;margin-top:6px;padding:11px 12px;border:1px solid #4b4b4b;background:#171717;color:white;border-radius:9px;outline:0}
-.modal input:focus{border-color:#999}.primary{width:100%;border:0;background:#eee;color:#222;border-radius:20px;padding:10px;font-weight:600;margin-top:8px}
-.switch-auth{display:block;margin:15px auto 0;border:0;background:transparent;color:#ccc;font-size:12px}.form-error{color:#ff9c97;font-size:12px;margin:5px 0}.hidden{display:none!important}
+.modal input:focus{border-color:#999}
+.primary{width:100%;border:0;background:#eee;color:#222;border-radius:20px;padding:10px;font-weight:600;margin-top:8px}
+.switch-auth{display:block;margin:15px auto 0;border:0;background:transparent;color:#ccc;font-size:12px}
+.form-error{color:#ff9c97;font-size:12px;margin:5px 0}
+.hidden{display:none!important}
+.message.assistant .bubble h1,.message.assistant .bubble h2,.message.assistant .bubble h3,.message.assistant .bubble h4{color:var(--text);line-height:1.35;margin:24px 0 12px;font-weight:650}
+.message.assistant .bubble h1{font-size:26px}
+.message.assistant .bubble h2{font-size:22px}
+.message.assistant .bubble h3{font-size:18px}
+.message.assistant .bubble p{margin:0 0 14px}
+.message.assistant .bubble p:last-child{margin-bottom:0}
+.message.assistant .bubble ul,.message.assistant .bubble ol{padding-left:26px;margin:10px 0 18px}
+.message.assistant .bubble li{padding-left:4px;margin:5px 0}
+.message.assistant .bubble strong{font-weight:700;color:#fff}
+.message.assistant .bubble a{color:#9ecbff;text-decoration:underline;text-underline-offset:3px}
+.message.assistant .bubble blockquote{margin:16px 0;padding:10px 16px;border-left:3px solid #777;background:#292929;color:#ccc;border-radius:0 8px 8px 0}
+.message.assistant .bubble pre{max-width:100%;overflow-x:auto;padding:16px;margin:14px 0;border:1px solid #404040;border-radius:12px;background:#171717;line-height:1.6}
+.message.assistant .bubble pre code{padding:0;background:transparent;white-space:pre}
+.message.assistant .bubble :not(pre)>code{padding:2px 6px;border-radius:5px;background:#373737;font-family:Consolas,Monaco,monospace;font-size:.9em}
+.message.assistant .bubble table{display:block;width:100%;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:16px 0}
+.message.assistant .bubble th,.message.assistant .bubble td{border:1px solid #454545;padding:9px 12px;text-align:left}
+.message.assistant .bubble th{background:#303030;font-weight:650}
+.message.assistant .bubble tr:nth-child(even){background:#292929}
+.message.assistant .bubble hr{border:0;border-top:1px solid #414141;margin:22px 0}
+.message.assistant .bubble img{max-width:100%;height:auto;border-radius:10px}
+.message.assistant .bubble pre code{display:block}
 @media(max-width:760px){
-.sidebar{position:fixed;z-index:8;left:0;top:0;bottom:0;transform:translateX(-105%);transition:transform .2s;box-shadow:15px 0 50px #0006;height:100dvh}
-.sidebar.open{transform:translateX(0)}.mobile-menu{display:block}.topbar{padding:0 15px}.chat-area{padding:20px 15px}
-.composer-wrap{padding:8px 10px max(12px,env(safe-area-inset-bottom))}.suggestions{grid-template-columns:1fr;max-width:440px}
-.welcome{padding:15px 0 25px}.welcome h1{font-size:28px}.hint{display:none}.tool span{display:none}.composer{border-radius:21px}.modal{padding:24px}
+.sidebar{position:fixed;z-index:10;left:0;top:0;bottom:0;transform:translateX(-100%);width:min(300px,85vw);flex-basis:min(300px,85vw);box-shadow:10px 0 35px #0005}
+.sidebar.open{transform:translateX(0)}
+.layout.sidebar-collapsed .sidebar{width:min(300px,85vw);flex-basis:min(300px,85vw);padding:12px}
+.topbar{padding:0 14px}
+.chat-area{padding:20px 16px}
+.composer-wrap{padding:0 12px max(12px,env(safe-area-inset-bottom))}
+.suggestions{grid-template-columns:1fr}
+.hint{display:none}
 }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 </head>
 <body>
 <div class="layout">
 <aside class="sidebar" id="sidebar">
-<a class="brand" href="/"><span class="brand-icon">✳</span><span>Maut AI</span></a>
-<button class="new-chat" id="newChat">＋ <span>Новый чат</span></button>
-<div class="history-label">Недавние</div>
-<div id="history" class="history"><p class="muted small">Твои чаты появятся здесь</p></div>
+<a class="brand" href="/" id="brandHome"><span class="brand-icon">L</span><span>Maut AI</span></a>
+<button class="new-chat" id="newChat"><span>＋</span><span>Новый чат</span></button>
+<div class="history-label">Ваши чаты</div>
+<div class="history" id="history"></div>
 <div class="side-bottom">
-<button class="side-action" id="imageMode">▧ <span>Создать изображение</span></button>
-<div class="profile"><div class="avatar" id="avatar">G</div><div class="profile-info"><strong id="profileName">Гость</strong><span id="profileEmail">Войди, чтобы начать</span></div><button class="dots" id="profileMenu" title="Аккаунт">···</button></div>
+<button class="side-action" id="authSide">↪ Войти в аккаунт</button>
+<div class="profile hidden" id="profile">
+<div class="avatar" id="avatar">M</div>
+<div class="profile-info"><strong id="profileName">Пользователь</strong><span id="profileEmail"></span></div>
+<button class="dots" id="logout" title="Выйти">⋯</button>
+</div>
 </div>
 </aside>
 <main class="main">
-<header class="topbar"><button class="mobile-menu" id="menuBtn" aria-label="Меню">☰</button><div class="model-label">Maut AI <span>⌄</span></div><div class="top-right"><button class="login-button" id="loginBtn">Войти</button></div></header>
+<header class="topbar">
+<button class="mobile-menu" id="sidebarToggle" aria-label="Открыть меню">☰</button>
+<div class="model-label">Maut AI <span>▾</span></div>
+<div class="top-right"><button class="login-button" id="loginTop">Войти</button></div>
+</header>
 <section class="chat-area" id="chatArea">
-<div class="welcome" id="welcome"><div class="welcome-icon">✳</div><h1>С чего начнём?</h1><p>Спроси о чём угодно или придумай что-то новое.</p>
+<div class="welcome" id="welcome">
+<div class="welcome-icon">L</div>
+<h1>Чем могу помочь?</h1>
+<p>Я Maut AI. Напиши, что у тебя на уме.</p>
 <div class="suggestions">
-<button data-prompt="Объясни сложную тему простыми словами" class="suggestion"><span>◉</span><b>Объясни тему</b><small>Разобраться в сложном</small></button>
-<button data-prompt="Помоги придумать интересную игру" class="suggestion"><span>⌘</span><b>Придумай идею</b><small>Игры, проекты и творчество</small></button>
-<button data-prompt="Напиши короткую захватывающую историю" class="suggestion"><span>✎</span><b>Напиши текст</b><small>Истории и сообщения</small></button>
-<button data-image="1" class="suggestion"><span>▧</span><b>Создай изображение</b><small>Воплоти идею в картинку</small></button>
-</div></div>
-<div class="messages" id="messages" aria-live="polite"></div>
+<button class="suggestion" data-prompt="Объясни мне сложную тему простыми словами"><span>✦</span><b>Объяснить тему</b><small>Просто и понятно</small></button>
+<button class="suggestion" data-prompt="Помоги придумать интересную идею для проекта"><span>◇</span><b>Придумать идею</b><small>Для проекта или творчества</small></button>
+<button class="suggestion" data-prompt="Напиши пример кода и объясни его"><span>⌘</span><b>Написать код</b><small>С объяснениями</small></button>
+<button class="suggestion" data-prompt="Помоги составить план действий"><span>☷</span><b>Составить план</b><small>По шагам</small></button>
+</div>
+</div>
+<div class="messages" id="messages"></div>
 </section>
-<footer class="composer-wrap"><div id="status" class="status" role="status"></div>
-<form class="composer" id="chatForm"><textarea id="prompt" rows="1" maxlength="30000" placeholder="Напиши Maut AI" aria-label="Сообщение"></textarea>
-<div class="composer-bottom"><div class="composer-actions"><button type="button" class="tool" id="imageBtn">＋ <span>Создать изображение</span></button><span class="hint">Enter — отправить · Shift+Enter — новая строка</span></div><button class="send" id="sendBtn" type="submit" aria-label="Отправить">↑</button></div></form>
-<p class="fine-print">Maut AI может ошибаться. Проверяй важную информацию.</p>
-</footer>
-</main></div>
-<div class="modal-layer" id="authModal" aria-hidden="true"><section class="modal"><button class="modal-x" id="closeModal" aria-label="Закрыть">×</button><div class="modal-brand">✳</div><h2 id="modalTitle">Войти в Maut AI</h2><p id="modalSubtitle">Продолжи общение с ИИ.</p>
-<form id="authForm"><label id="nameLabel" class="hidden">Имя<input id="name" autocomplete="name" maxlength="40" placeholder="Твоё имя"></label>
-<label>Email<input id="email" type="email" autocomplete="email" required placeholder="you@example.com"></label>
-<label>Пароль<input id="password" type="password" minlength="8" maxlength="128" autocomplete="current-password" required placeholder="Не менее 8 символов"></label>
-<p class="form-error" id="authError"></p><button class="primary" id="authSubmit" type="submit">Войти</button></form>
-<button class="switch-auth" id="switchAuth">Нет аккаунта? Зарегистрироваться</button></section></div>
+<div class="composer-wrap">
+<div class="status" id="status"></div>
+<form class="composer" id="composer">
+<textarea id="prompt" rows="1" placeholder="Напиши сообщение Maut AI…" autocomplete="off"></textarea>
+<div class="composer-bottom">
+<div class="composer-actions">
+<button class="tool" type="button" id="imageMode">＋ Создать изображение</button>
+<span class="hint">Enter — отправить · Shift + Enter — новая строка</span>
+</div>
+<button class="send" id="send" type="submit" aria-label="Отправить">↑</button>
+</div>
+</form>
+<div class="fine-print">Maut AI может допускать ошибки. Проверяй важную информацию.</div>
+</div>
+</main>
+</div>
+<div class="modal-layer" id="authModal">
+<div class="modal">
+<button class="modal-x" id="closeModal" type="button">×</button>
+<div class="modal-brand">L</div>
+<h2 id="authTitle">Войти в Maut AI</h2>
+<p id="authSubtitle">Рады видеть тебя снова.</p>
+<form id="authForm">
+<div class="hidden" id="nameField"><label>Имя<input id="authName" maxlength="60" autocomplete="name"></label></div>
+<label>Email<input id="authEmail" type="email" required autocomplete="email"></label>
+<label>Пароль<input id="authPassword" type="password" required minlength="8" maxlength="128" autocomplete="current-password"></label>
+<div class="form-error" id="authError"></div>
+<button class="primary" id="authSubmit" type="submit">Войти</button>
+</form>
+<button class="switch-auth" id="switchAuth" type="button">Нет аккаунта? Зарегистрироваться</button>
+</div>
+</div>
 <script>
-(() => {
-'use strict';
 const $ = id => document.getElementById(id);
-const els = {
-sidebar:$('sidebar'), history:$('history'), newChat:$('newChat'), imageMode:$('imageMode'),
-avatar:$('avatar'), profileName:$('profileName'), profileEmail:$('profileEmail'),
-menuBtn:$('menuBtn'), loginBtn:$('loginBtn'), profileMenu:$('profileMenu'),
-chatArea:$('chatArea'), welcome:$('welcome'), messages:$('messages'), prompt:$('prompt'),
-chatForm:$('chatForm'), sendBtn:$('sendBtn'), imageBtn:$('imageBtn'), status:$('status'),
-authModal:$('authModal'), closeModal:$('closeModal'), modalTitle:$('modalTitle'),
-modalSubtitle:$('modalSubtitle'), authForm:$('authForm'), nameLabel:$('nameLabel'),
-name:$('name'), email:$('email'), password:$('password'), authError:$('authError'),
-authSubmit:$('authSubmit'), switchAuth:$('switchAuth')
-};
-let user = null, currentChatId = null, chats = [], authMode = 'login', imageModeOn = false, busy = false;
-const api = async (url, options={}) => {
-  const response = await fetch(url, {credentials:'same-origin', ...options, headers:{'Content-Type':'application/json', ...(options.headers||{})}});
-  const data = await response.json().catch(()=>({}));
-  if (!response.ok) throw new Error(data.error || `Ошибка сервера (${response.status})`);
-  return data;
-};
-function showStatus(message='', error=false) {
-  els.status.textContent = message;
-  els.status.classList.toggle('show', !!message);
-  els.status.classList.toggle('error', !!error);
-}
-function setBusy(value) {
-  busy = value; els.sendBtn.disabled = value; els.prompt.disabled = value;
-  els.imageBtn.disabled = value; els.newChat.disabled = value;
+const promptEl = $('prompt');
+const messagesEl = $('messages');
+const state = { user:null, chats:[], chatId:null, busy:false, imageMode:false, register:false };
+function showStatus(text, error = false) {
+  const el = $('status');
+  el.textContent = text;
+  el.classList.toggle('show', Boolean(text));
+  el.classList.toggle('error', error);
 }
 function scrollToBottom() {
-  requestAnimationFrame(() => { els.chatArea.scrollTop = els.chatArea.scrollHeight; });
+  $('chatArea').scrollTop = $('chatArea').scrollHeight;
 }
-function markdownToHtml(text) {
-  const source = typeof text === 'string' ? text : '';
-  if (window.marked && window.DOMPurify) {
-    const raw = window.marked.parse(source, {gfm:true, breaks:true});
-    return window.DOMPurify.sanitize(raw, {USE_PROFILES:{html:true}});
-  }
-  const div = document.createElement('div');
-  div.textContent = source;
-  return div.innerHTML.replace(/\n/g,'<br>');
+function renderMarkdown(text) {
+  const html = marked.parse(String(text || ''));
+  return DOMPurify.sanitize(html);
 }
-function addMessage(role, content, image=null, saveImage=true) {
-  const row = document.createElement('article');
+function addMessage(role, content, image = null, options = {}) {
+  const row = document.createElement('div');
   row.className = `message ${role}`;
   if (role === 'assistant') {
-    const mark = document.createElement('div'); mark.className='message-mark'; mark.textContent='✳'; mark.setAttribute('aria-hidden','true'); row.append(mark);
+    const mark = document.createElement('div');
+    mark.className = 'message-mark';
+    mark.textContent = 'L';
+    row.appendChild(mark);
   }
-  const bubble = document.createElement('div'); bubble.className='bubble';
-  if (role === 'assistant') bubble.innerHTML = markdownToHtml(content);
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  if (role === 'assistant' && !options.loading) bubble.innerHTML = renderMarkdown(content);
   else bubble.textContent = content || '';
-  if (image && typeof image === 'string' && /^data:image\/(png|jpeg|webp);base64,/i.test(image)) {
-    const img = document.createElement('img'); img.className='message-image'; img.src=image; img.alt='Созданное изображение'; bubble.append(document.createElement('br')); bubble.append(img);
+  if (image) {
+    const img = document.createElement('img');
+    img.className = 'message-image';
+    img.src = image;
+    img.alt = 'Созданное изображение';
+    img.loading = 'lazy';
+    bubble.appendChild(img);
   }
-  row.append(bubble); els.messages.append(row); return row;
+  row.appendChild(bubble);
+  messagesEl.appendChild(row);
+  scrollToBottom();
+  return { row, bubble };
 }
-function clearMessages() {
-  els.messages.replaceChildren(); els.welcome.classList.remove('hidden'); currentChatId=null;
-  document.querySelectorAll('.history-item').forEach(x=>x.classList.remove('active'));
+function resetView() {
+  messagesEl.replaceChildren();
+  $('welcome').classList.remove('hidden');
+  state.chatId = null;
+  showStatus('');
+  scrollToBottom();
 }
-function renderHistory() {
-  els.history.replaceChildren();
-  if (!user) { const p=document.createElement('p');p.className='muted small';p.textContent='Войди, чтобы сохранять чаты';els.history.append(p);return; }
-  if (!chats.length) { const p=document.createElement('p');p.className='muted small';p.textContent='Твои чаты появятся здесь';els.history.append(p);return; }
-  chats.forEach(chat=>{
-    const b=document.createElement('button');b.className='history-item'+(chat.id===currentChatId?' active':'');b.textContent=chat.title||'Новый чат';b.title=chat.title||'Новый чат';
-    b.addEventListener('click',()=>openChat(chat.id));els.history.append(b);
-  });
+function setBusy(value) {
+  state.busy = value;
+  $('send').disabled = value;
+  $('send').textContent = value ? '…' : '↑';
+  promptEl.disabled = value;
+  $('imageMode').disabled = value;
+}
+async function api(url, options = {}) {
+  const response = await fetch(url, { credentials: 'same-origin', ...options, headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) } });
+  let data;
+  try { data = await response.json(); } catch { data = {}; }
+  if (!response.ok) throw new Error(data.error || `Ошибка сервера (${response.status})`);
+  return data;
+}
+async function loadMe() {
+  try {
+    const data = await api('/api/auth/me');
+    state.user = data.user;
+    updateProfile();
+    if (state.user) await loadChats();
+  } catch (err) { console.warn('Проверка аккаунта:', err.message); }
+}
+function updateProfile() {
+  const loggedIn = Boolean(state.user);
+  $('profile').classList.toggle('hidden', !loggedIn);
+  $('authSide').classList.toggle('hidden', loggedIn);
+  $('loginTop').classList.toggle('hidden', loggedIn);
+  if (loggedIn) {
+    const name = state.user.name || state.user.username || 'Пользователь';
+    $('profileName').textContent = name;
+    $('profileEmail').textContent = state.user.email || state.user.username || '';
+    $('avatar').textContent = [...name][0]?.toUpperCase() || 'M';
+  }
 }
 async function loadChats() {
-  if (!user) { chats=[];renderHistory();return; }
-  try { const data=await api('/api/chats');chats=data.chats||[];renderHistory(); }
-  catch(e) { showStatus(e.message,true); }
+  if (!state.user) return;
+  try {
+    const data = await api('/api/chats');
+    state.chats = data.chats || [];
+    const history = $('history');
+    history.replaceChildren();
+    if (!state.chats.length) {
+      const empty = document.createElement('div');
+      empty.className = 'small muted'; empty.textContent = 'Пока нет чатов'; history.appendChild(empty); return;
+    }
+    for (const chat of state.chats) {
+      const button = document.createElement('button');
+      button.className = 'history-item' + (Number(chat.id) === Number(state.chatId) ? ' active' : '');
+      button.textContent = chat.title || 'Новый чат';
+      button.title = chat.title || 'Новый чат';
+      button.addEventListener('click', () => openChat(chat.id));
+      history.appendChild(button);
+    }
+  } catch (err) { console.warn('Загрузка истории:', err.message); }
 }
 async function createChat() {
-  if (!user) { openAuth('login'); showStatus('Войди, чтобы сохранять историю чатов.'); return null; }
-  const data=await api('/api/chats',{method:'POST',body:'{}'});
-  currentChatId=data.chat.id; els.messages.replaceChildren();els.welcome.classList.add('hidden');
-  await loadChats();return currentChatId;
+  if (!state.user) return null;
+  const data = await api('/api/chats', { method: 'POST', body: JSON.stringify({}) });
+  state.chatId = data.chat.id;
+  await loadChats();
+  return state.chatId;
 }
 async function openChat(id) {
   try {
-    const data=await api('/api/chats/'+encodeURIComponent(id));
-    currentChatId=data.chat.id;els.messages.replaceChildren();els.welcome.classList.add('hidden');
-    (data.messages||[]).forEach(m=>addMessage(m.role,m.content,m.image));
-    renderHistory();els.sidebar.classList.remove('open');scrollToBottom();showStatus('');
-  } catch(e) {showStatus(e.message,true);}
-}
-async function saveMessage(role, content, image=null) {
-  if (!user || !currentChatId) return;
-  await api(`/api/chats/${currentChatId}/messages`,{method:'POST',body:JSON.stringify({role,content,image})});
-}
-async function ensureChat() {
-  if (!user) return null;
-  if (!currentChatId) return await createChat();
-  return currentChatId;
-}
-async function sendMessage(text) {
-  text=text.trim();if(!text||busy)return;
-  imageModeOn=false;els.welcome.classList.add('hidden');addMessage('user',text);els.prompt.value='';resizePrompt();scrollToBottom();showStatus('');
-  setBusy(true);
-  try {
-    let chatId=null;
-    if (user) { chatId=await ensureChat(); await saveMessage('user',text); }
-    const history=[...els.messages.querySelectorAll('.message')].slice(-10).map(el=>{
-      const role=el.classList.contains('user')?'user':'assistant';
-      const bubble=el.querySelector('.bubble');
-      return {role,content:role==='assistant'?bubble.innerText:(bubble?.innerText||'')};
-    }).slice(0,-1);
-    const data=await api('/api/chat',{method:'POST',body:JSON.stringify({message:text,history})});
-    addMessage('assistant',data.reply||'ИИ не вернул текстовый ответ.');
-    if (user && currentChatId) await saveMessage('assistant',data.reply||'');
-    if (user) await loadChats();
+    showStatus('Загружаю чат…');
+    const data = await api(`/api/chats/${encodeURIComponent(id)}`);
+    state.chatId = data.chat.id;
+    messagesEl.replaceChildren();
+    $('welcome').classList.add('hidden');
+    for (const message of data.messages || []) addMessage(message.role, message.content, message.image);
+    showStatus('');
+    await loadChats();
+    $('sidebar').classList.remove('open');
     scrollToBottom();
-  } catch(e) {
-    addMessage('assistant',`**Не удалось получить ответ.**\n\n${e.message}`);
-    showStatus(e.message,true);
-  } finally {setBusy(false);els.prompt.focus();}
+  } catch (err) { showStatus(err.message, true); }
 }
-async function generateImage(prompt) {
-  prompt=prompt.trim();if(!prompt||busy)return;
-  imageModeOn=false;els.welcome.classList.add('hidden');addMessage('user','Создай изображение: '+prompt);els.prompt.value='';resizePrompt();scrollToBottom();showStatus('Генерирую изображение…');setBusy(true);
+async function saveMessage(role, content, image = null) {
+  if (!state.user || !state.chatId) return;
+  await api(`/api/chats/${encodeURIComponent(state.chatId)}/messages`, {
+    method: 'POST', body: JSON.stringify({ role, content, image })
+  });
+}
+async function sendMessage(text = promptEl.value) {
+  text = String(text || '').trim();
+  if (!text || state.busy) return;
+  if (text.length > 30000) { showStatus('Сообщение превышает лимит 30 000 символов.', true); return; }
+  const makeImage = state.imageMode;
+  promptEl.value = '';
+  promptEl.style.height = '31px';
+  $('welcome').classList.add('hidden');
+  showStatus('');
+  addMessage('user', text);
+  setBusy(true);
+  let pending;
   try {
-    const data=await api('/api/images',{method:'POST',body:JSON.stringify({prompt})});
-    const row=addMessage('assistant',`### Изображение готово\n\nОписание: ${prompt}`,data.image);
-    if (user) {
-      await ensureChat();
-      await saveMessage('user','Создай изображение: '+prompt);
-      await saveMessage('assistant',`Изображение создано по запросу: ${prompt}`,data.image);
-      await loadChats();
+    if (state.user && !state.chatId) await createChat();
+    if (state.user) await saveMessage('user', text);
+    if (makeImage) {
+      showStatus('Создаю изображение…');
+      pending = addMessage('assistant', 'Создаю изображение…');
+      const data = await api('/api/images', { method: 'POST', body: JSON.stringify({ prompt: text }) });
+      pending.row.remove();
+      addMessage('assistant', 'Готово! Вот твоё изображение:', data.image);
+      if (state.user) await saveMessage('assistant', 'Готово! Вот твоё изображение:', data.image);
+    } else {
+      pending = addMessage('assistant', 'Думаю…');
+      const history = [...messagesEl.querySelectorAll('.message')].slice(0, -2).map(row => ({
+        role: row.classList.contains('user') ? 'user' : 'assistant',
+        content: row.querySelector('.bubble')?.innerText || ''
+      })).filter(item => item.content).slice(-10);
+      const data = await api('/api/chat', { method: 'POST', body: JSON.stringify({ message: text, history }) });
+      pending.row.remove();
+      addMessage('assistant', data.reply || 'Не удалось получить ответ.');
+      if (state.user) await saveMessage('assistant', data.reply || 'Не удалось получить ответ.');
     }
-    showStatus('Изображение создано.');scrollToBottom();
-  } catch(e) {addMessage('assistant',`**Не удалось создать изображение.**\n\n${e.message}`);showStatus(e.message,true);}
-  finally {setBusy(false);els.prompt.focus();}
-}
-function resizePrompt() {
-  els.prompt.style.height='auto';
-  els.prompt.style.height=Math.min(els.prompt.scrollHeight,180)+'px';
-}
-function openAuth(mode='login') {
-  authMode=mode;els.authError.textContent='';
-  const register=mode==='register';
-  els.modalTitle.textContent=register?'Создать аккаунт':'Войти в Maut AI';
-  els.modalSubtitle.textContent=register?'Зарегистрируйся, чтобы сохранять чаты.':'Продолжи общение с ИИ.';
-  els.nameLabel.classList.toggle('hidden',!register);
-  els.name.required=register;
-  els.authSubmit.textContent=register?'Зарегистрироваться':'Войти';
-  els.switchAuth.textContent=register?'Уже есть аккаунт? Войти':'Нет аккаунта? Зарегистрироваться';
-  els.authModal.classList.add('open');els.authModal.setAttribute('aria-hidden','false');
-}
-function closeAuth(){els.authModal.classList.remove('open');els.authModal.setAttribute('aria-hidden','true');}
-function renderUser() {
-  if(user) {
-    els.profileName.textContent=user.name||user.username||'Пользователь';
-    els.profileEmail.textContent=user.email||user.username||'Вход выполнен';
-    els.avatar.textContent=(user.name||user.username||'U').trim().charAt(0).toUpperCase();
-    els.loginBtn.textContent='Выйти';
-  } else {
-    els.profileName.textContent='Гость';els.profileEmail.textContent='Войди, чтобы начать';els.avatar.textContent='G';els.loginBtn.textContent='Войти';
+    if (state.user) await loadChats();
+    showStatus('');
+  } catch (err) {
+    if (pending?.row?.isConnected) pending.row.remove();
+    addMessage('assistant', `**Ошибка:** ${err.message}`);
+    showStatus(err.message, true);
+  } finally {
+    setBusy(false);
+    state.imageMode = false;
+    $('imageMode').style.borderColor = '';
+    promptEl.focus();
+    scrollToBottom();
   }
 }
-async function refreshMe() {
-  try {const data=await api('/api/auth/me');user=data.user||null;renderUser();await loadChats();}
-  catch {user=null;renderUser();renderHistory();}
+function showAuth(register = false) {
+  state.register = register;
+  $('authTitle').textContent = register ? 'Создать аккаунт' : 'Войти в Maut AI';
+  $('authSubtitle').textContent = register ? 'Создай аккаунт, чтобы сохранять историю чатов.' : 'Рады видеть тебя снова.';
+  $('nameField').classList.toggle('hidden', !register);
+  $('authName').required = register;
+  $('authPassword').autocomplete = register ? 'new-password' : 'current-password';
+  $('authSubmit').textContent = register ? 'Зарегистрироваться' : 'Войти';
+  $('switchAuth').textContent = register ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться';
+  $('authError').textContent = '';
+  $('authModal').classList.add('open');
 }
-els.chatForm.addEventListener('submit',e=>{e.preventDefault();const value=els.prompt.value;if(imageModeOn)generateImage(value);else sendMessage(value);});
-els.prompt.addEventListener('input',resizePrompt);
-els.prompt.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();els.chatForm.requestSubmit();}});
-els.newChat.addEventListener('click',async()=>{showStatus('');if(!user){openAuth('login');return;}try{await createChat();showStatus('');els.prompt.focus();}catch(e){showStatus(e.message,true);}});
-els.imageBtn.addEventListener('click',()=>{imageModeOn=!imageModeOn;els.prompt.placeholder=imageModeOn?'Опиши изображение, которое нужно создать':'Напиши Maut AI';els.imageBtn.innerHTML=imageModeOn?'✕ <span>Отменить генерацию</span>':'＋ <span>Создать изображение</span>';els.prompt.focus();});
-els.imageMode.addEventListener('click',()=>{imageModeOn=true;els.prompt.placeholder='Опиши изображение, которое нужно создать';els.sidebar.classList.remove('open');els.prompt.focus();});
-document.querySelectorAll('[data-prompt]').forEach(b=>b.addEventListener('click',()=>{els.prompt.value=b.dataset.prompt;resizePrompt();els.prompt.focus();}));
-document.querySelectorAll('[data-image]').forEach(b=>b.addEventListener('click',()=>{imageModeOn=true;els.prompt.placeholder='Опиши изображение, которое нужно создать';els.prompt.focus();}));
-els.menuBtn.addEventListener('click',()=>els.sidebar.classList.toggle('open'));
-els.loginBtn.addEventListener('click',async()=>{
-  if(!user){openAuth('login');return;}
-  try {await api('/api/auth/logout',{method:'POST',body:'{}'});user=null;currentChatId=null;chats=[];clearMessages();renderUser();renderHistory();showStatus('Ты вышел из аккаунта.');}
-  catch(e){showStatus(e.message,true);}
-});
-els.profileMenu.addEventListener('click',()=>user?els.loginBtn.click():openAuth('login'));
-els.closeModal.addEventListener('click',closeAuth);
-els.authModal.addEventListener('click',e=>{if(e.target===els.authModal)closeAuth();});
-els.switchAuth.addEventListener('click',()=>openAuth(authMode==='login'?'register':'login'));
-els.authForm.addEventListener('submit',async e=>{
-  e.preventDefault();els.authError.textContent='';els.authSubmit.disabled=true;
+function closeAuth() { $('authModal').classList.remove('open'); }
+$('authForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  $('authError').textContent = '';
+  $('authSubmit').disabled = true;
   try {
-    const body={email:els.email.value.trim(),password:els.password.value};
-    if(authMode==='register')body.name=els.name.value.trim();
-    const data=await api(`/api/auth/${authMode}`,{method:'POST',body:JSON.stringify(body)});
-    user=data.user;renderUser();closeAuth();await loadChats();showStatus('Вход выполнен.');
-  } catch(err){els.authError.textContent=err.message;}
-  finally{els.authSubmit.disabled=false;}
+    const body = { email: $('authEmail').value.trim(), password: $('authPassword').value };
+    let endpoint = '/api/auth/login';
+    if (state.register) {
+      endpoint = '/api/auth/register';
+      body.name = $('authName').value.trim();
+    }
+    const data = await api(endpoint, { method: 'POST', body: JSON.stringify(body) });
+    state.user = data.user;
+    updateProfile(); closeAuth(); resetView(); await loadChats();
+    showStatus('Вход выполнен.'); setTimeout(() => showStatus(''), 2000);
+  } catch (err) { $('authError').textContent = err.message; }
+  finally { $('authSubmit').disabled = false; }
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeAuth();els.sidebar.classList.remove('open');}});
-refreshMe();
-})();
+$('switchAuth').addEventListener('click', () => showAuth(!state.register));
+$('closeModal').addEventListener('click', closeAuth);
+$('authModal').addEventListener('click', e => { if (e.target === $('authModal')) closeAuth(); });
+$('loginTop').addEventListener('click', () => showAuth(false));
+$('authSide').addEventListener('click', () => showAuth(false));
+$('logout').addEventListener('click', async () => {
+  try { await api('/api/auth/logout', { method: 'POST', body: JSON.stringify({}) }); } catch (err) { showStatus(err.message, true); }
+  state.user = null; state.chats = []; updateProfile(); resetView(); await loadChats();
+});
+$('newChat').addEventListener('click', () => { resetView(); loadChats(); $('sidebar').classList.remove('open'); promptEl.focus(); });
+$('brandHome').addEventListener('click', e => { e.preventDefault(); resetView(); });
+$('sidebarToggle').addEventListener('click', () => {
+  if (window.matchMedia('(max-width: 760px)').matches) {
+    $('sidebar').classList.toggle('open');
+  } else {
+    document.querySelector('.layout').classList.toggle('sidebar-collapsed');
+  }
+});
+window.addEventListener('resize', () => {
+  if (!window.matchMedia('(max-width: 760px)').matches) $('sidebar').classList.remove('open');
+});
+$('imageMode').addEventListener('click', () => {
+  state.imageMode = !state.imageMode;
+  $('imageMode').style.borderColor = state.imageMode ? 'var(--green)' : '';
+  promptEl.placeholder = state.imageMode ? 'Опиши изображение, которое нужно создать…' : 'Напиши сообщение Maut AI…';
+  promptEl.focus();
+});
+$('composer').addEventListener('submit', e => { e.preventDefault(); sendMessage(); });
+promptEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendMessage(); }
+});
+promptEl.addEventListener('input', () => {
+  promptEl.style.height = '31px';
+  promptEl.style.height = Math.min(promptEl.scrollHeight, 180) + 'px';
+});
+document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => {
+  promptEl.value = button.dataset.prompt;
+  promptEl.dispatchEvent(new Event('input'));
+  sendMessage();
+}));
+loadMe();
 </script>
 </body>
 </html>
