@@ -2,208 +2,1245 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#212121">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101014">
 <title>Maut AI</title>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 <style>
-:root{color-scheme:dark;--bg:#212121;--side:#171717;--panel:#2f2f2f;--panel-hover:#383838;--line:#383838;--text:#ececec;--muted:#a0a0a0;--green:#10a37f}*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden}body{background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}button,input,textarea{font:inherit}button{cursor:pointer;color:inherit}.layout{display:flex;width:100%;height:100dvh;min-height:0;overflow:hidden}.sidebar{width:260px;flex:0 0 260px;background:var(--side);padding:12px;display:flex;flex-direction:column;height:100%;min-height:0;overflow-y:auto;transition:width .2s,flex-basis .2s,padding .2s}.layout.sidebar-collapsed .sidebar{width:0;flex-basis:0;padding-left:0;padding-right:0;overflow:hidden;border:0}.brand{height:46px;display:flex;align-items:center;gap:10px;padding:0 9px;text-decoration:none;color:var(--text);font-weight:650;font-size:17px}.brand-icon{width:30px;height:30px;display:grid;place-items:center;flex:0 0 30px;border-radius:7px;background:#080808;color:#fff;font-size:20px;font-weight:800;line-height:1}.new-chat{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #414141;background:transparent;border-radius:9px;padding:11px 12px;margin:12px 0 24px}.new-chat:hover,.side-action:hover{background:#242424}.history-label{font-size:12px;color:#aaa;padding:0 10px 8px}.history{overflow:auto;min-height:0}.history-item{display:block;width:100%;padding:9px 10px;border:0;background:transparent;border-radius:8px;text-align:left;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:13px}.history-item:hover,.history-item.active{background:#292929}.muted{color:var(--muted)}.small{font-size:12px;padding:0 10px}.side-bottom{margin-top:auto}.side-action{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;border-radius:9px;text-align:left;padding:11px 10px}.profile{display:flex;align-items:center;gap:9px;border-top:1px solid #303030;margin-top:12px;padding:14px 3px 3px}.avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#6559a6;font-weight:650;flex-shrink:0}.profile-info{flex:1;min-width:0}.profile-info strong,.profile-info span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.profile-info strong{font-size:13px;font-weight:600}.profile-info span{font-size:11px;color:var(--muted)}.dots{border:0;background:transparent;font-size:20px}.main{min-width:0;flex:1;height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden}.topbar{height:60px;flex:0 0 60px;display:flex;align-items:center;padding:0 25px;gap:12px}.model-label{font-size:16px;font-weight:600}.model-label span{color:#999;margin-left:4px}.top-right{margin-left:auto}.login-button{background:transparent;border:1px solid #555;border-radius:20px;padding:7px 15px;font-size:13px}.login-button:hover{background:#333}.mobile-menu{display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex:0 0 36px;background:transparent;border:1px solid #444;border-radius:9px;font-size:18px;color:#eee}.mobile-menu:hover{background:#303030}.chat-area{width:min(790px,100%);padding:30px 24px 20px;margin:0 auto;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column}.welcome{margin:auto 0;text-align:center;padding:25px 0 40px}.welcome-icon{width:48px;height:48px;display:grid;place-items:center;margin:0 auto 18px;border-radius:10px;background:#080808;color:#fff;font-size:31px;font-weight:800;line-height:1}.welcome h1{font-size:clamp(27px,4vw,34px);font-weight:600;letter-spacing:-.8px;margin:0 0 10px}.welcome p{margin:0;color:#aaa;font-size:15px}.suggestions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:580px;margin:28px auto 0;text-align:left}.suggestion{min-height:84px;position:relative;display:grid;grid-template-columns:24px 1fr;grid-template-rows:auto auto;align-content:center;column-gap:9px;text-align:left;padding:15px;border:1px solid #454545;background:transparent;border-radius:13px}.suggestion:hover{background:#2b2b2b}.suggestion>span{grid-row:1/3;font-size:18px;color:#c2c2c2}.suggestion b{font-size:13px;font-weight:550}.suggestion small{font-size:12px;color:#999;margin-top:3px}.composer-wrap{width:min(790px,100%);flex:0 0 auto;position:relative;z-index:5;padding:0 24px max(18px,env(safe-area-inset-bottom));margin:0 auto;background:var(--bg)}.composer{background:#2f2f2f;border:1px solid #484848;border-radius:25px;padding:12px 13px 10px;box-shadow:0 5px 20px #00000012}.composer:focus-within{border-color:#666}.composer textarea{display:block;width:100%;resize:none;max-height:180px;min-height:31px;outline:0;border:0;background:transparent;color:var(--text);padding:4px 4px 12px}.composer textarea::placeholder{color:#aaa}.composer-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px}.composer-actions{display:flex;align-items:center;gap:10px;min-width:0}.tool{border:1px solid #555;background:transparent;border-radius:18px;padding:6px 11px;font-size:12px;color:#ddd}.tool:hover{background:#404040}.hint{font-size:10px;color:#858585}.send{width:34px;height:34px;border:0;border-radius:50%;background:#eee;color:#202020;font-size:22px;line-height:1;flex-shrink:0}.send:disabled{opacity:.45;cursor:wait}.fine-print{text-align:center;color:#858585;font-size:11px;margin:9px 0 0}.messages{display:flex;flex-direction:column;gap:25px;min-width:0}.message{display:flex;gap:12px;align-items:flex-start;min-width:0}.message.user{justify-content:flex-end}.bubble{max-width:88%;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.7}.message.user .bubble{background:#303030;border-radius:20px;padding:10px 15px;max-width:80%}.message.assistant .bubble{padding:2px 0;flex:1;max-width:100%;white-space:normal;line-height:1.75}.message-mark{width:28px;height:28px;flex-shrink:0;border-radius:7px;display:grid;place-items:center;background:#080808;color:#fff;font-size:18px;font-weight:800}.message-image{display:block;max-width:min(100%,520px);border-radius:12px;margin-top:12px}.download-link{display:inline-block;margin-top:8px;color:#b7d9ff}.status{display:none;margin:0 auto 10px;width:100%;font-size:13px;color:#d7d7d7}.status.show{display:block}.status.error{color:#ffaaa7}.modal-layer{position:fixed;inset:0;z-index:20;background:#0009;display:none;place-items:center;padding:20px}.modal-layer.open{display:grid}.modal{position:relative;width:min(410px,100%);max-height:90dvh;overflow:auto;background:#242424;border:1px solid #454545;border-radius:20px;padding:28px;box-shadow:0 20px 80px #0007}.modal-x{position:absolute;right:14px;top:12px;background:transparent;border:0;font-size:24px;color:#aaa}.modal-brand{width:42px;height:42px;display:grid;place-items:center;margin:0 auto 12px;border-radius:9px;background:#080808;color:#fff;font-size:28px;font-weight:800}.modal h2{text-align:center;margin:0 0 6px;font-size:22px}.modal>p{text-align:center;color:#aaa;font-size:13px;margin:0 0 22px}.modal label{display:block;font-size:12px;color:#ccc;margin:12px 0}.modal input{display:block;width:100%;margin-top:6px;padding:11px 12px;border:1px solid #4b4b4b;background:#171717;color:white;border-radius:9px;outline:0}.modal input:focus{border-color:#999}.primary{width:100%;border:0;background:#eee;color:#222;border-radius:20px;padding:10px;font-weight:600;margin-top:8px}.switch-auth{display:block;margin:15px auto 0;border:0;background:transparent;color:#ccc;font-size:12px}.form-error{color:#ff9c97;font-size:12px;margin:5px 0}.hidden{display:none!important}
-/* Markdown styling */.message.assistant .bubble h1,.message.assistant .bubble h2,.message.assistant .bubble h3,.message.assistant .bubble h4{color:var(--text);line-height:1.35;margin:24px 0 12px;font-weight:650}.message.assistant .bubble h1{font-size:26px}.message.assistant .bubble h2{font-size:22px}.message.assistant .bubble h3{font-size:18px}.message.assistant .bubble p{margin:0 0 14px}.message.assistant .bubble p:last-child{margin-bottom:0}.message.assistant .bubble ul,.message.assistant .bubble ol{padding-left:26px;margin:10px 0 18px}.message.assistant .bubble li{padding-left:4px;margin:5px 0}.message.assistant .bubble strong{font-weight:700;color:#fff}.message.assistant .bubble a{color:#9ecbff;text-decoration:underline;text-underline-offset:3px}.message.assistant .bubble blockquote{margin:16px 0;padding:10px 16px;border-left:3px solid #777;background:#292929;color:#ccc;border-radius:0 8px 8px 0}.message.assistant .bubble pre{max-width:100%;overflow-x:auto;padding:16px;margin:14px 0;border:1px solid #404040;border-radius:12px;background:#171717;line-height:1.6}.message.assistant .bubble pre code{padding:0;background:transparent;white-space:pre}.message.assistant .bubble :not(pre)>code{padding:2px 6px;border-radius:5px;background:#373737;font-family:Consolas,Monaco,monospace;font-size:.9em}.message.assistant .bubble table{display:block;width:100%;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:16px 0}.message.assistant .bubble th,.message.assistant .bubble td{border:1px solid #454545;padding:9px 12px;text-align:left}.message.assistant .bubble th{background:#303030;font-weight:650}.message.assistant .bubble tr:nth-child(even){background:#292929}.message.assistant .bubble hr{border:0;border-top:1px solid #414141;margin:22px 0}.message.assistant .bubble img{max-width:100%;height:auto;border-radius:10px}.message.assistant .bubble pre code{display:block}
-@media(max-width:760px){
-  html,body{height:100%;min-height:100%;overflow:hidden;overscroll-behavior:none}
-  .layout{height:100dvh;min-height:0;width:100%;overflow:hidden}
-  .sidebar,.layout.sidebar-collapsed .sidebar{width:min(300px,86vw);flex:0 0 min(300px,86vw);padding:12px;position:fixed;z-index:40;left:0;top:0;bottom:0;height:100dvh;transform:translateX(-105%);transition:transform .22s ease;box-shadow:15px 0 50px #0008;overflow-y:auto;overflow-x:hidden}
-  .sidebar.open{transform:translateX(0)}
-  .layout:has(.sidebar.open)::after{content:"";position:fixed;inset:0;z-index:35;background:#0008}
-  .main{width:100%;min-width:0;height:100dvh}
-  .topbar{height:54px;flex-basis:54px;padding:0 12px;gap:9px}
-  .mobile-menu{display:flex;width:36px;height:36px;flex:0 0 36px}
-  .model-label{font-size:15px}
-  .chat-area{width:100%;padding:16px 12px 14px;min-width:0}
-  .welcome{padding:12px 0 22px;margin:auto 0}
-  .welcome-icon{margin-bottom:14px}
-  .welcome h1{font-size:clamp(24px,7vw,29px);letter-spacing:-.5px}
-  .welcome p{font-size:14px}
-  .suggestions{grid-template-columns:1fr;gap:8px;width:100%;max-width:460px;margin-top:20px}
-  .suggestion{min-height:68px;padding:12px 13px}
-  .composer-wrap{width:100%;padding:8px 10px max(10px,env(safe-area-inset-bottom));}
-  .composer{border-radius:19px;padding:10px 11px 9px}
-  .composer textarea{font-size:16px;min-height:30px;max-height:140px;padding:3px 3px 9px}
-  .composer-bottom{gap:7px}
-  .composer-actions{gap:6px}
-  .tool{padding:6px 9px;font-size:11px}
-  .hint{display:none}
-  .send{width:36px;height:36px}
-  .fine-print{font-size:10px;margin-top:7px}
-  .bubble{font-size:14px;max-width:94%}
-  .message.user .bubble{max-width:88%}
-  .message{gap:8px}
-  .message-mark{width:25px;height:25px;flex-basis:25px}
-  .modal-layer{padding:12px;align-items:center}
-  .modal{width:100%;max-width:410px;max-height:calc(100dvh - 24px);padding:22px 18px;border-radius:17px}
-  .admin-user{grid-template-columns:minmax(0,1fr) 82px 58px;gap:5px;font-size:11px}
-  .admin-grid{grid-template-columns:minmax(0,1fr) 90px}
-  .account-popover{left:8px;bottom:76px;width:min(270px,calc(100vw - 32px))}
+:root {
+  color-scheme: dark;
+  --bg: #101014;
+  --panel: #17171d;
+  --panel2: #202027;
+  --border: #2b2b35;
+  --text: #f5f5f7;
+  --muted: #92929f;
+  --accent: #a78bfa;
+  --accent2: #8059e8;
+  --danger: #f87171;
+  --sidebar: 270px;
 }
-@media(max-width:380px){
-  .topbar{padding:0 9px}
-  .chat-area{padding-left:9px;padding-right:9px}
-  .composer-wrap{padding-left:7px;padding-right:7px}
-  .suggestion{min-height:62px}
-  .welcome h1{font-size:24px}
-  .tool{font-size:10px;padding:6px 7px}
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
 }
-
-.rank-pill{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:3px 8px;border:1px solid #555;border-radius:20px;font-size:10px;letter-spacing:.08em;color:#ddd;background:#292929}.rank-pill[data-rank="ADMIN"]{border-color:#b99a54;color:#f0d58b}.rank-pill[data-rank="MODER"]{border-color:#8b79c9;color:#c8baff}.rank-pill[data-rank="PLUS"]{border-color:#4d9d85;color:#8de0c1}.account-tools{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.account-tools button{border:1px solid #454545;background:#242424;color:#ddd;border-radius:8px;padding:7px 9px;font-size:11px}.account-tools button:hover{background:#333}.admin-modal{width:min(720px,100%)}.admin-users{max-height:280px;overflow:auto;margin-top:12px}.admin-user{display:grid;grid-template-columns:minmax(0,1fr) 90px 70px 65px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid #393939;font-size:12px}.admin-user select,.admin-modal select,.admin-modal input{width:100%;padding:9px;border:1px solid #4b4b4b;background:#171717;color:#eee;border-radius:8px}.admin-modal h3{font-size:14px;margin:20px 0 8px}.admin-result{white-space:pre-wrap;overflow-wrap:anywhere;background:#171717;border:1px solid #414141;border-radius:9px;padding:10px;font-size:12px;margin-top:10px}.admin-grid{display:grid;grid-template-columns:1fr 110px;gap:8px}
-
-/* Account menu and administration */
-.profile{position:relative}.account-popover{position:absolute;z-index:30;left:12px;bottom:82px;width:min(270px,calc(100vw - 32px));padding:8px;background:#252525;border:1px solid #444;border-radius:14px;box-shadow:0 18px 55px #0009;animation:menuIn .18s ease both}.account-popover button{display:block;width:100%;padding:11px 12px;text-align:left;border:0;border-radius:8px;background:transparent;color:#eee;font-size:13px}.account-popover button:hover{background:#383838}.discord-note{border-top:1px solid #414141;margin-top:6px;padding:10px 12px;color:#aaa;font-size:11px}.discord-note b{color:#ddd}.admin-user{grid-template-columns:minmax(0,1fr) 105px 75px;gap:7px}.admin-user button{border:1px solid #555;background:#333;color:#eee;border-radius:8px;padding:7px}.admin-user .ban-action{border-color:#754343;color:#ffaaa7}.request-card{padding:12px;margin:8px 0;border:1px solid #444;border-radius:11px;background:#292929}.request-card strong,.request-card small{display:block}.request-card small{color:#aaa;margin:4px 0 9px}.request-actions{display:flex;gap:8px}.request-actions button{flex:1;border:1px solid #555;background:#363636;color:#eee;border-radius:8px;padding:8px}.request-actions .approve{background:#174d3d;border-color:#28765d}.request-actions .reject{background:#4c2929;border-color:#754343}@keyframes menuIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
-
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; color: inherit; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.app {
+  display: flex;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+}
+.sidebar {
+  width: var(--sidebar);
+  flex: 0 0 var(--sidebar);
+  background: #141419;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 18px 13px;
+  z-index: 30;
+  transition: transform .25s ease;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 4px 8px 22px;
+}
+.brand-logo {
+  width: 36px; height: 36px;
+  border-radius: 12px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, #b69aff, #7045d8);
+  color: white;
+  font-weight: 900;
+  font-size: 19px;
+}
+.brand-name { font-weight: 750; font-size: 18px; letter-spacing: -.5px; }
+.brand-sub { color: var(--muted); font-size: 11px; margin-top: 2px; }
+.side-button {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  margin-bottom: 9px;
+  transition: .2s;
+}
+.side-button:hover, .chat-item:hover { background: var(--panel2); }
+.side-button.primary {
+  background: var(--accent2);
+  border-color: transparent;
+  color: white;
+}
+.side-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 20px 9px 9px;
+  text-transform: uppercase;
+}
+.chat-list { flex: 1; overflow-y: auto; min-height: 0; }
+.chat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  color: #c9c9d2;
+  font-size: 13px;
+  cursor: pointer;
+  margin: 2px 0;
+}
+.chat-item.active { background: #292532; color: white; }
+.chat-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; flex: 1; }
+.chat-delete {
+  border: 0; background: transparent; color: var(--muted);
+  padding: 4px; border-radius: 6px;
+}
+.chat-delete:hover { color: var(--danger); }
+.profile {
+  border-top: 1px solid var(--border);
+  padding: 13px 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: #302744; display: grid; place-items: center;
+  color: #d9caff; font-weight: 700;
+}
+.profile-info { flex: 1; min-width: 0; }
+.profile-name { font-size: 13px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; }
+.profile-rank { font-size: 11px; color: var(--accent); margin-top: 3px; }
+.icon-button {
+  border: 0; background: transparent; border-radius: 9px;
+  padding: 9px; color: var(--muted);
+}
+.icon-button:hover { background: var(--panel2); color: white; }
+.main {
+  flex: 1; min-width: 0; height: 100%;
+  display: flex; flex-direction: column;
+  position: relative;
+}
+.topbar {
+  height: 62px; flex: 0 0 62px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 22px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+}
+.topbar-left { display: flex; align-items: center; gap: 10px; }
+.top-title { font-size: 14px; font-weight: 650; }
+.top-actions { display: flex; align-items: center; gap: 7px; }
+.rank-pill {
+  border: 1px solid #51416e;
+  color: #d0baff; background: #282036;
+  border-radius: 20px; padding: 6px 11px; font-size: 11px;
+}
+.content {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.welcome {
+  margin: auto;
+  width: min(720px, calc(100% - 38px));
+  padding: 35px 0;
+}
+.welcome-logo {
+  width: 54px; height: 54px; border-radius: 18px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, #b69aff, #7045d8);
+  font-size: 27px; font-weight: 900;
+  margin-bottom: 25px;
+  box-shadow: 0 12px 45px #8059e833;
+}
+.welcome h1 { font-size: clamp(28px, 5vw, 42px); margin: 0 0 10px; letter-spacing: -1.6px; }
+.welcome p { color: var(--muted); line-height: 1.6; margin: 0; }
+.suggestions {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 10px; margin-top: 32px;
+}
+.suggestion {
+  border: 1px solid var(--border); border-radius: 14px;
+  background: #17171d; padding: 15px;
+  text-align: left; transition: .2s;
+}
+.suggestion:hover { border-color: #7355ad; background: #201c29; }
+.suggestion strong { display: block; font-size: 13px; margin-bottom: 5px; }
+.suggestion span { color: var(--muted); font-size: 12px; }
+.messages {
+  width: min(820px, calc(100% - 36px));
+  margin: 0 auto;
+  padding: 26px 0 34px;
+  display: flex; flex-direction: column; gap: 24px;
+}
+.message { display: flex; gap: 12px; align-items: flex-start; }
+.message.user { flex-direction: row-reverse; }
+.message-avatar {
+  flex: 0 0 31px; width: 31px; height: 31px;
+  border-radius: 11px; display: grid; place-items: center;
+  background: #292433; color: #d4c3ff; font-size: 12px; font-weight: 800;
+}
+.message.user .message-avatar { background: #33333d; color: white; }
+.message-body { max-width: min(690px, calc(100% - 45px)); min-width: 0; }
+.message-name { color: var(--muted); font-size: 11px; margin: 1px 0 7px; }
+.message-text {
+  font-size: 14px; line-height: 1.75; overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.message.user .message-text {
+  background: #24232b; border: 1px solid #32313b;
+  padding: 11px 14px; border-radius: 16px 5px 16px 16px;
+}
+.message-image {
+  max-width: min(100%, 520px); display: block;
+  border-radius: 13px; margin-top: 10px;
+  border: 1px solid var(--border);
+}
+.composer-area {
+  padding: 12px 20px max(17px, env(safe-area-inset-bottom));
+  background: linear-gradient(transparent, var(--bg) 18%);
+}
+.composer-wrap { width: min(820px, 100%); margin: 0 auto; }
+.composer {
+  border: 1px solid #383640; background: #1b1a21;
+  border-radius: 18px; padding: 10px 11px;
+  display: flex; align-items: flex-end; gap: 8px;
+  box-shadow: 0 10px 35px #0003;
+}
+.composer textarea {
+  flex: 1; min-width: 0; resize: none; outline: none;
+  border: 0; background: transparent; color: white;
+  min-height: 27px; max-height: 160px;
+  padding: 5px 3px; line-height: 1.5;
+}
+.composer textarea::placeholder { color: #777681; }
+.send-button {
+  width: 38px; height: 38px; flex: 0 0 38px;
+  border: 0; border-radius: 12px;
+  background: var(--accent2); color: white;
+  font-size: 18px; font-weight: 800;
+}
+.send-button:hover { background: #966ff0; }
+.composer-tool {
+  width: 36px; height: 36px; border: 0;
+  background: transparent; color: var(--muted);
+  border-radius: 10px; font-size: 17px;
+}
+.composer-tool:hover { background: #302d38; color: white; }
+.disclaimer {
+  color: #686773; font-size: 10px;
+  text-align: center; padding-top: 9px;
+}
+.overlay {
+  display: none; position: fixed; inset: 0;
+  background: #0009; z-index: 25;
+}
+.overlay.show { display: block; }
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 60;
+  background: #000a; display: none;
+  align-items: center; justify-content: center; padding: 18px;
+}
+.modal-backdrop.show { display: flex; }
+.modal {
+  width: min(420px, 100%); max-height: 90dvh; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: 19px;
+  background: #19191f; padding: 23px;
+  box-shadow: 0 25px 90px #0009;
+}
+.modal h2 { margin: 0 0 8px; font-size: 21px; }
+.modal-desc { color: var(--muted); font-size: 13px; line-height: 1.5; margin-bottom: 20px; }
+.field { margin: 12px 0; }
+.field label { display: block; font-size: 12px; color: #b7b6c1; margin-bottom: 7px; }
+.field input, .field textarea, .field select {
+  width: 100%; padding: 12px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: #111116; color: white; outline: none;
+}
+.field input:focus, .field textarea:focus { border-color: var(--accent); }
+.modal-actions { display: flex; gap: 9px; margin-top: 18px; }
+.action {
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 11px 14px; background: #25242c;
+}
+.action.primary { background: var(--accent2); border-color: transparent; flex: 1; }
+.action.full { width: 100%; }
+.text-button { border: 0; background: transparent; color: #b99cff; padding: 12px 0 0; }
+.error-text { color: var(--danger); font-size: 12px; min-height: 18px; margin-top: 9px; }
+.toast {
+  position: fixed; z-index: 90; left: 50%; bottom: 25px;
+  transform: translate(-50%, 20px); opacity: 0;
+  background: #292831; border: 1px solid #494653;
+  color: white; padding: 11px 16px; border-radius: 12px;
+  font-size: 13px; pointer-events: none; transition: .2s;
+  max-width: calc(100% - 30px); text-align: center;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.typing { color: var(--muted); font-size: 13px; padding: 5px 0; }
+.hidden { display: none !important; }
+@media (max-width: 760px) {
+  .sidebar {
+    position: fixed; inset: 0 auto 0 0;
+    width: min(300px, 86vw);
+    transform: translateX(-105%);
+    box-shadow: 20px 0 50px #0006;
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(15px, env(safe-area-inset-bottom));
+  }
+  .sidebar.open { transform: translateX(0); }
+  .main { width: 100%; }
+  .topbar { height: 55px; flex-basis: 55px; padding: 0 11px; }
+  .topbar .icon-button { padding: 8px; }
+  .top-title { font-size: 13px; }
+  .welcome { width: calc(100% - 34px); padding: 24px 0; }
+  .welcome-logo { width: 47px; height: 47px; border-radius: 15px; margin-bottom: 19px; }
+  .welcome h1 { font-size: 30px; }
+  .welcome p { font-size: 13px; }
+  .suggestions { grid-template-columns: 1fr; gap: 8px; margin-top: 23px; }
+  .suggestion { padding: 12px; }
+  .messages { width: calc(100% - 25px); padding: 19px 0 24px; gap: 19px; }
+  .message { gap: 8px; }
+  .message-avatar { width: 29px; height: 29px; flex-basis: 29px; }
+  .message-body { max-width: calc(100% - 37px); }
+  .message-text { font-size: 13.5px; }
+  .composer-area { padding: 8px 9px max(10px, env(safe-area-inset-bottom)); }
+  .composer { border-radius: 16px; padding: 7px; gap: 4px; }
+  .composer textarea { font-size: 16px; max-height: 120px; }
+  .composer-tool { width: 33px; height: 36px; }
+  .send-button { width: 36px; height: 36px; flex-basis: 36px; }
+  .disclaimer { font-size: 9px; padding-top: 6px; }
+  .rank-pill { font-size: 10px; padding: 5px 8px; }
+}
+@media (max-width: 380px) {
+  .topbar { padding: 0 7px; }
+  .top-actions { gap: 2px; }
+  .rank-pill { display: none; }
+  .welcome h1 { font-size: 27px; }
+  .composer-tool { width: 29px; }
+}
+@media (min-width: 761px) {
+  .mobile-only { display: none !important; }
+}
 </style>
 </head>
 <body>
-<div class="layout">
+<div class="app">
   <aside class="sidebar" id="sidebar">
-    <a class="brand" href="#" id="brandHome"><span class="brand-icon">L</span><span>Maut AI</span></a>
-    <button class="new-chat" id="newChat"><span>＋</span> Новый чат</button>
-    <div class="history-label">История</div>
-    <div class="history" id="history"><div class="small muted">Войди, чтобы сохранять чаты</div></div>
-    <div class="side-bottom">
-      <button class="side-action" id="authSide">♙ <span>Войти в аккаунт</span></button><div class="account-tools hidden" id="accountTools"><button type="button" id="redeemOpen">Активировать код</button><button type="button" id="adminOpen" class="hidden">Панель ADMIN</button></div>
-      <div class="profile hidden" id="profile"><div class="avatar" id="avatar">M</div><div class="profile-info"><strong id="profileName">Пользователь</strong><span id="profileEmail">Аккаунт</span><span class="rank-pill" id="rankBadge" data-rank="FREE">FREE</span></div><button class="dots" id="accountMenuToggle" title="Меню аккаунта" aria-label="Меню аккаунта">⋯</button></div>
-    </div>
-      <div class="account-popover hidden" id="accountPopover">
-        <button type="button" id="menuPlusRequest">Получить PLUS</button>
-        <button type="button" id="menuStaffRequest">Заявка на MODER / ADMIN</button>
-        <button type="button" id="menuAdmin" class="hidden">Управление сайтом</button>
-        <button type="button" id="logout">Выйти из аккаунта</button>
-        <div class="discord-note">Поддержка и новости: <b>Discord</b></div>
+    <div class="brand">
+      <div class="brand-logo">M</div>
+      <div>
+        <div class="brand-name">Maut AI</div>
+        <div class="brand-sub">Your personal assistant</div>
       </div>
+      <button class="icon-button mobile-only" style="margin-left:auto" onclick="closeSidebar()">✕</button>
+    </div>
+
+    <button class="side-button primary" onclick="newChat()">
+      <span>＋</span><span>Новый чат</span>
+    </button>
+    <button class="side-button" onclick="openImageModal()">
+      <span>▧</span><span>Создать изображение</span>
+    </button>
+
+    <div class="side-label">История чатов</div>
+    <div class="chat-list" id="chatList"></div>
+
+    <div class="profile">
+      <div class="avatar" id="profileAvatar">M</div>
+      <div class="profile-info">
+        <div class="profile-name" id="profileName">Гость</div>
+        <div class="profile-rank" id="profileRank">FREE</div>
+      </div>
+      <button class="icon-button" title="Аккаунт" onclick="openAccount()">⚙</button>
+    </div>
   </aside>
-    <main class="main">
-    <header class="topbar"><button class="mobile-menu" id="sidebarToggle" type="button" aria-label="Открыть или закрыть боковую панель" title="Открыть или закрыть меню">☰</button><div class="model-label">Maut AI <span>▾</span></div><div class="top-right"><button class="login-button" id="loginTop">Войти</button></div></header>
-    <section class="chat-area" id="chatArea">
-      <div class="welcome" id="welcome"><div class="welcome-icon">L</div><h1>Чем могу помочь?</h1><p>Спроси что угодно — начнём.</p><div class="suggestions"><button class="suggestion" data-prompt="Объясни сложную тему простыми словами"><span>✧</span><b>Объяснить тему</b><small>Просто и понятно</small></button><button class="suggestion" data-prompt="Напиши пример кода и объясни, как он работает"><span>⌘</span><b>Написать код</b><small>С примерами и пояснениями</small></button><button class="suggestion" data-prompt="Помоги придумать идею для проекта"><span>✎</span><b>Придумать идею</b><small>Для нового проекта</small></button><button class="suggestion" data-prompt="Составь пошаговый план обучения программированию"><span>↗</span><b>Составить план</b><small>Шаг за шагом</small></button></div></div>
-      <div class="messages" id="messages"></div>
+
+  <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="icon-button mobile-only" onclick="openSidebar()">☰</button>
+        <div class="top-title" id="topTitle">Новый чат</div>
+      </div>
+      <div class="top-actions">
+        <span class="rank-pill" id="topRank">FREE</span>
+        <button class="icon-button" onclick="openAccount()" title="Аккаунт">◉</button>
+      </div>
+    </header>
+
+    <section class="content" id="content">
+      <div class="welcome" id="welcome">
+        <div class="welcome-logo">M</div>
+        <h1>Чем могу помочь?</h1>
+        <p>Привет! Я Maut AI. Задай вопрос, попроси помочь с идеей или создай изображение.</p>
+        <div class="suggestions">
+          <button class="suggestion" onclick="useSuggestion('Помоги придумать оригинальную идею для игры.')">
+            <strong>🎮 Создать игру</strong>
+            <span>Придумать концепцию и механику</span>
+          </button>
+          <button class="suggestion" onclick="useSuggestion('Объясни сложную тему простыми словами.')">
+            <strong>📚 Учёба</strong>
+            <span>Разобраться в сложной теме</span>
+          </button>
+          <button class="suggestion" onclick="useSuggestion('Напиши интересную историю с атмосферой загадки.')">
+            <strong>✍️ Написать историю</strong>
+            <span>Создать сюжет или сценарий</span>
+          </button>
+          <button class="suggestion" onclick="openImageModal()">
+            <strong>🖼 Создать изображение</strong>
+            <span>Превратить идею в картинку</span>
+          </button>
+        </div>
+      </div>
+      <div class="messages hidden" id="messages"></div>
     </section>
-    <div class="composer-wrap"><div class="status" id="status"></div><form class="composer" id="composer"><textarea id="prompt" rows="1" maxlength="30000" placeholder="Напиши сообщение Maut AI..." aria-label="Сообщение"></textarea><div class="composer-bottom"><div class="composer-actions"><button class="tool" type="button" id="imageMode">✧ <span>Создать изображение</span></button><span class="hint">Enter — отправить · Shift+Enter — новая строка</span></div><button class="send" id="send" type="submit" aria-label="Отправить">↑</button></div></form><div class="fine-print">Maut AI может допускать ошибки. Проверяй важную информацию.</div></div>
+
+    <footer class="composer-area">
+      <div class="composer-wrap">
+        <div class="composer">
+          <button class="composer-tool" title="Создать изображение" onclick="openImageModal()">＋</button>
+          <textarea id="messageInput" rows="1" placeholder="Напиши сообщение..." onkeydown="handleInputKey(event)" oninput="resizeInput(this)"></textarea>
+          <button class="send-button" id="sendButton" onclick="sendMessage()">↑</button>
+        </div>
+        <div class="disclaimer">Maut AI может допускать ошибки. Проверяй важную информацию.</div>
+      </div>
+    </footer>
   </main>
 </div>
-<div class="modal-layer" id="authModal"><form class="modal" id="authForm"><button class="modal-x" type="button" id="closeModal" aria-label="Закрыть">×</button><div class="modal-brand">L</div><h2 id="authTitle">Войти в Maut AI</h2><p id="authSubtitle">Рады видеть тебя снова.</p><div id="nameField" class="hidden"><label>Имя<input id="authName" autocomplete="name" maxlength="60"></label></div><label>Email<input id="authEmail" type="email" autocomplete="email" required maxlength="254"></label><label>Пароль<input id="authPassword" type="password" autocomplete="current-password" required minlength="8" maxlength="128"></label><div class="form-error" id="authError"></div><button class="primary" id="authSubmit" type="submit">Войти</button><button class="switch-auth" id="switchAuth" type="button">Нет аккаунта? Зарегистрироваться</button></form></div>
 
-<div class="modal-layer" id="redeemModal"><form class="modal" id="redeemForm"><button class="modal-x" type="button" data-close="redeemModal">×</button><div class="modal-brand">L</div><h2>Активация ранга</h2><p>Введи код, полученный от администратора.</p><label>Код ранга<input id="redeemCode" autocomplete="off" placeholder="MAUT-…" required maxlength="80"></label><div class="form-error" id="redeemError"></div><button class="primary" type="submit" id="redeemSubmit">Активировать</button></form></div>
-<div class="modal-layer" id="requestModal"><form class="modal" id="requestForm"><button class="modal-x" type="button" data-close="requestModal">×</button><div class="modal-brand">L</div><h2>Заявка на ранг</h2><p>Администратор рассмотрит твою заявку.</p><label>Желаемый ранг<select id="requestRank"><option value="PLUS">PLUS</option><option value="MODER">MODER</option><option value="ADMIN">ADMIN</option></select></label><label>Почему ты хочешь получить ранг?<input id="requestMessage" maxlength="500" placeholder="Коротко расскажи о себе"></label><div class="form-error" id="requestError"></div><button class="primary" type="submit" id="requestSubmit">Отправить заявку</button></form></div>
-<div class="modal-layer" id="adminModal"><section class="modal admin-modal"><button class="modal-x" type="button" data-close="adminModal">×</button><div class="modal-brand">L</div><h2>Панель администратора</h2><p>Управление рангами Maut AI</p><h3>Создать код ранга</h3><div class="admin-grid"><select id="codeRank"><option value="PLUS">PLUS</option><option value="MODER">MODER</option></select><input id="codeAmount" type="number" min="1" max="20" value="1" aria-label="Количество кодов"></div><button class="primary" id="createCodes" type="button">Создать коды</button><div class="admin-result hidden" id="codeResult"></div><h3>Заявки на повышение <span id="requestCount"></span></h3><div class="admin-users" id="adminRequests">Загрузка…</div><h3>Пользователи</h3><div class="admin-users" id="adminUsers">Загрузка…</div><div class="form-error" id="adminError"></div></section></div>
+<div class="modal-backdrop" id="authModal">
+  <div class="modal">
+    <h2 id="authTitle">Вход в Maut AI</h2>
+    <div class="modal-desc" id="authDescription">Войди в аккаунт, чтобы продолжить.</div>
+    <div id="registerNameField" class="field hidden">
+      <label>Имя</label>
+      <input id="authName" autocomplete="name" placeholder="Твоё имя">
+    </div>
+    <div class="field">
+      <label>Email или имя пользователя</label>
+      <input id="authLogin" autocomplete="username" placeholder="name@example.com">
+    </div>
+    <div class="field">
+      <label>Пароль</label>
+      <input id="authPassword" type="password" autocomplete="current-password" placeholder="Минимум 8 символов">
+    </div>
+    <div class="error-text" id="authError"></div>
+    <div class="modal-actions">
+      <button class="action primary" id="authSubmit" onclick="submitAuth()">Войти</button>
+      <button class="action" onclick="closeModal('authModal')">Закрыть</button>
+    </div>
+    <button class="text-button" id="authSwitch" onclick="toggleAuthMode()">Нет аккаунта? Зарегистрироваться</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="imageModal">
+  <div class="modal">
+    <h2>Создание изображения</h2>
+    <div class="modal-desc">Опиши изображение, которое хочешь получить.</div>
+    <div class="field">
+      <label>Описание</label>
+      <textarea id="imagePrompt" rows="4" placeholder="Например: заброшенный коридор, тусклый свет, реалистичная атмосфера..."></textarea>
+    </div>
+    <div class="error-text" id="imageError"></div>
+    <div class="modal-actions">
+      <button class="action primary" id="imageSubmit" onclick="generateImage()">Создать</button>
+      <button class="action" onclick="closeModal('imageModal')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="accountModal">
+  <div class="modal">
+    <h2>Аккаунт</h2>
+    <div class="modal-desc" id="accountDescription">Настройки аккаунта Maut AI.</div>
+    <div id="accountLoggedOut">
+      <button class="action primary full" onclick="openAuth('login')">Войти или зарегистрироваться</button>
+    </div>
+    <div id="accountLoggedIn" class="hidden">
+      <div class="field"><label>Имя пользователя</label><input id="accountUsername" readonly></div>
+      <div class="field"><label>Ранг</label><input id="accountRank" readonly></div>
+      <div class="field">
+        <label>Активировать код ранга</label>
+        <input id="rankCode" placeholder="MAUT-XXXXXXXX">
+        <button class="action full" style="margin-top:8px" onclick="redeemCode()">Активировать код</button>
+      </div>
+      <div class="field">
+        <label>Запросить ранг</label>
+        <select id="requestedRank">
+          <option value="PLUS">PLUS</option>
+          <option value="MODER">MODER</option>
+          <option value="ADMIN">ADMIN</option>
+        </select>
+        <textarea id="rankMessage" rows="2" style="margin-top:8px" placeholder="Почему ты хочешь получить этот ранг?"></textarea>
+        <button class="action full" style="margin-top:8px" onclick="requestRank()">Отправить заявку</button>
+      </div>
+      <button class="action full" onclick="openAdmin()" id="adminButton" style="margin-bottom:9px">Панель администратора</button>
+      <button class="action full" onclick="logout()">Выйти из аккаунта</button>
+    </div>
+    <div class="error-text" id="accountError"></div>
+    <div class="modal-actions">
+      <button class="action full" onclick="closeModal('accountModal')">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="adminModal">
+  <div class="modal">
+    <h2>Администрирование</h2>
+    <div class="modal-desc">Управление пользователями и заявками.</div>
+    <div class="field">
+      <label>Пользователи</label>
+      <div id="adminUsers" style="font-size:12px;color:var(--muted)">Загрузка...</div>
+    </div>
+    <div class="field">
+      <label>Заявки на ранги</label>
+      <div id="adminRequests" style="font-size:12px;color:var(--muted)">Загрузка...</div>
+    </div>
+    <div class="field">
+      <label>Создать код ранга</label>
+      <select id="codeRank">
+        <option value="PLUS">PLUS</option>
+        <option value="MODER">MODER</option>
+      </select>
+      <input id="codeAmount" type="number" min="1" max="20" value="1" style="margin-top:8px">
+      <button class="action full" style="margin-top:8px" onclick="createCodes()">Создать коды</button>
+      <div id="createdCodes" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px"></div>
+    </div>
+    <div class="error-text" id="adminError"></div>
+    <button class="action full" onclick="closeModal('adminModal')">Закрыть</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
 <script>
-'use strict';
-const $ = id => document.getElementById(id);
-const state = { user: null, chatId: null, busy: false, imageMode: false, register: false, chats: [] };
-const messagesEl = $('messages');
-const chatArea = $('chatArea');
-const promptEl = $('prompt');
-const statusEl = $('status');
+const API = '';
+let currentUser = null;
+let currentChatId = null;
+let chats = [];
+let authMode = 'login';
+let busy = false;
 
-if (window.marked) {
-  marked.setOptions({ gfm: true, breaks: true });
-}
-function renderMarkdown(text) {
-  const source = String(text ?? '');
-  if (window.marked && window.DOMPurify) {
-    return DOMPurify.sanitize(marked.parse(source), { USE_PROFILES: { html: false } });
+const $ = id => document.getElementById(id);
+
+async function api(path, options = {}) {
+  const response = await fetch(API + path, {
+    credentials: 'same-origin',
+    ...options,
+    headers: {
+      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.headers || {})
+    }
+  });
+
+  let data = {};
+  try { data = await response.json(); } catch {}
+
+  if (!response.ok) {
+    throw new Error(data.error || `Ошибка сервера: ${response.status}`);
   }
-  const div = document.createElement('div');
-  div.textContent = source;
-  return div.innerHTML.replace(/\n/g, '<br>');
+
+  return data;
 }
-function showStatus(text = '', error = false) {
-  statusEl.textContent = text;
-  statusEl.classList.toggle('show', Boolean(text));
-  statusEl.classList.toggle('error', Boolean(error));
+
+function toast(message) {
+  const el = $('toast');
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => el.classList.remove('show'), 2800);
 }
-function scrollToBottom() {
-  requestAnimationFrame(() => { chatArea.scrollTop = chatArea.scrollHeight; });
+
+function openSidebar() {
+  $('sidebar').classList.add('open');
+  $('overlay').classList.add('show');
 }
-function addMessage(role, content, image = null, options = {}) {
+function closeSidebar() {
+  $('sidebar').classList.remove('open');
+  $('overlay').classList.remove('show');
+}
+function closeModal(id) {
+  $(id).classList.remove('show');
+}
+function showModal(id) {
+  $(id).classList.add('show');
+}
+
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;',
+    '"': '&quot;', "'": '&#39;'
+  }[char]));
+}
+
+function openAuth(mode = 'login') {
+  authMode = mode;
+  updateAuthModal();
+  showModal('authModal');
+  $('authError').textContent = '';
+}
+function updateAuthModal() {
+  const register = authMode === 'register';
+  $('authTitle').textContent = register ? 'Создать аккаунт' : 'Вход в Maut AI';
+  $('authDescription').textContent = register
+    ? 'Зарегистрируйся, чтобы пользоваться Maut AI.'
+    : 'Войди в аккаунт, чтобы продолжить.';
+  $('registerNameField').classList.toggle('hidden', !register);
+  $('authSubmit').textContent = register ? 'Зарегистрироваться' : 'Войти';
+  $('authSwitch').textContent = register
+    ? 'Уже есть аккаунт? Войти'
+    : 'Нет аккаунта? Зарегистрироваться';
+  $('authPassword').autocomplete = register ? 'new-password' : 'current-password';
+}
+function toggleAuthMode() {
+  authMode = authMode === 'login' ? 'register' : 'login';
+  updateAuthModal();
+  $('authError').textContent = '';
+}
+
+async function submitAuth() {
+  const login = $('authLogin').value.trim();
+  const password = $('authPassword').value;
+  const name = $('authName').value.trim();
+
+  if (!login || !password) {
+    $('authError').textContent = 'Заполни все обязательные поля.';
+    return;
+  }
+  if (authMode === 'register' && !name) {
+    $('authError').textContent = 'Введи своё имя.';
+    return;
+  }
+
+  $('authSubmit').disabled = true;
+  $('authError').textContent = 'Подождите...';
+
+  try {
+    let data;
+
+    if (authMode === 'register') {
+      const email = login.includes('@') ? login : '';
+      const username = login.includes('@') ? login.split('@')[0] : login;
+
+      data = await api('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, username, name, password })
+      });
+    } else {
+      data = await api('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ login, password })
+      });
+    }
+
+    currentUser = data.user;
+    closeModal('authModal');
+    updateUserUI();
+    await loadChats();
+    toast('Добро пожаловать в Maut AI!');
+  } catch (err) {
+    $('authError').textContent = err.message;
+  } finally {
+    $('authSubmit').disabled = false;
+  }
+}
+
+async function checkAuth() {
+  try {
+    const data = await api('/api/auth/me');
+    currentUser = data.user || null;
+  } catch {
+    currentUser = null;
+  }
+  updateUserUI();
+  if (currentUser) await loadChats();
+}
+
+function updateUserUI() {
+  const logged = !!currentUser;
+  const name = currentUser?.name || currentUser?.username || 'Гость';
+  const rank = currentUser?.rank || 'FREE';
+
+  $('profileName').textContent = name;
+  $('profileRank').textContent = rank;
+  $('profileAvatar').textContent = name.charAt(0).toUpperCase();
+  $('topRank').textContent = rank;
+  $('accountDescription').textContent = logged
+    ? 'Информация и настройки твоего аккаунта.'
+    : 'Войди в аккаунт, чтобы использовать все возможности.';
+
+  $('accountLoggedOut').classList.toggle('hidden', logged);
+  $('accountLoggedIn').classList.toggle('hidden', !logged);
+
+  if (logged) {
+    $('accountUsername').value = currentUser.username || '';
+    $('accountRank').value = rank;
+    $('adminButton').classList.toggle('hidden', rank !== 'ADMIN');
+  }
+}
+
+function openAccount() {
+  if (!currentUser) {
+    closeSidebar();
+    openAuth('login');
+    return;
+  }
+  updateUserUI();
+  showModal('accountModal');
+}
+
+async function logout() {
+  try {
+    await api('/api/auth/logout', { method: 'POST' });
+  } catch {}
+  currentUser = null;
+  currentChatId = null;
+  chats = [];
+  updateUserUI();
+  renderChatList();
+  showWelcome();
+  closeModal('accountModal');
+  toast('Ты вышел из аккаунта.');
+}
+
+async function loadChats() {
+  if (!currentUser) return;
+  try {
+    const data = await api('/api/chats');
+    chats = data.chats || [];
+    renderChatList();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+function renderChatList() {
+  $('chatList').innerHTML = '';
+
+  if (!currentUser) {
+    $('chatList').innerHTML = '<div style="padding:10px;color:var(--muted);font-size:12px">Войди, чтобы сохранять историю чатов.</div>';
+    return;
+  }
+
+  if (!chats.length) {
+    $('chatList').innerHTML = '<div style="padding:10px;color:var(--muted);font-size:12px">Пока нет чатов.</div>';
+    return;
+  }
+
+  for (const chat of chats) {
+    const item = document.createElement('div');
+    item.className = 'chat-item' + (Number(chat.id) === Number(currentChatId) ? ' active' : '');
+
+    const title = document.createElement('span');
+    title.className = 'chat-title';
+    title.textContent = '▤  ' + (chat.title || 'Новый чат');
+    title.onclick = () => openChat(chat.id);
+
+    const del = document.createElement('button');
+    del.className = 'chat-delete';
+    del.textContent = '×';
+    del.title = 'Удалить чат';
+    del.onclick = event => {
+      event.stopPropagation();
+      deleteChat(chat.id);
+    };
+
+    item.append(title, del);
+    $('chatList').append(item);
+  }
+}
+
+function showWelcome() {
+  $('welcome').classList.remove('hidden');
+  $('messages').classList.add('hidden');
+  $('messages').innerHTML = '';
+  $('topTitle').textContent = 'Новый чат';
+}
+
+function showMessages() {
+  $('welcome').classList.add('hidden');
+  $('messages').classList.remove('hidden');
+}
+
+async function newChat() {
+  closeSidebar();
+
+  if (!currentUser) {
+    openAuth('login');
+    return;
+  }
+
+  try {
+    const data = await api('/api/chats', {
+      method: 'POST',
+      body: JSON.stringify({})
+    });
+
+    currentChatId = data.chat.id;
+    $('topTitle').textContent = data.chat.title || 'Новый чат';
+    $('messages').innerHTML = '';
+    showMessages();
+    await loadChats();
+    $('messageInput').focus();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+async function openChat(id) {
+  closeSidebar();
+
+  if (!currentUser) return openAuth('login');
+
+  try {
+    const data = await api(`/api/chats/${id}`);
+    currentChatId = data.chat.id;
+    $('topTitle').textContent = data.chat.title || 'Новый чат';
+    showMessages();
+    $('messages').innerHTML = '';
+
+    for (const message of data.messages || []) {
+      addMessage(message.role, message.content, message.image);
+    }
+
+    renderChatList();
+    scrollToBottom();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+async function deleteChat(id) {
+  if (!confirm('Удалить этот чат?')) return;
+
+  try {
+    await api(`/api/chats/${id}`, { method: 'DELETE' });
+    if (Number(currentChatId) === Number(id)) {
+      currentChatId = null;
+      showWelcome();
+    }
+    await loadChats();
+    toast('Чат удалён.');
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+function addMessage(role, content, image = null) {
+  showMessages();
+
   const row = document.createElement('div');
-  row.className = `message ${role}`;
-  if (role === 'assistant') {
-    const mark = document.createElement('div');
-    mark.className = 'message-mark';
-    mark.textContent = 'L';
-    row.appendChild(mark);
-  }
-  const bubble = document.createElement('div');
-  bubble.className = 'bubble';
-  if (role === 'assistant' && !options.loading) bubble.innerHTML = renderMarkdown(content);
-  else bubble.textContent = content || '';
+  row.className = 'message ' + (role === 'user' ? 'user' : 'assistant');
+
+  const avatar = document.createElement('div');
+  avatar.className = 'message-avatar';
+  avatar.textContent = role === 'user'
+    ? (currentUser?.name || 'U').charAt(0).toUpperCase()
+    : 'M';
+
+  const body = document.createElement('div');
+  body.className = 'message-body';
+
+  const name = document.createElement('div');
+  name.className = 'message-name';
+  name.textContent = role === 'user'
+    ? (currentUser?.name || 'Ты')
+    : 'Maut AI';
+
+  const text = document.createElement('div');
+  text.className = 'message-text';
+  text.textContent = content || '';
+
+  body.append(name, text);
+
   if (image) {
     const img = document.createElement('img');
     img.className = 'message-image';
     img.src = image;
     img.alt = 'Созданное изображение';
     img.loading = 'lazy';
-    bubble.appendChild(img);
+    body.append(img);
   }
-  row.appendChild(bubble);
-  messagesEl.appendChild(row);
+
+  row.append(avatar, body);
+  $('messages').append(row);
   scrollToBottom();
-  return { row, bubble };
+  return row;
 }
-function resetView() {
-  messagesEl.replaceChildren();
-  $('welcome').classList.remove('hidden');
-  state.chatId = null;
-  showStatus('');
-  scrollToBottom();
+
+function scrollToBottom() {
+  const content = $('content');
+  requestAnimationFrame(() => {
+    content.scrollTop = content.scrollHeight;
+  });
 }
-function setBusy(value) {
-  state.busy = value;
-  $('send').disabled = value;
-  $('send').textContent = value ? '…' : '↑';
-  promptEl.disabled = value;
-  $('imageMode').disabled = value;
+
+function handleInputKey(event) {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    sendMessage();
+  }
 }
-async function api(url, options = {}) {
-  const response = await fetch(url, { credentials: 'same-origin', ...options, headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) } });
-  let data;
-  try { data = await response.json(); } catch { data = {}; }
-  if (!response.ok) throw new Error(data.error || `Ошибка сервера (${response.status})`);
-  return data;
+function resizeInput(element) {
+  element.style.height = 'auto';
+  element.style.height = Math.min(element.scrollHeight, 160) + 'px';
 }
-async function loadMe() {
+function useSuggestion(text) {
+  $('messageInput').value = text;
+  resizeInput($('messageInput'));
+  $('messageInput').focus();
+}
+
+async function sendMessage() {
+  if (busy) return;
+
+  const input = $('messageInput');
+  const message = input.value.trim();
+  if (!message) return;
+
+  if (!currentUser) {
+    openAuth('login');
+    return;
+  }
+
+  if (!currentChatId) {
+    await newChat();
+    if (!currentChatId) return;
+  }
+
+  input.value = '';
+  resizeInput(input);
+  busy = true;
+  $('sendButton').disabled = true;
+
+  addMessage('user', message);
+
   try {
-    const data = await api('/api/auth/me');
-    state.user = data.user;
-    updateProfile();
-    if (state.user) { await loadChats(); await refreshRank(); }
-  } catch (err) { console.warn('Проверка аккаунта:', err.message); }
-}
-function updateProfile() {
-  const loggedIn = Boolean(state.user);
-  $('profile').classList.toggle('hidden', !loggedIn);
-  $('authSide').classList.toggle('hidden', loggedIn);
-  $('loginTop').classList.toggle('hidden', loggedIn);
-  $('accountTools').classL
-   const root=$('adminUsers'); root.replaceChildren();
-    for(const user of data.users||[]){
-      const row=document.createElement('div'); row.className='admin-user';
-      const info=document.createElement('div'); info.textContent=`${user.display_name||user.username} · ${user.email||''}`;
-      const select=document.createElement('select'); for(const rank of ['FREE','PLUS','MODER','ADMIN']){const opt=document.createElement('option');opt.value=rank;opt.textContent=rank;opt.selected=rank===user.rank;select.appendChild(opt);}
-      const save=document.createElement('button'); save.type='button'; save.textContent='Сохранить'; save.addEventListener('click',async()=>{try{await api(`/api/admin/users/${user.id}/rank`,{method:'POST',body:JSON.stringify({rank:select.value})});showStatus('Ранг обновлён');}catch(err){$('adminError').textContent=err.message;}});
-      const ban=document.createElement('button'); ban.type='button'; ban.textContent=user.banned?'Разбанить':'Бан'; ban.className='ban-action'; ban.addEventListener('click',async()=>{try{await api(`/api/admin/users/${user.id}/${user.banned?'unban':'ban'}`,{method:'POST',body:JSON.stringify({reason:'Нарушение правил'})});await loadAdminUsers();}catch(err){$('adminError').textContent=err.message;}}); row.append(info,select,save,ban); root.appendChild(row);
+    await api(`/api/chats/${currentChatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ role: 'user', content: message })
+    });
+
+    const history = [...$('messages').querySelectorAll('.message')]
+      .slice(-12)
+      .map(row => ({
+        role: row.classList.contains('user') ? 'user' : 'assistant',
+        content: row.querySelector('.message-text')?.textContent || ''
+      }))
+      .filter(item => item.content);
+
+    const typing = document.createElement('div');
+    typing.className = 'typing';
+    typing.textContent = 'Maut AI печатает...';
+    $('messages').append(typing);
+    scrollToBottom();
+
+    let result;
+    try {
+      result = await api('/api/chat', {
+        method: 'POST',
+        body: JSON.stringify({ message, history: history.slice(0, -1) })
+      });
+    } finally {
+      typing.remove();
     }
-  } catch(err){$('adminUsers').textContent='Не удалось загрузить пользователей.';$('adminError').textContent=err.message;}
+
+    const reply = result.reply || 'Не удалось получить ответ.';
+    addMessage('assistant', reply);
+
+    await api(`/api/chats/${currentChatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ role: 'assistant', content: reply })
+    });
+
+    await loadChats();
+  } catch (err) {
+    addMessage('assistant', 'Ошибка: ' + err.message);
+  } finally {
+    busy = false;
+    $('sendButton').disabled = false;
+    input.focus();
+  }
 }
-$('createCodes').addEventListener('click',async()=>{
-  $('codeResult').classList.add('hidden'); $('adminError').textContent='';
-  try{const data=await api('/api/admin/codes',{method:'POST',body:JSON.stringify({rank:$('codeRank').value,amount:Number($('codeAmount').value)})});$('codeResult').textContent=data.codes.join('\n');$('codeResult').classList.remove('hidden');}
-  catch(err){$('adminError').textContent=err.message;}
+
+function openImageModal() {
+  closeSidebar();
+  if (!currentUser) {
+    openAuth('login');
+    return;
+  }
+  $('imagePrompt').value = '';
+  $('imageError').textContent = '';
+  showModal('imageModal');
+}
+
+async function generateImage() {
+  const prompt = $('imagePrompt').value.trim();
+  if (!prompt) {
+    $('imageError').textContent = 'Сначала напиши описание изображения.';
+    return;
+  }
+
+  $('imageSubmit').disabled = true;
+  $('imageError').textContent = 'Создаём изображение. Это может занять время...';
+
+  try {
+    if (!currentChatId) {
+      await newChat();
+      if (!currentChatId) return;
+    }
+
+    const result = await api('/api/images', {
+      method: 'POST',
+      body: JSON.stringify({ prompt })
+    });
+
+    closeModal('imageModal');
+    addMessage('user', 'Создай изображение: ' + prompt);
+    addMessage('assistant', 'Готово! Вот созданное изображение:', result.image);
+
+    await api(`/api/chats/${currentChatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({
+        role: 'user',
+        content: 'Создай изображение: ' + prompt
+      })
+    });
+
+    await api(`/api/chats/${currentChatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({
+        role: 'assistant',
+        content: 'Созданное изображение',
+        image: result.image
+      })
+    });
+
+    await loadChats();
+    toast('Изображение создано!');
+  } catch (err) {
+    $('imageError').textContent = err.message;
+  } finally {
+    $('imageSubmit').disabled = false;
+  }
+}
+
+async function redeemCode() {
+  const code = $('rankCode').value.trim();
+  if (!code) {
+    $('accountError').textContent = 'Введи код.';
+    return;
+  }
+
+  try {
+    const data = await api('/api/ranks/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ code })
+    });
+
+    currentUser.rank = data.rank;
+    updateUserUI();
+    $('accountError').textContent = '';
+    toast('Ранг активирован: ' + data.rank);
+  } catch (err) {
+    $('accountError').textContent = err.message;
+  }
+}
+
+async function requestRank() {
+  try {
+    await api('/api/ranks/request', {
+      method: 'POST',
+      body: JSON.stringify({
+        rank: $('requestedRank').value,
+        message: $('rankMessage').value
+      })
+    });
+
+    $('accountError').textContent = '';
+    toast('Заявка отправлена администратору.');
+  } catch (err) {
+    $('accountError').textContent = err.message;
+  }
+}
+
+async function openAdmin() {
+  if (currentUser?.rank !== 'ADMIN') {
+    toast('Недостаточно прав.');
+    return;
+  }
+
+  closeModal('accountModal');
+  showModal('adminModal');
+  $('adminUsers').textContent = 'Загрузка...';
+  $('adminRequests').textContent = 'Загрузка...';
+
+  try {
+    const [usersData, requestsData] = await Promise.all([
+      api('/api/admin/users'),
+      api('/api/admin/requests')
+    ]);
+
+    $('adminUsers').innerHTML = '';
+    for (const user of usersData.users || []) {
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--border)';
+      const title = document.createElement('div');
+      title.textContent = `${user.username} · ${user.rank}${user.banned ? ' · ЗАБЛОКИРОВАН' : ''}`;
+      title.style.color = 'white';
+      const details = document.createElement('div');
+      details.textContent = user.email || '';
+      details.style.margin = '4px 0';
+      const controls = document.createElement('div');
+      controls.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap';
+
+      const rank = document.createElement('select');
+      rank.style.cssText = 'background:#111;color:white;border:1px solid var(--border);padding:6px;border-radius:7px';
+      for (const value of ['FREE', 'PLUS', 'MODER', 'ADMIN']) {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        option.selected = user.rank === value;
+        rank.append(option);
+      }
+
+      const change = document.createElement('button');
+      change.className = 'action';
+      change.textContent = 'Ранг';
+      change.onclick = async () => {
+        try {
+          await api(`/api/admin/users/${user.id}/rank`, {
+            method: 'POST',
+            body: JSON.stringify({ rank: rank.value })
+          });
+          toast('Ранг обновлён.');
+          openAdmin();
+        } catch (err) { toast(err.message); }
+      };
+
+      const ban = document.createElement('button');
+      ban.className = 'action';
+      ban.textContent = user.banned ? 'Разблокировать' : 'Блокировать';
+      ban.onclick = async () => {
+        try {
+          if (user.banned) {
+            await api(`/api/admin/users/${user.id}/unban`, { method: 'POST' });
+          } else {
+            const reason = prompt('Причина блокировки:', 'Нарушение правил');
+            if (reason === null) return;
+            await api(`/api/admin/users/${user.id}/ban`, {
+              method: 'POST',
+              body: JSON.stringify({ reason })
+            });
+          }
+          toast('Действие выполнено.');
+          openAdmin();
+        } catch (err) { toast(err.message); }
+      };
+
+      controls.append(rank, change, ban);
+      row.append(title, details, controls);
+      $('adminUsers').append(row);
+    }
+
+    $('adminRequests').innerHTML = '';
+    if (!(requestsData.requests || []).length) {
+      $('adminRequests').textContent = 'Новых заявок нет.';
+    }
+
+    for (const request of requestsData.requests || []) {
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:9px 0;border-bottom:1px solid var(--border)';
+      const title = document.createElement('div');
+      title.textContent = `${request.username} → ${request.requested_rank}`;
+      title.style.color = 'white';
+      const description = document.createElement('div');
+      description.textContent = request.message || 'Без комментария';
+      description.style.margin = '5px 0';
+      const controls = document.createElement('div');
+      controls.style.display = 'flex';
+      controls.style.gap = '6px';
+
+      const approve = document.createElement('button');
+      approve.className = 'action';
+      approve.textContent = 'Одобрить';
+      approve.onclick = () => reviewRequest(request.id, 'APPROVE');
+
+      const reject = document.createElement('button');
+      reject.className = 'action';
+      reject.textContent = 'Отклонить';
+      reject.onclick = () => reviewRequest(request.id, 'REJECT');
+
+      controls.append(approve, reject);
+      row.append(title, description, controls);
+      $('adminRequests').append(row);
+    }
+  } catch (err) {
+    $('adminError').textContent = err.message;
+  }
+}
+
+async function reviewRequest(id, decision) {
+  try {
+    await api(`/api/admin/requests/${id}/review`, {
+      method: 'POST',
+      body: JSON.stringify({ decision })
+    });
+    toast('Заявка обработана.');
+    openAdmin();
+  } catch (err) {
+    $('adminError').textContent = err.message;
+  }
+}
+
+async function createCodes() {
+  const amount = Math.max(1, Math.min(20, Number($('codeAmount').value) || 1));
+
+  try {
+    const data = await api('/api/admin/codes', {
+      method: 'POST',
+      body: JSON.stringify({
+        rank: $('codeRank').value,
+        amount
+      })
+    });
+
+    $('createdCodes').textContent = data.codes.join('\n');
+    toast('Коды созданы.');
+  } catch (err) {
+    $('adminError').textContent = err.message;
+  }
+}
+
+document.addEventListener('click', event => {
+  if (event.target.classList.contains('modal-backdrop')) {
+    event.target.classList.remove('show');
+  }
 });
-document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>$(button.dataset.close).classList.remove('open')));
-$('redeemModal').addEventListener('click',e=>{if(e.target===$('redeemModal'))$('redeemModal').classList.remove('open');});
-$('adminModal').addEventListener('click',e=>{if(e.target===$('adminModal'))$('adminModal').classList.remove('open');});
-loadMe();
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    document.querySelectorAll('.modal-backdrop.show')
+      .forEach(modal => modal.classList.remove('show'));
+    closeSidebar();
+  }
+});
+
+checkAuth();
 </script>
 </body>
 </html>
