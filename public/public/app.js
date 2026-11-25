@@ -1,487 +1,480 @@
-
+'use strict';
 const $ = id => document.getElementById(id);
-
-const promptBox = $('prompt');
+const state = { user: null, chatId: null, busy: false, imageMode: false, register: false, chats: [] };
 const messagesEl = $('messages');
-const welcome = $('welcome');
+const chatArea = $('chatArea');
+const promptEl = $('prompt');
+const statusEl = $('status');
 
-let user = null;
-let isRegister = false;
-let imageMode = false;
-let chatMessages = [];
-let currentTitle = '';
-let isSending = false;
+if (window.marked) marked.setOptions({ gfm: true, breaks: true });
 
-function status(text, error = false) {
-  const el = $('status');
-  if (!el) return;
-
-  el.textContent = text;
-  el.classList.toggle('show', Boolean(text));
-  el.classList.toggle('error', error);
+function renderMarkdown(text) {
+  const source = String(text ?? '');
+  if (window.marked && window.DOMPurify) {
+    return DOMPurify.sanitize(marked.parse(source), { USE_PROFILES: { html: false } });
+  }
+  const div = document.createElement('div');
+  div.textContent = source;
+  return div.innerHTML.replace(/\n/g, '<br>');
 }
-
-function showAuthError(text) {
-  const el = $('authError');
-  if (el) el.textContent = text || '';
+function showStatus(text = '', error = false) {
+  statusEl.textContent = text;
+  statusEl.classList.toggle('show', Boolean(text));
+  statusEl.classList.toggle('error', Boolean(error));
 }
-
-function addMessage(role, text, image = null) {
-  welcome?.classList.add('hidden');
-
+function scrollToBottom() {
+  requestAnimationFrame(() => { chatArea.scrollTop = chatArea.scrollHeight; });
+}
+function addMessage(role, content, image = null, options = {}) {
   const row = document.createElement('div');
   row.className = `message ${role}`;
-
   if (role === 'assistant') {
     const mark = document.createElement('div');
     mark.className = 'message-mark';
-    mark.textContent = '✳';
-    row.append(mark);
+    mark.textContent = 'L';
+    row.appendChild(mark);
   }
-
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  bubble.textContent = text || '';
-
+  if (role === 'assistant' && !options.loading) bubble.innerHTML = renderMarkdown(content);
+  else bubble.textContent = content || '';
   if (image) {
     const img = document.createElement('img');
     img.className = 'message-image';
     img.src = image;
-    img.alt = 'Изображение Maut AI';
-
-    const link = document.createElement('a');
-    link.href = image;
-    link.download = 'maut-ai-image.png';
-    link.className = 'download-link';
-    link.textContent = 'Скачать изображение';
-
-    bubble.append(
-      document.createElement('br'),
-      img,
-      document.createElement('br'),
-      link
-    );
+    img.alt = 'Созданное изображение';
+    img.loading = 'lazy';
+    bubble.appendChild(img);
   }
-
-  row.append(bubble);
-  messagesEl.append(row);
-
-  window.scrollTo({
-    top: document.body.scrollHeight,
-    behavior: 'smooth'
-  });
-
-  return bubble;
+  row.appendChild(bubble);
+  messagesEl.appendChild(row);
+  scrollToBottom();
+  return { row, bubble };
 }
-
-function updateProfile() {
-  const displayName =
-    user?.name ||
-    user?.username ||
-    user?.email ||
-    'Гость';
-
-  if ($('profileName')) {
-    $('profileName').textContent = displayName;
-  }
-
-  if ($('profileEmail')) {
-    $('profileEmail').textContent =
-      user?.email || (user ? 'Аккаунт Maut AI' : 'Войди, чтобы начать');
-  }
-
-  if ($('avatar')) {
-    $('avatar').textContent = displayName.slice(0, 1).toUpperCase();
-  }
-
-  if ($('loginBtn')) {
-    $('loginBtn').textContent = user ? 'Выйти' : 'Войти';
-  }
+function resetView() {
+  messagesEl.replaceChildren();
+  $('welcome').classList.remove('hidden');
+  state.chatId = null;
+  showStatus('');
+  scrollToBottom();
 }
-
-// Универсальный запрос к серверу.
-// Cookie сессии передаётся браузером автоматически.
-async function request(url, options = {}) {
+function setBusy(value) {
+  state.busy = value;
+  $('send').disabled = value;
+  $('send').textContent = value ? '…' : '↑';
+  promptEl.disabled = value;
+  $('imageMode').disabled = value;
+}
+async function api(url, options = {}) {
   const response = await fetch(url, {
-    ...options,
     credentials: 'same-origin',
-    cache: 'no-store',
+    ...options,
     headers: {
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...(options.headers || {})
     }
   });
-
-  let data = {};
-
-  try {
-    data = await response.json();
-  } catch {
-    // Сервер мог вернуть пустой ответ.
-  }
-
-  if (!response.ok) {
-    const error = new Error(
-      data.error || `Ошибка сервера (${response.status})`
-    );
-
-    error.status = response.status;
-    throw error;
-  }
-
+  let data;
+  try { data = await response.json(); } catch { data = {}; }
+  if (!response.ok) throw new Error(data.error || `Ошибка сервера (${response.status})`);
   return data;
 }
-
-async function api(url, body = {}) {
-  return request(url, {
-    method: 'POST',
-    body: JSON.stringify(body)
-  });
-}
-
-// Восстанавливаем аккаунт из серверной сессии.
-async function checkUser() {
+async function loadMe() {
   try {
-    const data = await request('/api/auth/me', {
-      method: 'GET'
-    });
-
-    user = data.user || null;
+    const data = await api('/api/auth/me');
+    state.user = data.user;
     updateProfile();
-  } catch (error) {
-    console.error('Проверка аккаунта:', error);
-
-    // При временной сетевой ошибке не стираем состояние
-    // и не показываем ложное сообщение о выходе.
-    status('Не удалось проверить аккаунт. Обнови страницу позже.', true);
+    if (state.user) { await loadChats(); await refreshRank(); }
+  } catch (err) { console.warn('Проверка аккаунта:', err.message); }
+}
+function updateProfile() {
+  const loggedIn = Boolean(state.user);
+  $('profile').classList.toggle('hidden', !loggedIn);
+  $('authSide').classList.toggle('hidden', loggedIn);
+  $('loginTop').classList.toggle('hidden', loggedIn);
+  $('accountTools').classList.toggle('hidden', !loggedIn);
+  if (loggedIn) {
+    const name = state.user.name || state.user.username || 'Пользователь';
+    const rank = ['FREE','PLUS','MODER','ADMIN'].includes(state.user.rank) ? state.user.rank : 'FREE';
+    $('profileName').textContent = name;
+    $('profileEmail').textContent = state.user.email || state.user.username || '';
+    $('avatar').textContent = [...name][0]?.toUpperCase() || 'M';
+    $('rankBadge').textContent = rank;
+    $('rankBadge').dataset.rank = rank;
+    $('adminOpen').classList.toggle('hidden', !['ADMIN','MODER'].includes(rank));
+    $('adminOpen').textContent = 'Панель управления';
+    $('adminCodes').classList.toggle('hidden', rank !== 'ADMIN');
+    $('adminTitle').textContent = rank === 'MODER' ? 'Панель модератора' : 'Панель администратора';
+    $('adminSubtitle').textContent = rank === 'MODER' ? 'Управление пользователями' : 'Управление рангами Maut AI';
   }
 }
-
-function openAuth(register = false) {
-  isRegister = register;
-  showAuthError('');
-
-  $('authModal').classList.add('open');
-  $('authModal').setAttribute('aria-hidden', 'false');
-
-  $('modalTitle').textContent = register
-    ? 'Создать аккаунт'
-    : 'Войти в Maut AI';
-
-  $('modalSubtitle').textContent = register
-    ? 'Создай аккаунт, чтобы пользоваться Maut AI.'
-    : 'Войди в свой аккаунт Maut AI.';
-
-  $('nameLabel').classList.toggle('hidden', !register);
-  $('name').required = register;
-
-  $('password').autocomplete = register
-    ? 'new-password'
-    : 'current-password';
-
-  $('authSubmit').textContent = register
-    ? 'Зарегистрироваться'
-    : 'Войти';
-
+async function loadChats() {
+  if (!state.user) return;
+  try {
+    const data = await api('/api/chats');
+    state.chats = data.chats || [];
+    const history = $('history');
+    history.replaceChildren();
+    if (!state.chats.length) {
+      const empty = document.createElement('div');
+      empty.className = 'small muted';
+      empty.textContent = 'Пока нет чатов';
+      history.appendChild(empty);
+      return;
+    }
+    for (const chat of state.chats) {
+      const button = document.createElement('button');
+      button.className = 'history-item' + (Number(chat.id) === Number(state.chatId) ? ' active' : '');
+      button.textContent = chat.title || 'Новый чат';
+      button.title = chat.title || 'Новый чат';
+      button.addEventListener('click', () => openChat(chat.id));
+      history.appendChild(button);
+    }
+  } catch (err) { console.warn('Загрузка истории:', err.message); }
+}
+async function createChat() {
+  if (!state.user) return null;
+  const data = await api('/api/chats', { method: 'POST', body: JSON.stringify({}) });
+  state.chatId = data.chat.id;
+  await loadChats();
+  return state.chatId;
+}
+async function openChat(id) {
+  try {
+    showStatus('Загружаю чат…');
+    const data = await api(`/api/chats/${encodeURIComponent(id)}`);
+    state.chatId = data.chat.id;
+    messagesEl.replaceChildren();
+    $('welcome').classList.add('hidden');
+    for (const message of data.messages || []) addMessage(message.role, message.content, message.image);
+    showStatus('');
+    await loadChats();
+    $('sidebar').classList.remove('open');
+    scrollToBottom();
+  } catch (err) { showStatus(err.message, true); }
+}
+async function saveMessage(role, content, image = null) {
+  if (!state.user || !state.chatId) return;
+  await api(`/api/chats/${encodeURIComponent(state.chatId)}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ role, content, image })
+  });
+}
+async function sendMessage(text = promptEl.value) {
+  text = String(text || '').trim();
+  if (!text || state.busy) return;
+  if (text.length > 30000) {
+    showStatus('Сообщение превышает лимит 30 000 символов.', true);
+    return;
+  }
+  const makeImage = state.imageMode;
+  promptEl.value = '';
+  promptEl.style.height = '31px';
+  $('welcome').classList.add('hidden');
+  showStatus('');
+  addMessage('user', text);
+  setBusy(true);
+  let pending;
+  try {
+    if (state.user && !state.chatId) await createChat();
+    if (state.user) await saveMessage('user', text);
+    if (makeImage) {
+      showStatus('Создаю изображение…');
+      pending = addMessage('assistant', 'Создаю изображение…');
+      const data = await api('/api/images', {
+        method: 'POST',
+        body: JSON.stringify({ prompt: text })
+      });
+      pending.row.remove();
+      addMessage('assistant', 'Готово! Вот твоё изображение:', data.image);
+      if (state.user) await saveMessage('assistant', 'Готово! Вот твоё изображение:', data.image);
+    } else {
+      pending = addMessage('assistant', 'Думаю…');
+      const history = [...messagesEl.querySelectorAll('.message')]
+        .slice(0, -2)
+        .map(row => ({
+          role: row.classList.contains('user') ? 'user' : 'assistant',
+          content: row.querySelector('.bubble')?.innerText || ''
+        }))
+        .filter(item => item.content)
+        .slice(-10);
+      const data = await api('/api/chat', {
+        method: 'POST',
+        body: JSON.stringify({ message: text, history })
+      });
+      pending.row.remove();
+      addMessage('assistant', data.reply || 'Не удалось получить ответ.');
+      if (state.user) await saveMessage('assistant', data.reply || 'Не удалось получить ответ.');
+    }
+    if (state.user) await loadChats();
+    showStatus('');
+  } catch (err) {
+    if (pending?.row?.isConnected) pending.row.remove();
+    addMessage('assistant', `**Ошибка:** ${err.message}`);
+    showStatus(err.message, true);
+  } finally {
+    setBusy(false);
+    state.imageMode = false;
+    $('imageMode').style.borderColor = '';
+    promptEl.focus();
+    scrollToBottom();
+  }
+}
+function showAuth(register = false) {
+  state.register = register;
+  $('authTitle').textContent = register ? 'Создать аккаунт' : 'Войти в Maut AI';
+  $('authSubtitle').textContent = register
+    ? 'Создай аккаунт, чтобы сохранять историю чатов.'
+    : 'Рады видеть тебя снова.';
+  $('nameField').classList.toggle('hidden', !register);
+  $('authName').required = register;
+  $('authPassword').autocomplete = register ? 'new-password' : 'current-password';
+  $('authSubmit').textContent = register ? 'Зарегистрироваться' : 'Войти';
   $('switchAuth').textContent = register
     ? 'Уже есть аккаунт? Войти'
     : 'Нет аккаунта? Зарегистрироваться';
+  $('authError').textContent = '';
+  $('authModal').classList.add('open');
 }
+function closeAuth() { $('authModal').classList.remove('open'); }
 
-function closeAuth() {
-  $('authModal').classList.remove('open');
-  $('authModal').setAttribute('aria-hidden', 'true');
-}
-
-$('closeModal').onclick = closeAuth;
-
-$('authModal').addEventListener('click', event => {
-  if (event.target === $('authModal')) {
-    closeAuth();
-  }
-});
-
-$('switchAuth').onclick = () => openAuth(!isRegister);
-
-// Вход и выход.
-$('loginBtn').onclick = async () => {
-  if (!user) {
-    openAuth(false);
-    return;
-  }
-
-  try {
-    await api('/api/auth/logout', {});
-
-    user = null;
-    updateProfile();
-    chatMessages = [];
-
-    status('Ты вышел из аккаунта.');
-  } catch (error) {
-    status(error.message, true);
-  }
-};
-
-$('profileMenu').onclick = () => {
-  if (user) {
-    status('Ты вошёл как ' + (user.email || user.username || user.name));
-  } else {
-    openAuth(false);
-  }
-};
-
-// Регистрация и вход.
 $('authForm').addEventListener('submit', async event => {
   event.preventDefault();
-
-  const submitButton = $('authSubmit');
-  submitButton.disabled = true;
-  showAuthError('');
-
-  const name = $('name').value.trim();
-  const email = $('email').value.trim();
-  const password = $('password').value;
-
+  $('authError').textContent = '';
+  $('authSubmit').disabled = true;
   try {
-    let data;
-
-    if (isRegister) {
-      // Совместимость с сервером, который принимает username,
-      // и с формой, которая использует name и email.
-      data = await api('/api/auth/register', {
-        username: name || email,
-        name,
-        email,
-        password
-      });
-    } else {
-      data = await api('/api/auth/login', {
-        username: email || name,
-        name,
-        email,
-        password
-      });
+    const body = {
+      email: $('authEmail').value.trim(),
+      password: $('authPassword').value
+    };
+    let endpoint = '/api/auth/login';
+    if (state.register) {
+      endpoint = '/api/auth/register';
+      body.name = $('authName').value.trim();
     }
-
-    user = data.user || null;
-
-    if (!user) {
-      throw new Error('Сервер не вернул данные аккаунта.');
-    }
-
+    const data = await api(endpoint, { method: 'POST', body: JSON.stringify(body) });
+    state.user = data.user;
     updateProfile();
     closeAuth();
-    $('password').value = '';
-
-    status('Готово! Ты вошёл в Maut AI.');
-  } catch (error) {
-    showAuthError(error.message);
+    resetView();
+    await loadChats();
+    await refreshRank();
+    showStatus('Вход выполнен.');
+    setTimeout(() => showStatus(''), 2000);
+  } catch (err) {
+    $('authError').textContent = err.message;
   } finally {
-    submitButton.disabled = false;
+    $('authSubmit').disabled = false;
   }
 });
-
-// История чатов в боковой панели.
-function addHistory(title) {
-  const history = $('history');
-  if (!history) return;
-
-  const empty = history.querySelector('.muted');
-  if (empty) empty.remove();
-
-  const button = document.createElement('button');
-  button.className = 'history-item';
-  button.textContent = title.slice(0, 70);
-  button.title = title;
-
-  button.onclick = () => {
-    status('Это название предыдущего чата. Полная история пока не сохраняется.');
-  };
-
-  history.prepend(button);
-}
-
-function newChat() {
-  chatMessages = [];
-  currentTitle = '';
-
-  messagesEl.replaceChildren();
-  welcome?.classList.remove('hidden');
-
-  promptBox.value = '';
-  promptBox.placeholder = 'Напиши Maut AI';
-
-  imageMode = false;
-  status('');
-
-  $('sidebar')?.classList.remove('open');
-}
-
-$('newChat').onclick = newChat;
-
-// Отправка сообщений.
-async function send() {
-  if (isSending) return;
-
-  const text = promptBox.value.trim();
-  if (!text) return;
-
-  if (!user) {
-    openAuth(false);
-    status('Сначала войди или создай аккаунт.', true);
-    return;
-  }
-
-  isSending = true;
-  promptBox.value = '';
-  promptBox.style.height = 'auto';
-  status('');
-
-  if (!currentTitle) {
-    currentTitle = text;
-    addHistory(text);
-  }
-
-  if (imageMode) {
-    imageMode = false;
-
-    addMessage('user', text);
-    const bubble = addMessage('assistant', 'Создаю изображение…');
-
-    $('sendBtn').disabled = true;
-
-    try {
-      const data = await api('/api/images', {
-        prompt: text
-      });
-
-      if (!data.image) {
-        throw new Error('Сервис не вернул изображение.');
-      }
-
-      bubble.textContent = 'Готово!';
-
-      const img = document.createElement('img');
-      img.className = 'message-image';
-      img.src = data.image;
-      img.alt = 'Созданное изображение';
-
-      const link = document.createElement('a');
-      link.href = data.image;
-      link.download = 'maut-ai-image.png';
-      link.className = 'download-link';
-      link.textContent = 'Скачать изображение';
-
-      bubble.append(
-        document.createElement('br'),
-        img,
-        document.createElement('br'),
-        link
-      );
-    } catch (error) {
-      bubble.textContent = error.message;
-      status(error.message, true);
-    } finally {
-      isSending = false;
-      $('sendBtn').disabled = false;
-    }
-
-    return;
-  }
-
-  addMessage('user', text);
-
-  chatMessages.push({
-    role: 'user',
-    content: text
-  });
-
-  const bubble = addMessage('assistant', 'Думаю…');
-  $('sendBtn').disabled = true;
-
+$('switchAuth').addEventListener('click', () => showAuth(!state.register));
+$('closeModal').addEventListener('click', closeAuth);
+$('authModal').addEventListener('click', e => {
+  if (e.target === $('authModal')) closeAuth();
+});
+$('loginTop').addEventListener('click', () => showAuth(false));
+$('authSide').addEventListener('click', () => showAuth(false));
+$('logout').addEventListener('click', async () => {
   try {
-    // server.js ожидает поле message и массив history.
-    const data = await api('/api/chat', {
-      message: text,
-      history: chatMessages.slice(0, -1)
+    await api('/api/auth/logout', { method: 'POST', body: JSON.stringify({}) });
+  } catch (err) {
+    showStatus(err.message, true);
+  }
+  state.user = null;
+  state.chats = [];
+  updateProfile();
+  resetView();
+  await loadChats();
+});
+$('newChat').addEventListener('click', () => {
+  resetView();
+  loadChats();
+  $('sidebar').classList.remove('open');
+  promptEl.focus();
+});
+$('brandHome').addEventListener('click', e => {
+  e.preventDefault();
+  resetView();
+});
+$('sidebarToggle').addEventListener('click', () => {
+  if (window.matchMedia('(max-width: 760px)').matches) {
+    $('sidebar').classList.toggle('open');
+  } else {
+    document.querySelector('.layout').classList.toggle('sidebar-collapsed');
+  }
+});
+window.addEventListener('resize', () => {
+  if (!window.matchMedia('(max-width: 760px)').matches) $('sidebar').classList.remove('open');
+});
+$('imageMode').addEventListener('click', () => {
+  state.imageMode = !state.imageMode;
+  $('imageMode').style.borderColor = state.imageMode ? 'var(--green)' : '';
+  promptEl.placeholder = state.imageMode
+    ? 'Опиши изображение, которое нужно создать…'
+    : 'Напиши сообщение Maut AI…';
+  promptEl.focus();
+});
+$('composer').addEventListener('submit', e => {
+  e.preventDefault();
+  sendMessage();
+});
+promptEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+promptEl.addEventListener('input', () => {
+  promptEl.style.height = '31px';
+  promptEl.style.height = Math.min(promptEl.scrollHeight, 180) + 'px';
+});
+document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => {
+  promptEl.value = button.dataset.prompt;
+  promptEl.dispatchEvent(new Event('input'));
+  sendMessage();
+}));
+
+// Ранги и административная панель
+async function refreshRank() {
+  if (!state.user) return;
+  try {
+    const data = await api('/api/ranks/me');
+    state.user.rank = data.rank;
+    updateProfile();
+  } catch (e) {
+    console.warn(e);
+  }
+}
+$('redeemOpen').addEventListener('click', () => {
+  $('redeemError').textContent = '';
+  $('redeemCode').value = '';
+  $('redeemModal').classList.add('open');
+});
+$('redeemForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  $('redeemSubmit').disabled = true;
+  $('redeemError').textContent = '';
+  try {
+    const data = await api('/api/ranks/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ code: $('redeemCode').value })
     });
-
-    const answer = data.reply || data.text;
-
-    if (typeof answer !== 'string' || !answer.trim()) {
-      throw new Error('ИИ вернул пустой ответ.');
-    }
-
-    bubble.textContent = answer;
-
-    chatMessages.push({
-      role: 'assistant',
-      content: answer
-    });
-  } catch (error) {
-    bubble.textContent = error.message;
-    status(error.message, true);
-
-    // Удаляем последнее сообщение пользователя из контекста,
-    // если сервер не ответил.
-    chatMessages.pop();
+    state.user.rank = data.rank;
+    updateProfile();
+    $('redeemModal').classList.remove('open');
+    showStatus('Ранг активирован: ' + data.rank);
+    setTimeout(() => showStatus(''), 2500);
+  } catch (err) {
+    $('redeemError').textContent = err.message;
   } finally {
-    isSending = false;
-    $('sendBtn').disabled = false;
-    promptBox.focus();
+    $('redeemSubmit').disabled = false;
+  }
+});
+$('adminOpen').addEventListener('click', async () => {
+  $('adminModal').classList.add('open');
+  await loadAdminUsers();
+});
+async function loadAdminUsers() {
+  $('adminUsers').textContent = 'Загрузка…';
+  $('adminError').textContent = '';
+  try {
+    const data = await api('/api/admin/users');
+    const root = $('adminUsers');
+    root.replaceChildren();
+    const viewerRank = data.viewer_rank || state.user?.rank || 'FREE';
+    for (const person of data.users || []) {
+      const row = document.createElement('div');
+      row.className = 'admin-user';
+      const info = document.createElement('div');
+      const name = document.createElement('strong');
+      name.textContent = person.display_name || person.username;
+      const detail = document.createElement('div');
+      detail.className = 'muted';
+      const until = person.muted_until ? Date.parse(person.muted_until) : 0;
+      const activeMute = Boolean(until && until > Date.now());
+      detail.textContent = `${person.email || ''} · ${person.rank || 'FREE'}${activeMute ? ' · МУТ АКТИВЕН' : ''}`;
+      info.append(name, detail);
+      row.append(info);
+      if (viewerRank === 'ADMIN') {
+        const select = document.createElement('select');
+        for (const rank of ['FREE','PLUS','MODER','ADMIN']) {
+          const opt = document.createElement('option');
+          opt.value = rank;
+          opt.textContent = rank;
+          opt.selected = rank === (person.rank || 'FREE');
+          select.appendChild(opt);
+        }
+        const save = document.createElement('button');
+        save.type = 'button';
+        save.textContent = 'Сохранить';
+        save.addEventListener('click', async () => {
+          try {
+            await api(`/api/admin/users/${person.id}/rank`, {
+              method: 'POST',
+              body: JSON.stringify({ rank: select.value })
+            });
+            showStatus('Ранг обновлён');
+            await loadAdminUsers();
+          } catch (err) {
+            $('adminError').textContent = err.message;
+          }
+        });
+        row.append(select, save);
+      }
+      const canModerMute = viewerRank === 'ADMIN' ||
+        (viewerRank === 'MODER' && ['FREE','PLUS'].includes(person.rank));
+      if (canModerMute && Number(person.id) !== Number(state.user?.id) && person.rank !== 'ADMIN') {
+        const mute = document.createElement('button');
+        mute.type = 'button';
+        mute.textContent = activeMute ? 'Продлить мут' : 'Мут 7 минут';
+        mute.addEventListener('click', async () => {
+          mute.disabled = true;
+          try {
+            await api(`/api/admin/users/${person.id}/mute`, {
+              method: 'POST',
+              body: JSON.stringify({})
+            });
+            showStatus('Мут выдан на 7 минут');
+            await loadAdminUsers();
+          } catch (err) {
+            $('adminError').textContent = err.message;
+          } finally {
+            mute.disabled = false;
+          }
+        });
+        row.append(mute);
+      }
+      root.appendChild(row);
+    }
+  } catch (err) {
+    $('adminUsers').textContent = 'Не удалось загрузить пользователей.';
+    $('adminError').textContent = err.message;
   }
 }
-
-$('chatForm').addEventListener('submit', event => {
-  event.preventDefault();
-  send();
-});
-
-promptBox.addEventListener('keydown', event => {
-  if (event.key === 'Enter' && !event.shiftKey) {
-    event.preventDefault();
-    send();
+$('createCodes').addEventListener('click', async () => {
+  $('codeResult').classList.add('hidden');
+  $('adminError').textContent = '';
+  try {
+    const data = await api('/api/admin/codes', {
+      method: 'POST',
+      body: JSON.stringify({
+        rank: $('codeRank').value,
+        amount: Number($('codeAmount').value)
+      })
+    });
+    $('codeResult').textContent = data.codes.join('\n');
+    $('codeResult').classList.remove('hidden');
+  } catch (err) {
+    $('adminError').textContent = err.message;
   }
 });
-
-promptBox.addEventListener('input', () => {
-  promptBox.style.height = 'auto';
-  promptBox.style.height =
-    Math.min(promptBox.scrollHeight, 180) + 'px';
+document.querySelectorAll('[data-close]').forEach(button => {
+  button.addEventListener('click', () => $(button.dataset.close).classList.remove('open'));
 });
-
-function chooseImage() {
-  if (!user) {
-    openAuth(false);
-    status('Войди, чтобы создавать изображения.', true);
-    return;
-  }
-
-  imageMode = true;
-  promptBox.placeholder = 'Опиши изображение, которое нужно создать…';
-  promptBox.focus();
-
-  status('Режим создания изображений включён.');
-}
-
-$('imageBtn').onclick = chooseImage;
-$('imageMode').onclick = chooseImage;
-
-document.querySelectorAll('[data-prompt]').forEach(button => {
-  button.onclick = () => {
-    promptBox.value = button.dataset.prompt;
-    send();
-  };
+$('redeemModal').addEventListener('click', e => {
+  if (e.target === $('redeemModal')) $('redeemModal').classList.remove('open');
 });
-
-document.querySelectorAll('[data-image]').forEach(button => {
-  button.onclick = chooseImage;
+$('adminModal').addEventListener('click', e => {
+  if (e.target === $('adminModal')) $('adminModal').classList.remove('open');
 });
-
-$('menuBtn').onclick = () => {
-  $('sidebar').classList.toggle('open');
-};
-
-// При загрузке страницы восстанавливаем аккаунт.
-checkUser();
+loadMe(); 
