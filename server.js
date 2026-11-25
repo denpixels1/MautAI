@@ -262,16 +262,38 @@ function currentRank(userId) {
   return VALID_RANKS.includes(user.rank) ? user.rank : 'FREE';
 }
 
+function currentRank(userId) {
+  const user = db.prepare(
+    'SELECT email, rank FROM users WHERE id = ?'
+  ).get(userId);
+
+  if (!user) return 'FREE';
+
+  if (user.email?.toLowerCase() === ADMIN_EMAIL) {
+    if (user.rank !== 'ADMIN') {
+      db.prepare('UPDATE users SET rank = ? WHERE id = ?')
+        .run('ADMIN', userId);
+    }
+    return 'ADMIN';
+  }
+
+  return VALID_RANKS.includes(user.rank) ? user.rank : 'FREE';
+}
+
 function requireRank(...allowedRanks) {
   return (req, res, next) => {
     if (!req.session.user) {
-      return res.status(401).json({ error: 'Сначала войди в аккаунт.' });
+      return res.status(401).json({
+        error: 'Сначала войди в аккаунт.'
+      });
     }
 
     const rank = currentRank(req.session.user.id);
 
     if (!allowedRanks.includes(rank)) {
-      return res.status(403).json({ error: 'Недостаточно прав.' });
+      return res.status(403).json({
+        error: 'Недостаточно прав.'
+      });
     }
 
     next();
