@@ -18,11 +18,17 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const PROD = process.env.NODE_ENV === 'production';
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+const SESSION_SECRET = process.env.SESSION_SECRET;
+
+if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
+  throw new Error('SESSION_SECRET должен содержать минимум 32 символа.');
+}
 
 if (PROD) app.set('trust proxy', 1);
 app.disable('x-powered-by');
 app.use(express.json({ limit: '20mb' }));
 
+// DATABASE
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -96,13 +102,13 @@ CREATE INDEX IF NOT EXISTS messages_conversation_id
 ON messages(conversation_id, id);
 `);
 
-// Миграции для уже существующей базы
 function ensureColumn(table, column, definition) {
   const columns = db.prepare(`PRAGMA table_info(${table})`).all();
   if (!columns.some(c => c.name === column)) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
 }
+
 ensureColumn('users', 'display_name', 'TEXT');
 ensureColumn('users', 'email', 'TEXT');
 ensureColumn('users', 'role', "TEXT NOT NULL DEFAULT 'Free'");
@@ -110,17 +116,13 @@ ensureColumn('users', 'plus_expires_at', 'TEXT');
 ensureColumn('users', 'muted_until', 'TEXT');
 ensureColumn('users', 'banned_until', 'TEXT');
 
+// SESSIONS
 const SQLiteStore = SQLiteStoreFactory(session);
 const sessionStore = new SQLiteStore({
   db: 'sessions.db',
   dir: DATA_DIR,
   table: 'sessions'
 });
-
-const SESSION_SECRET = process.env.SESSION_SECRET;
-if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
-  throw new Error('SESSION_SECRET должен содержать минимум 32 символа.');
-}
 
 app.use(session({
   name: 'maut.sid',
@@ -138,18 +140,21 @@ app.use(session({
   }
 }));
 
+// RATE LIMITS
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
   standardHeaders: 'draft-7',
   legacyHeaders: false
 });
+
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 20,
   standardHeaders: 'draft-7',
   legacyHeaders: false
 });
+
 const imageLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 4,
@@ -157,6 +162,7 @@ const imageLimiter = rateLimit({
   legacyHeaders: false
 });
 
+// HELPERS
 const getUser = db.prepare('SELECT * FROM users WHERE id = ?');
 
 function isAdmin(user) {
@@ -172,6 +178,7 @@ function isModerator(user) {
 
 function publicUser(user) {
   if (!user) return null;
+
   return {
     id: user.id,
     username: user.username,
@@ -186,14 +193,17 @@ function publicUser(user) {
 
 function refreshSessionUser(req) {
   if (!req.session.user?.id) return null;
+
   const row = getUser.get(req.session.user.id);
   if (!row) return null;
+
   req.session.user = publicUser(row);
   return row;
 }
 
 function requireAuth(req, res, next) {
   const row = refreshSessionUser(req);
+
   if (!row) {
     return res.status(401).json({ error: 'Войди в аккаунт.' });
   }
@@ -210,17 +220,21 @@ function requireAuth(req, res, next) {
 
 function requireAdmin(req, res, next) {
   const row = refreshSessionUser(req);
+
   if (!row || !isAdmin(row)) {
     return res.status(403).json({ error: 'Доступ только для Admin.' });
   }
+
   next();
 }
 
 function requireModerator(req, res, next) {
   const row = refreshSessionUser(req);
+
   if (!row || (!isAdmin(row) && !isModerator(row))) {
     return res.status(403).json({ error: 'Недостаточно прав.' });
   }
+
   next();
 }
 
@@ -233,8 +247,10 @@ function cleanName(value) {
 function cleanEmail(value) {
   if (typeof value !== 'string') return null;
   const v = value.trim().toLowerCase();
+
   return v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
-    ? v : null;
+    ? v
+    : null;
 }
 
 function loginSession(req, res, row, status = 200) {
@@ -243,16 +259,30 @@ function loginSession(req, res, row, status = 200) {
       console.error(err);
       return res.status(500).json({ error: 'Ошибка создания сессии.' });
     }
+
     req.session.user = publicUser(row);
+
     req.session.save(saveErr => {
       if (saveErr) {
         console.error(saveErr);
         return res.status(500).json({ error: 'Ошибка сохранения сессии.' });
       }
+
       res.status(status).json({ user: req.session.user });
     });
   });
 }
+
+function getOwnedChat(chatId, userId) {
+  return db.prepare(`
+    SELECT * FROM conversations WHERE id=? AND user_id=?
+  `).get(chatId, userId);
+}
+
+// HEALTH
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', app: 'Maut AI' });
+});
 
 // AUTH
 app.get('/api/auth/me', (req, res) => {
@@ -274,19 +304,20 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
       });
     }
 
-    if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) {
+    if (db.prepare('SELECT id FROM users WHERE email=?').get(email)) {
       return res.status(409).json({ error: 'Этот email уже зарегистрирован.' });
     }
 
     const hash = await bcrypt.hash(password, 12);
+
     const result = db.prepare(`
       INSERT INTO users(username,password_hash,display_name,email)
       VALUES(?,?,?,?)
     `).run(email, hash, name, email);
 
     loginSession(req, res, getUser.get(Number(result.lastInsertRowid)), 201);
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Ошибка регистрации.' });
   }
 });
@@ -295,10 +326,11 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const login = String(req.body?.email || req.body?.username || '')
       .trim().toLowerCase();
+
     const password = req.body?.password;
 
     const row = db.prepare(`
-      SELECT * FROM users WHERE email = ? OR username = ? LIMIT 1
+      SELECT * FROM users WHERE email=? OR username=? LIMIT 1
     `).get(login, login);
 
     if (!row || typeof password !== 'string' ||
@@ -313,26 +345,34 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     }
 
     loginSession(req, res, row);
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Ошибка входа.' });
   }
 });
 
 app.post('/api/auth/logout', (req, res) => {
-  req.session.destroy(err => {
-    if (err) return res.status(500).json({ error: 'Не удалось выйти.' });
+  req.session.destroy(error => {
+    if (error) {
+      return res.status(500).json({ error: 'Не удалось выйти.' });
+    }
+
     res.clearCookie('maut.sid', {
-      httpOnly: true, secure: PROD, sameSite: 'lax', path: '/'
+      httpOnly: true,
+      secure: PROD,
+      sameSite: 'lax',
+      path: '/'
     });
+
     res.json({ success: true });
   });
 });
 
 // ACCOUNT
 app.get('/api/account', requireAuth, (req, res) => {
-  const row = getUser.get(req.session.user.id);
-  res.json({ user: publicUser(row) });
+  res.json({
+    user: publicUser(getUser.get(req.session.user.id))
+  });
 });
 
 // CHATS
@@ -342,7 +382,8 @@ app.post('/api/chats', requireAuth, (req, res) => {
   `).run(req.session.user.id, 'Новый чат');
 
   const chat = db.prepare(`
-    SELECT id,title,created_at,updated_at FROM conversations WHERE id=?
+    SELECT id,title,created_at,updated_at
+    FROM conversations WHERE id=?
   `).get(result.lastInsertRowid);
 
   res.status(201).json({ chat });
@@ -350,28 +391,31 @@ app.post('/api/chats', requireAuth, (req, res) => {
 
 app.get('/api/chats', requireAuth, (req, res) => {
   const chats = db.prepare(`
-    SELECT c.id,c.title,c.created_at,c.updated_at,COUNT(m.id) AS message_count
+    SELECT c.id,c.title,c.created_at,c.updated_at,
+      COUNT(m.id) AS message_count
     FROM conversations c
     LEFT JOIN messages m ON m.conversation_id=c.id
     WHERE c.user_id=?
-    GROUP BY c.id ORDER BY c.updated_at DESC
+    GROUP BY c.id
+    ORDER BY c.updated_at DESC
   `).all(req.session.user.id);
+
   res.set('Cache-Control', 'no-store');
   res.json({ chats });
 });
 
 app.get('/api/chats/:id', requireAuth, (req, res) => {
   const id = Number(req.params.id);
-  const chat = db.prepare(`
-    SELECT id,title,created_at,updated_at
-    FROM conversations WHERE id=? AND user_id=?
-  `).get(id, req.session.user.id);
+  const chat = getOwnedChat(id, req.session.user.id);
 
-  if (!chat) return res.status(404).json({ error: 'Чат не найден.' });
+  if (!chat) {
+    return res.status(404).json({ error: 'Чат не найден.' });
+  }
 
   const messages = db.prepare(`
     SELECT id,role,content,image,created_at
-    FROM messages WHERE conversation_id=? ORDER BY id
+    FROM messages WHERE conversation_id=?
+    ORDER BY id
   `).all(id);
 
   res.json({ chat, messages });
@@ -386,31 +430,39 @@ app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'Некорректное сообщение.' });
   }
 
-  const chat = db.prepare(`
-    SELECT id,title FROM conversations WHERE id=? AND user_id=?
-  `).get(id, req.session.user.id);
+  const chat = getOwnedChat(id, req.session.user.id);
 
-  if (!chat) return res.status(404).json({ error: 'Чат не найден.' });
+  if (!chat) {
+    return res.status(404).json({ error: 'Чат не найден.' });
+  }
+
+  const safeImage = typeof image === 'string' && image.length <= 15000000
+    ? image
+    : null;
 
   const result = db.prepare(`
     INSERT INTO messages(conversation_id,role,content,image)
     VALUES(?,?,?,?)
-  `).run(id, role, content, typeof image === 'string' ? image : null);
+  `).run(id, role, content, safeImage);
 
   let title = chat.title;
+
   if (role === 'user' && title === 'Новый чат') {
     title = content.trim().replace(/\s+/g, ' ').slice(0, 60) || 'Новый чат';
   }
 
   db.prepare(`
-    UPDATE conversations SET title=?,updated_at=CURRENT_TIMESTAMP
+    UPDATE conversations
+    SET title=?,updated_at=CURRENT_TIMESTAMP
     WHERE id=? AND user_id=?
   `).run(title, id, req.session.user.id);
 
   res.status(201).json({
     message: {
       id: Number(result.lastInsertRowid),
-      role, content, image: image || null
+      role,
+      content,
+      image: safeImage
     },
     title
   });
@@ -421,7 +473,10 @@ app.delete('/api/chats/:id', requireAuth, (req, res) => {
     DELETE FROM conversations WHERE id=? AND user_id=?
   `).run(Number(req.params.id), req.session.user.id);
 
-  if (!result.changes) return res.status(404).json({ error: 'Чат не найден.' });
+  if (!result.changes) {
+    return res.status(404).json({ error: 'Чат не найден.' });
+  }
+
   res.json({ success: true });
 });
 
@@ -429,12 +484,14 @@ app.delete('/api/chats/:id', requireAuth, (req, res) => {
 app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
     const message = req.body?.message;
+
     if (typeof message !== 'string' || !message.trim() ||
         message.length > 30000) {
       return res.status(400).json({ error: 'Некорректное сообщение.' });
     }
 
     const userRow = getUser.get(req.session.user.id);
+
     if (userRow.muted_until && new Date(userRow.muted_until) > new Date()) {
       return res.status(403).json({
         error: 'Ты временно не можешь отправлять сообщения.',
@@ -442,14 +499,25 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       });
     }
 
-    const memory = db.prepare('SELECT title,content FROM ai_memory ORDER BY id DESC LIMIT 30').all();
-    const memoryText = memory.map(m => `${m.title}: ${m.content}`).join('\n');
+    const memory = db.prepare(`
+      SELECT title,content FROM ai_memory ORDER BY id DESC LIMIT 30
+    `).all();
+
+    const memoryText = memory
+      .map(item => `${item.title}: ${item.content}`)
+      .join('\n');
 
     const history = Array.isArray(req.body.history)
       ? req.body.history.slice(-10)
-          .filter(x => x && ['user','assistant'].includes(x.role) &&
-            typeof x.content === 'string')
-          .map(x => ({ role: x.role, content: x.content.slice(0, 4000) }))
+          .filter(item =>
+            item &&
+            ['user', 'assistant'].includes(item.role) &&
+            typeof item.content === 'string'
+          )
+          .map(item => ({
+            role: item.role,
+            content: item.content.slice(0, 4000)
+          }))
       : [];
 
     const messages = [
@@ -458,7 +526,8 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
         content: `Ты — Maut AI. Отвечай на языке пользователя, ясно и дружелюбно.
 Создатель Maut AI — Den Whelan, директор компании Liches maut.
 Не утверждай, что создатель проекта создал базовые сторонние модели.
-Память проекта:\n${memoryText}`
+Память проекта:
+${memoryText}`
       },
       ...history,
       { role: 'user', content: message.trim() }
@@ -484,6 +553,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       );
 
       const data = await response.json();
+
       if (!response.ok) {
         return res.status(response.status === 429 ? 429 : 502).json({
           error: data?.error?.message || 'Ошибка Groq API.'
@@ -491,12 +561,17 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       }
 
       const reply = data?.choices?.[0]?.message?.content;
-      if (!reply) return res.status(502).json({ error: 'Пустой ответ Groq.' });
+
+      if (!reply) {
+        return res.status(502).json({ error: 'Пустой ответ Groq.' });
+      }
+
       return res.json({ reply, provider: 'groq' });
     }
 
     const base = (process.env.OLLAMA_URL || 'http://127.0.0.1:11434')
       .replace(/\/$/, '');
+
     const response = await fetch(`${base}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -509,15 +584,22 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
     });
 
     const data = await response.json();
+
     if (!response.ok) {
-      return res.status(502).json({ error: data?.error || 'Ошибка Ollama.' });
+      return res.status(502).json({
+        error: data?.error || 'Ошибка Ollama.'
+      });
     }
 
     const reply = data?.message?.content;
-    if (!reply) return res.status(502).json({ error: 'ИИ вернул пустой ответ.' });
+
+    if (!reply) {
+      return res.status(502).json({ error: 'ИИ вернул пустой ответ.' });
+    }
+
     res.json({ reply, provider: 'ollama' });
-  } catch (e) {
-    console.error('Chat error:', e);
+  } catch (error) {
+    console.error('Chat error:', error);
     res.status(502).json({ error: 'Не удалось подключиться к ИИ.' });
   }
 });
@@ -526,7 +608,9 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
 app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
   try {
     const prompt = req.body?.prompt;
-    if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 4000) {
+
+    if (typeof prompt !== 'string' || !prompt.trim() ||
+        prompt.length > 4000) {
       return res.status(400).json({ error: 'Напиши описание изображения.' });
     }
 
@@ -535,6 +619,7 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
     }
 
     const model = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
+
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
@@ -552,6 +637,7 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
     );
 
     const data = await response.json();
+
     if (!response.ok) {
       return res.status(502).json({
         error: data?.error?.message || 'Ошибка Gemini.'
@@ -559,21 +645,28 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
     }
 
     const part = data?.candidates?.[0]?.content?.parts
-      ?.find(p => p.inlineData?.data);
+      ?.find(item => item.inlineData?.data);
 
-    if (!part) return res.status(502).json({ error: 'Gemini не вернула изображение.' });
+    if (!part) {
+      return res.status(502).json({
+        error: 'Gemini не вернула изображение.'
+      });
+    }
 
     const mime = part.inlineData.mimeType || 'image/png';
-    if (!['image/png','image/jpeg','image/webp'].includes(mime)) {
-      return res.status(502).json({ error: 'Неподдерживаемый формат изображения.' });
+
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(mime)) {
+      return res.status(502).json({
+        error: 'Неподдерживаемый формат изображения.'
+      });
     }
 
     res.json({
       image: `data:${mime};base64,${part.inlineData.data}`,
       provider: 'Gemini'
     });
-  } catch (e) {
-    console.error(e);
+  } catch (error) {
+    console.error('Image error:', error);
     res.status(502).json({ error: 'Не удалось создать изображение.' });
   }
 });
@@ -581,16 +674,21 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
 // PLUS GIFT CODES
 app.post('/api/gift-codes/redeem', requireAuth, (req, res) => {
   const code = String(req.body?.code || '').trim().toUpperCase();
-  if (!code) return res.status(400).json({ error: 'Введи ключ.' });
+
+  if (!code) {
+    return res.status(400).json({ error: 'Введи ключ.' });
+  }
 
   const redeem = db.transaction(() => {
     const gift = db.prepare(`
-      SELECT * FROM gift_codes WHERE code=? AND used_by IS NULL
+      SELECT * FROM gift_codes
+      WHERE code=? AND used_by IS NULL
     `).get(code);
 
     if (!gift) return null;
 
     const user = getUser.get(req.session.user.id);
+
     const current = user.plus_expires_at &&
       new Date(user.plus_expires_at) > new Date()
       ? new Date(user.plus_expires_at)
@@ -603,14 +701,21 @@ app.post('/api/gift-codes/redeem', requireAuth, (req, res) => {
     `).run(current.toISOString(), user.id);
 
     db.prepare(`
-      UPDATE gift_codes SET used_by=?,used_at=CURRENT_TIMESTAMP WHERE id=?
+      UPDATE gift_codes
+      SET used_by=?,used_at=CURRENT_TIMESTAMP
+      WHERE id=?
     `).run(user.id, gift.id);
 
     return getUser.get(user.id);
   });
 
   const updated = redeem();
-  if (!updated) return res.status(400).json({ error: 'Ключ неверный или уже использован.' });
+
+  if (!updated) {
+    return res.status(400).json({
+      error: 'Ключ неверный или уже использован.'
+    });
+  }
 
   req.session.user = publicUser(updated);
   res.json({ success: true, user: req.session.user });
@@ -619,8 +724,11 @@ app.post('/api/gift-codes/redeem', requireAuth, (req, res) => {
 // MODERATOR REQUESTS
 app.post('/api/moderator-requests', requireAuth, (req, res) => {
   const user = getUser.get(req.session.user.id);
+
   if (isAdmin(user) || isModerator(user)) {
-    return res.status(400).json({ error: 'У тебя уже есть права персонала.' });
+    return res.status(400).json({
+      error: 'У тебя уже есть права персонала.'
+    });
   }
 
   const message = typeof req.body?.message === 'string'
@@ -628,30 +736,37 @@ app.post('/api/moderator-requests', requireAuth, (req, res) => {
     : '';
 
   const pending = db.prepare(`
-    SELECT id FROM moderator_requests WHERE user_id=? AND status='pending'
+    SELECT id FROM moderator_requests
+    WHERE user_id=? AND status='pending'
   `).get(user.id);
 
-  if (pending) return res.status(409).json({ error: 'Заявка уже отправлена.' });
+  if (pending) {
+    return res.status(409).json({ error: 'Заявка уже отправлена.' });
+  }
 
   const result = db.prepare(`
-    INSERT INTO moderator_requests(user_id,message) VALUES(?,?)
+    INSERT INTO moderator_requests(user_id,message)
+    VALUES(?,?)
   `).run(user.id, message);
 
-  res.status(201).json({ success: true, id: result.lastInsertRowid });
+  res.status(201).json({
+    success: true,
+    id: Number(result.lastInsertRowid)
+  });
 });
 
-// ADMIN: USERS
+// ADMIN USERS
 app.get('/api/admin/users', requireAdmin, (req, res) => {
   const users = db.prepare(`
     SELECT id,username,display_name,email,role,plus_expires_at,
       muted_until,banned_until,created_at
     FROM users ORDER BY id DESC
-  `).all().map(u => ({
-    ...u,
-    name: u.display_name || u.username,
-    plusExpiresAt: u.plus_expires_at,
-    mutedUntil: u.muted_until,
-    bannedUntil: u.banned_until
+  `).all().map(user => ({
+    ...user,
+    name: user.display_name || user.username,
+    plusExpiresAt: user.plus_expires_at,
+    mutedUntil: user.muted_until,
+    bannedUntil: user.banned_until
   }));
 
   res.json({ users });
@@ -660,61 +775,78 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
 app.patch('/api/admin/users/:id/role', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   const role = req.body?.role;
-  if (!['Free','Plus','Moder','Admin'].includes(role)) {
+
+  if (!['Free', 'Plus', 'Moder', 'Admin'].includes(role)) {
     return res.status(400).json({ error: 'Недопустимая роль.' });
   }
 
   const target = getUser.get(id);
-  if (!target) return res.status(404).json({ error: 'Пользователь не найден.' });
 
-  // Нельзя случайно снять или изменить права текущего Admin через этот маршрут.
+  if (!target) {
+    return res.status(404).json({ error: 'Пользователь не найден.' });
+  }
+
   if (isAdmin(target) && id !== req.session.user.id) {
-    return res.status(403).json({ error: 'Нельзя изменить другого Admin.' });
+    return res.status(403).json({
+      error: 'Нельзя изменить другого Admin.'
+    });
   }
 
   db.prepare('UPDATE users SET role=? WHERE id=?').run(role, id);
-  res.json({ success: true, user: publicUser(getUser.get(id)) });
+
+  res.json({
+    success: true,
+    user: publicUser(getUser.get(id))
+  });
 });
 
 app.post('/api/admin/users/:id/ban', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   const target = getUser.get(id);
-  if (!target) return res.status(404).json({ error: 'Пользователь не найден.' });
-  if (isAdmin(target)) return res.status(403).json({ error: 'Нельзя заблокировать Admin.' });
 
-  const until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  if (!target) {
+    return res.status(404).json({ error: 'Пользователь не найден.' });
+  }
+
+  if (isAdmin(target)) {
+    return res.status(403).json({ error: 'Нельзя заблокировать Admin.' });
+  }
+
+  const until = new Date(Date.now() + 7 * 86400000).toISOString();
+
   db.prepare('UPDATE users SET banned_until=? WHERE id=?').run(until, id);
+
   res.json({ success: true, bannedUntil: until });
 });
 
 app.post('/api/admin/users/:id/unban', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   const target = getUser.get(id);
-  if (!target) return res.status(404).json({ error: 'Пользователь не найден.' });
+
+  if (!target) {
+    return res.status(404).json({ error: 'Пользователь не найден.' });
+  }
 
   db.prepare('UPDATE users SET banned_until=NULL WHERE id=?').run(id);
+
   res.json({ success: true });
 });
 
-app.post('/api/admin/users/:id/unban', requireAdmin, (req, res) => {
-  const id = Number(req.params.id);
-  const target = getUser.get(id);
-  if (!target) return res.status(404).json({ error: 'Пользователь не найден.' });
-  db.prepare('UPDATE users SET banned_until=NULL WHERE id=?').run(id);
-  res.json({ success: true });
-});
-
-// ADMIN: GIFT KEYS
+// ADMIN GIFT CODES
 app.post('/api/admin/gift-codes', requireAdmin, (req, res) => {
   const days = Number(req.body?.days);
   const amount = Math.min(20, Math.max(1, Number(req.body?.amount) || 1));
 
   if (!Number.isInteger(days) || days < 1 || days > 3650) {
-    return res.status(400).json({ error: 'Количество дней должно быть от 1 до 3650.' });
+    return res.status(400).json({
+      error: 'Количество дней должно быть от 1 до 3650.'
+    });
   }
 
   const codes = [];
-  const insert = db.prepare('INSERT INTO gift_codes(code,days) VALUES(?,?)');
+  const insert = db.prepare(`
+    INSERT INTO gift_codes(code,days) VALUES(?,?)
+  `);
 
   const create = db.transaction(() => {
     for (let i = 0; i < amount; i++) {
@@ -732,15 +864,20 @@ app.get('/api/admin/gift-codes', requireAdmin, (req, res) => {
   const codes = db.prepare(`
     SELECT g.id,g.code,g.days,g.used_at,g.created_at,
       u.email AS used_by_email
-    FROM gift_codes g LEFT JOIN users u ON u.id=g.used_by
+    FROM gift_codes g
+    LEFT JOIN users u ON u.id=g.used_by
     ORDER BY g.id DESC
   `).all();
+
   res.json({ codes });
 });
 
-// ADMIN: MEMORY
+// ADMIN MEMORY
 app.get('/api/admin/memory', requireAdmin, (req, res) => {
-  const memory = db.prepare('SELECT * FROM ai_memory ORDER BY id DESC').all();
+  const memory = db.prepare(`
+    SELECT * FROM ai_memory ORDER BY id DESC
+  `).all();
+
   res.json({ memory });
 });
 
@@ -751,17 +888,20 @@ app.post('/api/admin/memory', requireAdmin, (req, res) => {
     : '';
 
   if (!title || !content || content.length > 10000) {
-    return res.status(400).json({ error: 'Проверь заголовок и текст памяти.' });
+    return res.status(400).json({
+      error: 'Проверь заголовок и текст памяти.'
+    });
   }
 
   const result = db.prepare(`
     INSERT INTO ai_memory(title,content) VALUES(?,?)
   `).run(title, content);
 
-  res.status(201).json({
-    success: true,
-    memory: db.prepare('SELECT * FROM ai_memory WHERE id=?').get(result.lastInsertRowid)
-  });
+  const memory = db.prepare(`
+    SELECT * FROM ai_memory WHERE id=?
+  `).get(result.lastInsertRowid);
+
+  res.status(201).json({ success: true, memory });
 });
 
 app.patch('/api/admin/memory/:id', requireAdmin, (req, res) => {
@@ -779,17 +919,26 @@ app.patch('/api/admin/memory/:id', requireAdmin, (req, res) => {
     UPDATE ai_memory SET title=?,content=? WHERE id=?
   `).run(title, content, id);
 
-  if (!result.changes) return res.status(404).json({ error: 'Запись не найдена.' });
+  if (!result.changes) {
+    return res.status(404).json({ error: 'Запись не найдена.' });
+  }
+
   res.json({ success: true });
 });
 
 app.delete('/api/admin/memory/:id', requireAdmin, (req, res) => {
-  const result = db.prepare('DELETE FROM ai_memory WHERE id=?').run(Number(req.params.id));
-  if (!result.changes) return res.status(404).json({ error: 'Запись не найдена.' });
+  const result = db.prepare(`
+    DELETE FROM ai_memory WHERE id=?
+  `).run(Number(req.params.id));
+
+  if (!result.changes) {
+    return res.status(404).json({ error: 'Запись не найдена.' });
+  }
+
   res.json({ success: true });
 });
 
-// ADMIN: MODERATOR REQUESTS
+// ADMIN MODERATOR REQUESTS
 app.get('/api/admin/moderator-requests', requireAdmin, (req, res) => {
   const requests = db.prepare(`
     SELECT r.*,u.username,u.display_name,u.email
@@ -797,28 +946,39 @@ app.get('/api/admin/moderator-requests', requireAdmin, (req, res) => {
     JOIN users u ON u.id=r.user_id
     ORDER BY r.id DESC
   `).all();
+
   res.json({ requests });
 });
 
 app.post('/api/admin/moderator-requests/:id', requireAdmin, (req, res) => {
   const id = Number(req.params.id);
   const action = req.body?.action;
-  if (!['approve','reject'].includes(action)) {
+
+  if (!['approve', 'reject'].includes(action)) {
     return res.status(400).json({ error: 'Неизвестное действие.' });
   }
 
   const request = db.prepare(`
     SELECT * FROM moderator_requests WHERE id=?
   `).get(id);
-  if (!request) return res.status(404).json({ error: 'Заявка не найдена.' });
+
+  if (!request) {
+    return res.status(404).json({ error: 'Заявка не найдена.' });
+  }
+
+  if (request.status !== 'pending') {
+    return res.status(409).json({ error: 'Заявка уже обработана.' });
+  }
 
   const update = db.transaction(() => {
-    db.prepare('UPDATE moderator_requests SET status=? WHERE id=?')
-      .run(action === 'approve' ? 'approved' : 'rejected', id);
+    db.prepare(`
+      UPDATE moderator_requests SET status=? WHERE id=?
+    `).run(action === 'approve' ? 'approved' : 'rejected', id);
 
     if (action === 'approve') {
-      db.prepare('UPDATE users SET role=? WHERE id=?')
-        .run('Moder', request.user_id);
+      db.prepare(`
+        UPDATE users SET role='Moder' WHERE id=?
+      `).run(request.user_id);
     }
   });
 
@@ -826,24 +986,27 @@ app.post('/api/admin/moderator-requests/:id', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
-// MODERATOR: LIST USERS
+// MODERATION
 app.get('/api/moderation/users', requireModerator, (req, res) => {
   const users = db.prepare(`
     SELECT id,username,display_name,email,role,muted_until,banned_until
-    FROM users WHERE role IN ('Free','Plus')
+    FROM users
+    WHERE role IN ('Free','Plus')
     ORDER BY id DESC
-  `).all().map(u => ({
-    ...u,
-    name: u.display_name || u.username,
-    mutedUntil: u.muted_until,
-    bannedUntil: u.banned_until
+  `).all().map(user => ({
+    ...user,
+    name: user.display_name || user.username,
+    mutedUntil: user.muted_until,
+    bannedUntil: user.banned_until
   }));
+
   res.json({ users });
 });
 
 function getModerationTarget(req, res) {
   const id = Number(req.params.id);
   const target = getUser.get(id);
+
   if (!target) {
     res.status(404).json({ error: 'Пользователь не найден.' });
     return null;
@@ -851,61 +1014,75 @@ function getModerationTarget(req, res) {
 
   const actor = getUser.get(req.session.user.id);
 
-  if (!isAdmin(actor) && !['Free','Plus'].includes(target.role)) {
-    res.status(403).json({ error: 'Moder может управлять только обычными аккаунтами.' });
+  if (!isAdmin(actor) && !['Free', 'Plus'].includes(target.role)) {
+    res.status(403).json({
+      error: 'Moder может управлять только обычными аккаунтами.'
+    });
     return null;
   }
 
   if (isAdmin(target) || isModerator(target)) {
-    res.status(403).json({ error: 'Нельзя применять наказания к Admin или Moder.' });
+    res.status(403).json({
+      error: 'Нельзя применять наказания к Admin или Moder.'
+    });
     return null;
   }
 
   return target;
 }
 
-// Мут на 25 минут
 app.post('/api/moderation/users/:id/mute', requireModerator, (req, res) => {
   const target = getModerationTarget(req, res);
   if (!target) return;
 
-  const until = new Date(Date.now() + 25 * 60 * 1000).toISOString();
-  db.prepare('UPDATE users SET muted_until=? WHERE id=?').run(until, target.id);
+  const until = new Date(Date.now() + 25 * 60000).toISOString();
+
+  db.prepare('UPDATE users SET muted_until=? WHERE id=?')
+    .run(until, target.id);
+
   res.json({ success: true, mutedUntil: until });
 });
 
-// Бан на 7 дней
-app.post('/api/moderation/users/:id/ban', requireModerator, (req, res) => {
-  const target = getModerationTarget(req, res);
-  if (!target) return;
-
-  const until = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-  db.prepare('UPDATE users SET banned_until=? WHERE id=?').run(until, target.id);
-  res.json({ success: true, bannedUntil: until });
-});
-
-// Досрочный разбан
-app.post('/api/moderation/users/:id/unban', requireModerator, (req, res) => {
-  const target = getModerationTarget(req, res);
-  if (!target) return;
-
-  db.prepare('UPDATE users SET banned_until=NULL WHERE id=?').run(target.id);
-  res.json({ success: true });
-});
-
-// Снять мут
 app.post('/api/moderation/users/:id/unmute', requireModerator, (req, res) => {
   const target = getModerationTarget(req, res);
   if (!target) return;
 
-  db.prepare('UPDATE users SET muted_until=NULL WHERE id=?').run(target.id);
+  db.prepare('UPDATE users SET muted_until=NULL WHERE id=?')
+    .run(target.id);
+
+  res.json({ success: true });
+});
+
+app.post('/api/moderation/users/:id/ban', requireModerator, (req, res) => {
+  const target = getModerationTarget(req, res);
+  if (!target) return;
+
+  const until = new Date(Date.now() + 7 * 86400000).toISOString();
+
+  db.prepare('UPDATE users SET banned_until=? WHERE id=?')
+    .run(until, target.id);
+
+  res.json({ success: true, bannedUntil: until });
+});
+
+app.post('/api/moderation/users/:id/unban', requireModerator, (req, res) => {
+  const target = getModerationTarget(req, res);
+  if (!target) return;
+
+  db.prepare('UPDATE users SET banned_until=NULL WHERE id=?')
+    .run(target.id);
+
   res.json({ success: true });
 });
 
 // STATIC FILES
-app.use(express.static(__dirname));
+const PUBLIC_DIR = path.join(__dirname, 'public');
+fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+
+app.use(express.static(PUBLIC_DIR));
+
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
 });
 
 app.use('/api', (req, res) => {
@@ -914,13 +1091,17 @@ app.use('/api', (req, res) => {
 
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
+
   if (res.headersSent) return next(err);
+
   if (err.type === 'entity.too.large') {
     return res.status(413).json({ error: 'Запрос слишком большой.' });
   }
+
   res.status(500).json({ error: 'Внутренняя ошибка сервера.' });
 });
 
+// START
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Maut AI запущен на порту ${PORT}`);
 });
@@ -931,7 +1112,9 @@ function shutdown() {
     db.close();
     process.exit(0);
   });
+
   setTimeout(() => process.exit(1), 10000).unref();
 }
+
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
