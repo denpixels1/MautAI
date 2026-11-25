@@ -16,1182 +16,305 @@
   --text:#f2f2f2;
   --muted:#999;
   --border:#303030;
-  --accent:#d8d8d8;
   --danger:#e05252;
-  --radius:14px;
 }
-
-* { box-sizing:border-box; }
-
-body {
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family:Inter,Arial,sans-serif;
-  height:100vh;
-  overflow:hidden;
-}
-
-button,input,textarea,select {
-  font:inherit;
-}
-
-button {
-  cursor:pointer;
-  color:inherit;
-}
-
-.app {
-  height:100vh;
-  display:flex;
-  overflow:hidden;
-}
-
-/* SIDEBAR */
-
-.sidebar {
-  width:270px;
-  min-width:270px;
-  background:var(--sidebar);
-  border-right:1px solid var(--border);
-  display:flex;
-  flex-direction:column;
-  padding:15px;
-  transition:transform .25s,width .25s;
-  z-index:10;
-}
-
-.sidebar-top {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  margin-bottom:22px;
-}
-
-.logo {
-  font-size:21px;
-  font-weight:750;
-  letter-spacing:-1px;
-}
-
-.logo span {
-  color:#999;
-}
-
-.icon-btn {
-  width:37px;
-  height:37px;
-  border:0;
-  background:transparent;
-  border-radius:10px;
-  color:#aaa;
-  font-size:20px;
-}
-
-.icon-btn:hover {
-  background:var(--panel2);
-  color:white;
-}
-
-.new-chat {
-  width:100%;
-  border:1px solid var(--border);
-  background:transparent;
-  border-radius:11px;
-  padding:12px;
-  text-align:left;
-  margin-bottom:20px;
-}
-
-.new-chat:hover {
-  background:var(--panel);
-}
-
-.sidebar-label {
-  color:#777;
-  font-size:11px;
-  text-transform:uppercase;
-  letter-spacing:1px;
-  margin:8px 5px 10px;
-}
-
-.chat-list {
-  flex:1;
-  overflow-y:auto;
-}
-
-.chat-item {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:5px;
-  padding:10px;
-  border-radius:9px;
-  color:#bbb;
-  cursor:pointer;
-  font-size:13px;
-  margin-bottom:3px;
-}
-
-.chat-item:hover,
-.chat-item.active {
-  background:var(--panel2);
-  color:white;
-}
-
-.chat-item-title {
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  flex:1;
-}
-
-.chat-delete {
-  border:0;
-  background:transparent;
-  color:#777;
-  font-size:17px;
-  opacity:0;
-}
-
-.chat-item:hover .chat-delete {
-  opacity:1;
-}
-
-.sidebar-bottom {
-  border-top:1px solid var(--border);
-  padding-top:12px;
-}
-
-.profile-button {
-  width:100%;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:10px;
-  border:0;
-  border-radius:11px;
-  background:transparent;
-  text-align:left;
-}
-
-.profile-button:hover {
-  background:var(--panel2);
-}
-
-.avatar {
-  width:34px;
-  height:34px;
-  border-radius:50%;
-  background:#383838;
-  display:grid;
-  place-items:center;
-  font-weight:bold;
-}
-
-.profile-info {
-  flex:1;
-  min-width:0;
-}
-
-.profile-name {
-  font-size:13px;
-  font-weight:600;
-}
-
-.profile-status {
-  color:#888;
-  font-size:11px;
-  margin-top:3px;
-}
-
-/* MAIN */
-
-.main {
-  flex:1;
-  min-width:0;
-  display:flex;
-  flex-direction:column;
-  position:relative;
-}
-
-.topbar {
-  height:60px;
-  flex-shrink:0;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 20px;
-  border-bottom:1px solid var(--border);
-}
-
-.topbar-left {
-  display:flex;
-  align-items:center;
-  gap:12px;
-}
-
-.topbar-title {
-  font-weight:650;
-  font-size:15px;
-}
-
-.model-label {
-  color:#888;
-  font-size:12px;
-  border:1px solid var(--border);
-  padding:5px 9px;
-  border-radius:20px;
-}
-
-.menu-toggle {
-  display:none;
-}
-
-.content {
-  flex:1;
-  overflow-y:auto;
-  display:flex;
-  flex-direction:column;
-}
-
-.messages {
-  width:100%;
-  max-width:850px;
-  margin:0 auto;
-  padding:30px 25px 20px;
-  flex:1;
-}
-
-.welcome {
-  min-height:60vh;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-}
-
-.welcome-logo {
-  font-size:42px;
-  font-weight:800;
-  letter-spacing:-2px;
-  margin-bottom:14px;
-}
-
-.welcome-logo span {
-  color:#777;
-}
-
-.welcome p {
-  color:#999;
-  font-size:15px;
-}
-
-.message {
-  display:flex;
-  gap:14px;
-  margin:25px 0;
-  animation:appear .2s ease;
-}
-
-@keyframes appear {
-  from { opacity:0; transform:translateY(5px); }
-  to { opacity:1; transform:translateY(0); }
-}
-
-.message-avatar {
-  width:32px;
-  height:32px;
-  min-width:32px;
-  border-radius:50%;
-  display:grid;
-  place-items:center;
-  background:#292929;
-  font-size:12px;
-  font-weight:bold;
-}
-
-.message-body {
-  flex:1;
-  min-width:0;
-  line-height:1.7;
-  font-size:14px;
-  overflow-wrap:anywhere;
-}
-
-.message-body pre {
-  background:#080808;
-  border:1px solid var(--border);
-  border-radius:10px;
-  padding:15px;
-  overflow-x:auto;
-}
-
-.message-body code {
-  background:#292929;
-  border-radius:4px;
-  padding:2px 5px;
-}
-
-.message-body pre code {
-  background:transparent;
-  padding:0;
-}
-
-.message-body p {
-  margin:0 0 12px;
-}
-
-.message-body ul,
-.message-body ol {
-  padding-left:23px;
-}
-
-.message-actions {
-  display:flex;
-  gap:7px;
-  margin-top:10px;
-}
-
-.message-actions button {
-  border:0;
-  background:transparent;
-  color:#777;
-  font-size:12px;
-  padding:5px;
-}
-
-.message-actions button:hover {
-  color:white;
-}
-
-.typing {
-  color:#888;
-  font-size:13px;
-}
-
-/* INPUT */
-
-.composer-area {
-  padding:15px 20px 22px;
-  flex-shrink:0;
-}
-
-.composer {
-  max-width:850px;
-  margin:auto;
-  background:#202020;
-  border:1px solid #393939;
-  border-radius:17px;
-  padding:12px;
-  box-shadow:0 5px 30px #0004;
-}
-
-.composer textarea {
-  display:block;
-  width:100%;
-  resize:none;
-  min-height:45px;
-  max-height:180px;
-  padding:8px;
-  border:0;
-  outline:0;
-  color:white;
-  background:transparent;
-  font-size:14px;
-}
-
-.composer-bottom {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-}
-
-.composer-tools {
-  display:flex;
-  gap:7px;
-}
-
-.tool-btn {
-  background:transparent;
-  border:0;
-  color:#999;
-  border-radius:8px;
-  padding:8px 10px;
-  font-size:12px;
-}
-
-.tool-btn:hover,
-.tool-btn.selected {
-  background:#353535;
-  color:white;
-}
-
-.send-btn {
-  width:38px;
-  height:38px;
-  border:0;
-  border-radius:11px;
-  background:#eee;
-  color:#111;
-  font-size:18px;
-  font-weight:bold;
-}
-
-.send-btn:hover {
-  background:white;
-}
-
-.send-btn:disabled {
-  opacity:.4;
-  cursor:not-allowed;
-}
-
-.disclaimer {
-  text-align:center;
-  color:#666;
-  font-size:10px;
-  margin-top:10px;
-}
-
-/* IMAGE MODE */
-
-.image-mode {
-  display:none;
-  max-width:850px;
-  width:100%;
-  margin:0 auto 12px;
-  padding:13px;
-  background:#1b1b1b;
-  border:1px solid var(--border);
-  border-radius:12px;
-}
-
-.image-mode.visible {
-  display:block;
-}
-
-.image-mode input {
-  width:100%;
-  margin-top:8px;
-  background:#292929;
-  color:white;
-  border:1px solid #444;
-  padding:10px;
-  border-radius:8px;
-  outline:none;
-}
-
-.generated-image {
-  max-width:100%;
-  border-radius:12px;
-  margin-top:15px;
-}
-
-/* OVERLAY AND MODALS */
-
-.overlay {
-  display:none;
-  position:fixed;
-  inset:0;
-  background:#0009;
-  z-index:20;
-}
-
-.overlay.visible {
-  display:block;
-}
-
-.modal {
-  display:none;
-  position:fixed;
-  z-index:30;
-  left:50%;
-  top:50%;
-  transform:translate(-50%,-50%);
-  width:min(440px,calc(100% - 30px));
-  max-height:85vh;
-  overflow-y:auto;
-  background:#1d1d1d;
-  border:1px solid #393939;
-  border-radius:17px;
-  padding:22px;
-  box-shadow:0 20px 80px #0009;
-}
-
-.modal.visible {
-  display:block;
-}
-
-.modal-header {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-bottom:20px;
-}
-
-.modal-header h2 {
-  font-size:18px;
-  margin:0;
-}
-
-.close-btn {
-  border:0;
-  background:transparent;
-  color:#aaa;
-  font-size:23px;
-}
-
-.field {
-  margin-bottom:13px;
-}
-
-.field label {
-  display:block;
-  color:#aaa;
-  font-size:12px;
-  margin-bottom:7px;
-}
-
-.field input,
-.field textarea,
-.field select {
-  width:100%;
-  background:#292929;
-  color:white;
-  border:1px solid #414141;
-  border-radius:9px;
-  padding:12px;
-  outline:none;
-}
-
-.field input:focus,
-.field textarea:focus {
-  border-color:#888;
-}
-
-.primary-btn {
-  width:100%;
-  background:#eee;
-  color:#111;
-  border:0;
-  padding:12px;
-  border-radius:9px;
-  font-weight:650;
-  margin-top:7px;
-}
-
-.primary-btn:hover {
-  background:white;
-}
-
-.secondary-btn {
-  width:100%;
-  border:1px solid #444;
-  background:transparent;
-  color:white;
-  padding:11px;
-  border-radius:9px;
-  margin-top:8px;
-}
-
-.form-error {
-  color:#ff7373;
-  font-size:12px;
-  margin:10px 0;
-}
-
-.form-success {
-  color:#8ed7a0;
-  font-size:12px;
-  margin:10px 0;
-}
-
-.switch-auth {
-  text-align:center;
-  color:#999;
-  font-size:12px;
-  margin-top:15px;
-}
-
-.switch-auth button {
-  border:0;
-  background:transparent;
-  color:white;
-  text-decoration:underline;
-}
-
-/* ADMIN */
-
-.admin-panel {
-  display:none;
-  position:absolute;
-  inset:60px 0 0;
-  z-index:5;
-  background:var(--bg);
-  overflow-y:auto;
-  padding:25px;
-}
-
-.admin-panel.visible {
-  display:block;
-}
-
-.admin-inner {
-  max-width:1050px;
-  margin:auto;
-}
-
-.admin-heading {
-  font-size:25px;
-  margin:5px 0;
-}
-
-.admin-description {
-  color:#888;
-  font-size:13px;
-  margin-bottom:25px;
-}
-
-.admin-tabs {
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  border-bottom:1px solid var(--border);
-  padding-bottom:12px;
-  margin-bottom:20px;
-}
-
-.admin-tab {
-  border:1px solid var(--border);
-  background:transparent;
-  color:#aaa;
-  border-radius:8px;
-  padding:9px 13px;
-  font-size:12px;
-}
-
-.admin-tab.active {
-  background:#eee;
-  color:#111;
-}
-
-.admin-section {
-  display:none;
-}
-
-.admin-section.active {
-  display:block;
-}
-
-.admin-card {
-  background:#1b1b1b;
-  border:1px solid var(--border);
-  padding:16px;
-  border-radius:12px;
-  margin-bottom:12px;
-}
-
-.admin-card h3 {
-  font-size:14px;
-  margin:0 0 12px;
-}
-
-.admin-table-wrap {
-  overflow-x:auto;
-}
-
-.admin-table {
-  width:100%;
-  border-collapse:collapse;
-  font-size:12px;
-  min-width:500px;
-}
-
-.admin-table th,
-.admin-table td {
-  padding:12px 9px;
-  text-align:left;
-  border-bottom:1px solid var(--border);
-}
-
-.admin-table th {
-  color:#888;
-  font-weight:500;
-}
-
-.small-btn {
-  border:1px solid #444;
-  border-radius:7px;
-  padding:6px 9px;
-  background:#292929;
-  color:white;
-  font-size:11px;
-  margin:2px;
-}
-
-.small-btn.danger {
-  color:#ff8585;
-}
-
-.small-btn.success {
-  color:#91d99e;
-}
-
-.admin-input {
-  background:#292929;
-  color:white;
-  border:1px solid #444;
-  border-radius:8px;
-  padding:10px;
-  outline:none;
-  width:100%;
-  margin:5px 0;
-}
-
-.admin-row {
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  align-items:center;
-}
-
-.admin-row > * {
-  flex:1;
-}
-
-.empty-state {
-  color:#777;
-  text-align:center;
-  padding:30px;
-  font-size:13px;
-}
-
-/* PROFILE MENU */
-
-.profile-menu {
-  display:none;
-  position:absolute;
-  bottom:75px;
-  left:15px;
-  width:240px;
-  background:#252525;
-  border:1px solid #444;
-  border-radius:12px;
-  padding:7px;
-  z-index:15;
-  box-shadow:0 10px 30px #0008;
-}
-
-.profile-menu.visible {
-  display:block;
-}
-
-.profile-menu button {
-  width:100%;
-  padding:11px;
-  background:transparent;
-  border:0;
-  color:#ddd;
-  text-align:left;
-  border-radius:7px;
-  font-size:13px;
-}
-
-.profile-menu button:hover {
-  background:#383838;
-}
-
-.hidden {
-  display:none !important;
-}
-
-/* MOBILE */
-
-@media(max-width:700px) {
-  .sidebar {
-    position:fixed;
-    top:0;
-    bottom:0;
-    left:0;
-    transform:translateX(-100%);
-    width:280px;
-    min-width:280px;
-  }
-
-  .sidebar.open {
-    transform:translateX(0);
-  }
-
-  .menu-toggle {
-    display:block;
-  }
-
-  .topbar {
-    padding:0 12px;
-  }
-
-  .messages {
-    padding:20px 14px;
-  }
-
-  .composer-area {
-    padding:10px;
-  }
-
-  .admin-panel {
-    padding:15px;
-  }
-
-  .welcome-logo {
-    font-size:35px;
-  }
-
-  .model-label {
-    display:none;
-  }
-}
-
-@media(min-width:701px) {
-  .sidebar.closed {
-    display:none;
-  }
-
-  .sidebar-close {
-    display:block;
-  }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif;height:100vh;overflow:hidden}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer;color:inherit}
+.app{height:100vh;display:flex;overflow:hidden}
+.sidebar{width:270px;min-width:270px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:15px;transition:transform .25s;z-index:10}
+.sidebar-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.logo{font-size:21px;font-weight:750;letter-spacing:-1px}
+.logo span,.welcome-logo span{color:#999}
+.icon-btn{width:37px;height:37px;border:0;background:transparent;border-radius:10px;color:#aaa;font-size:20px}
+.icon-btn:hover{background:var(--panel2);color:white}
+.new-chat{width:100%;border:1px solid var(--border);background:transparent;border-radius:11px;padding:12px;text-align:left;margin-bottom:20px}
+.new-chat:hover{background:var(--panel)}
+.sidebar-label{color:#777;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:8px 5px 10px}
+.chat-list{flex:1;overflow-y:auto}
+.chat-item{display:flex;align-items:center;justify-content:space-between;gap:5px;padding:10px;border-radius:9px;color:#bbb;cursor:pointer;font-size:13px;margin-bottom:3px}
+.chat-item:hover,.chat-item.active{background:var(--panel2);color:white}
+.chat-item-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.chat-delete{border:0;background:transparent;color:#777;font-size:17px;opacity:0}
+.chat-item:hover .chat-delete{opacity:1}
+.sidebar-bottom{border-top:1px solid var(--border);padding-top:12px;position:relative}
+.profile-button{width:100%;display:flex;align-items:center;gap:10px;padding:10px;border:0;border-radius:11px;background:transparent;text-align:left}
+.profile-button:hover{background:var(--panel2)}
+.avatar{width:34px;height:34px;border-radius:50%;background:#383838;display:grid;place-items:center;font-weight:bold}
+.profile-info{flex:1;min-width:0}
+.profile-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.profile-status{color:#888;font-size:11px;margin-top:3px}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.topbar{height:60px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--border)}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.topbar-title{font-weight:650;font-size:15px}
+.model-label{color:#888;font-size:12px;border:1px solid var(--border);padding:5px 9px;border-radius:20px}
+.menu-toggle{display:none}
+.content{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.messages{width:100%;max-width:850px;margin:0 auto;padding:30px 25px 20px;flex:1}
+.welcome{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.welcome-logo{font-size:42px;font-weight:800;letter-spacing:-2px;margin-bottom:14px}
+.welcome p{color:#999;font-size:15px}
+.message{display:flex;gap:14px;margin:25px 0;animation:appear .2s ease}
+@keyframes appear{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.message-avatar{width:32px;height:32px;min-width:32px;border-radius:50%;display:grid;place-items:center;background:#292929;font-size:12px;font-weight:bold}
+.message-body{flex:1;min-width:0;line-height:1.7;font-size:14px;overflow-wrap:anywhere}
+.message-body pre{background:#080808;border:1px solid var(--border);border-radius:10px;padding:15px;overflow-x:auto}
+.message-body code{background:#292929;border-radius:4px;padding:2px 5px}
+.message-body pre code{background:transparent;padding:0}
+.message-body p{margin:0 0 12px}
+.message-body ul,.message-body ol{padding-left:23px}
+.message-actions{display:flex;gap:7px;margin-top:10px}
+.message-actions button{border:0;background:transparent;color:#777;font-size:12px;padding:5px}
+.message-actions button:hover{color:white}
+.typing{color:#888;font-size:13px}
+.composer-area{padding:15px 20px 22px;flex-shrink:0}
+.composer{max-width:850px;margin:auto;background:#202020;border:1px solid #393939;border-radius:17px;padding:12px;box-shadow:0 5px 30px #0004}
+.composer textarea{display:block;width:100%;resize:none;min-height:45px;max-height:180px;padding:8px;border:0;outline:0;color:white;background:transparent;font-size:14px}
+.composer-bottom{display:flex;align-items:center;justify-content:space-between}
+.composer-tools{display:flex;gap:7px}
+.tool-btn{background:transparent;border:0;color:#999;border-radius:8px;padding:8px 10px;font-size:12px}
+.tool-btn:hover,.tool-btn.selected{background:#353535;color:white}
+.send-btn{width:38px;height:38px;border:0;border-radius:11px;background:#eee;color:#111;font-size:18px;font-weight:bold}
+.send-btn:hover{background:white}
+.send-btn:disabled{opacity:.4;cursor:not-allowed}
+.disclaimer{text-align:center;color:#666;font-size:10px;margin-top:10px}
+.image-mode{display:none;max-width:850px;width:100%;margin:0 auto 12px;padding:13px;background:#1b1b1b;border:1px solid var(--border);border-radius:12px}
+.image-mode.visible{display:block}
+.image-mode input{width:100%;margin-top:8px;background:#292929;color:white;border:1px solid #444;padding:10px;border-radius:8px;outline:none}
+.generated-image{display:block;max-width:100%;max-height:500px;border-radius:12px;margin-top:15px}
+.overlay{display:none;position:fixed;inset:0;background:#0009;z-index:20}
+.overlay.visible{display:block}
+.modal{display:none;position:fixed;z-index:30;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100% - 30px));max-height:85vh;overflow-y:auto;background:#1d1d1d;border:1px solid #393939;border-radius:17px;padding:22px;box-shadow:0 20px 80px #0009}
+.modal.visible{display:block}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-header h2{font-size:18px;margin:0}
+.close-btn{border:0;background:transparent;color:#aaa;font-size:23px}
+.field{margin-bottom:13px}
+.field label{display:block;color:#aaa;font-size:12px;margin-bottom:7px}
+.field input,.field textarea,.field select{width:100%;background:#292929;color:white;border:1px solid #414141;border-radius:9px;padding:12px;outline:none}
+.field input:focus,.field textarea:focus{border-color:#888}
+.primary-btn{width:100%;background:#eee;color:#111;border:0;padding:12px;border-radius:9px;font-weight:650;margin-top:7px}
+.primary-btn:hover{background:white}
+.primary-btn:disabled{opacity:.5;cursor:not-allowed}
+.secondary-btn{width:100%;border:1px solid #444;background:transparent;color:white;padding:11px;border-radius:9px;margin-top:8px}
+.form-error{color:#ff7373;font-size:12px;margin:10px 0}
+.form-success{color:#8ed7a0;font-size:12px;margin:10px 0}
+.switch-auth{text-align:center;color:#999;font-size:12px;margin-top:15px}
+.switch-auth button{border:0;background:transparent;color:white;text-decoration:underline}
+.admin-panel{display:none;position:absolute;inset:60px 0 0;z-index:5;background:var(--bg);overflow-y:auto;padding:25px}
+.admin-panel.visible{display:block}
+.admin-inner{max-width:1050px;margin:auto}
+.admin-heading{font-size:25px;margin:5px 0}
+.admin-description{color:#888;font-size:13px;margin-bottom:25px}
+.admin-tabs{display:flex;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:20px}
+.admin-tab{border:1px solid var(--border);background:transparent;color:#aaa;border-radius:8px;padding:9px 13px;font-size:12px}
+.admin-tab.active{background:#eee;color:#111}
+.admin-section{display:none}
+.admin-section.active{display:block}
+.admin-card{background:#1b1b1b;border:1px solid var(--border);padding:16px;border-radius:12px;margin-bottom:12px}
+.admin-card h3{font-size:14px;margin:0 0 12px}
+.admin-table-wrap{overflow-x:auto}
+.admin-table{width:100%;border-collapse:collapse;font-size:12px;min-width:500px}
+.admin-table th,.admin-table td{padding:12px 9px;text-align:left;border-bottom:1px solid var(--border)}
+.admin-table th{color:#888;font-weight:500}
+.small-btn{border:1px solid #444;border-radius:7px;padding:6px 9px;background:#292929;color:white;font-size:11px;margin:2px}
+.small-btn.danger{color:#ff8585}
+.small-btn.success{color:#91d99e}
+.admin-input{background:#292929;color:white;border:1px solid #444;border-radius:8px;padding:10px;outline:none;width:100%;margin:5px 0}
+.admin-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.admin-row>*{flex:1}
+.empty-state{color:#777;text-align:center;padding:30px;font-size:13px}
+.profile-menu{display:none;position:absolute;bottom:75px;left:15px;width:240px;background:#252525;border:1px solid #444;border-radius:12px;padding:7px;z-index:15;box-shadow:0 10px 30px #0008}
+.profile-menu.visible{display:block}
+.profile-menu button{width:100%;padding:11px;background:transparent;border:0;color:#ddd;text-align:left;border-radius:7px;font-size:13px}
+.profile-menu button:hover{background:#383838}
+.hidden{display:none!important}
+@media(max-width:700px){
+ .sidebar{position:fixed;top:0;bottom:0;left:0;transform:translateX(-100%);width:280px;min-width:280px}
+ .sidebar.open{transform:translateX(0)}
+ .menu-toggle{display:block}
+ .topbar{padding:0 12px}
+ .messages{padding:20px 14px}
+ .composer-area{padding:10px}
+ .admin-panel{padding:15px}
+ .welcome-logo{font-size:35px}
+ .model-label{display:none}
+}
+@media(min-width:701px){
+ .sidebar.closed{display:none}
+ .sidebar-close{display:block}
 }
 </style>
 </head>
 
 <body>
-
 <div class="app">
-
-  <!-- SIDEBAR -->
-
-  <aside class="sidebar" id="sidebar">
-
-    <div class="sidebar-top">
-      <div class="logo">Maut <span>AI</span></div>
-      <button class="icon-btn sidebar-close" id="closeSidebar" title="Закрыть панель">×</button>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-top">
+    <div class="logo">Maut <span>AI</span></div>
+    <button class="icon-btn sidebar-close" id="closeSidebar" title="Закрыть панель">×</button>
+  </div>
+  <button class="new-chat" id="newChat">＋ Новый чат</button>
+  <div class="sidebar-label">История</div>
+  <div class="chat-list" id="chatList"><div class="empty-state">Нет чатов</div></div>
+  <div class="sidebar-bottom">
+    <button class="profile-button" id="profileButton">
+      <div class="avatar" id="avatar">?</div>
+      <div class="profile-info">
+        <div class="profile-name" id="profileName">Гость</div>
+        <div class="profile-status" id="profileStatus">Войти в аккаунт</div>
+      </div>
+      <span style="color:#777">⋯</span>
+    </button>
+    <div class="profile-menu" id="profileMenu">
+      <button id="profileAccount">Аккаунт</button>
+      <button id="redeemButton">Активировать Maut Plus</button>
+      <button id="adminButton" class="hidden">Панель администратора</button>
+      <button id="moderatorButton" class="hidden">Панель модератора</button>
+      <button id="moderatorRequestButton">Стать модератором</button>
+      <button id="logoutButton">Выйти</button>
     </div>
+  </div>
+</aside>
 
-    <button class="new-chat" id="newChat">＋ Новый чат</button>
+<main class="main">
+<header class="topbar">
+  <div class="topbar-left">
+    <button class="icon-btn menu-toggle" id="openSidebar">☰</button>
+    <div class="topbar-title">Maut AI</div>
+    <div class="model-label">AI Assistant</div>
+  </div>
+  <button class="icon-btn" id="topAccount" title="Аккаунт">◉</button>
+</header>
 
-    <div class="sidebar-label">История</div>
-    <div class="chat-list" id="chatList">
-      <div class="empty-state">Нет чатов</div>
+<div class="content" id="chatContent">
+  <div class="messages" id="messages">
+    <div class="welcome" id="welcome">
+      <div class="welcome-logo">Maut <span>AI</span></div>
+      <p>Чем я могу помочь сегодня?</p>
     </div>
+  </div>
+</div>
 
-    <div class="sidebar-bottom">
-
-      <button class="profile-button" id="profileButton">
-        <div class="avatar" id="avatar">?</div>
-        <div class="profile-info">
-          <div class="profile-name" id="profileName">Гость</div>
-          <div class="profile-status" id="profileStatus">Войти в аккаунт</div>
-        </div>
-        <span style="color:#777">⋯</span>
-      </button>
-
-      <div class="profile-menu" id="profileMenu">
-        <button id="profileAccount">Аккаунт</button>
-        <button id="redeemButton">Активировать Maut Plus</button>
-        <button id="adminButton" class="hidden">Панель администратора</button>
-        <button id="moderatorButton" class="hidden">Панель модератора</button>
-        <button id="moderatorRequestButton">Стать модератором</button>
-        <button id="logoutButton">Выйти</button>
+<div class="composer-area">
+  <div class="image-mode" id="imageMode">
+    <strong style="font-size:13px">✦ Генерация изображений</strong>
+    <input id="imagePrompt" placeholder="Опиши изображение, которое нужно создать...">
+    <button class="primary-btn" id="generateImage">Создать изображение</button>
+    <div id="imageResult"></div>
+  </div>
+  <div class="composer">
+    <textarea id="messageInput" placeholder="Спросите что-нибудь у Maut AI..." rows="1"></textarea>
+    <div class="composer-bottom">
+      <div class="composer-tools">
+        <button class="tool-btn" id="imageModeButton">＋ Изображение</button>
+        <button class="tool-btn" id="clearButton">Очистить</button>
       </div>
-
+      <button class="send-btn" id="sendButton" title="Отправить">↑</button>
     </div>
-  </aside>
+  </div>
+  <div class="disclaimer">Maut AI может допускать ошибки. Проверяйте важную информацию.</div>
+</div>
 
-  <!-- MAIN -->
+<section class="admin-panel" id="adminPanel">
+<div class="admin-inner">
+  <button class="small-btn" id="closeAdmin">← Вернуться в чат</button>
+  <h1 class="admin-heading" id="panelHeading">Панель управления</h1>
+  <div class="admin-description" id="panelDescription">Управление Maut AI</div>
+  <div class="admin-tabs" id="adminTabs">
+    <button class="admin-tab active" data-section="users">Пользователи</button>
+    <button class="admin-tab" data-section="keys">Maut Plus</button>
+    <button class="admin-tab" data-section="memory">Память ИИ</button>
+    <button class="admin-tab" data-section="requests">Заявки</button>
+  </div>
 
-  <main class="main">
-
-    <header class="topbar">
-
-      <div class="topbar-left">
-        <button class="icon-btn menu-toggle" id="openSidebar">☰</button>
-        <div class="topbar-title">Maut AI</div>
-        <div class="model-label">AI Assistant</div>
+  <div class="admin-section active" id="section-users">
+    <div class="admin-card">
+      <h3>Пользователи</h3>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>ID</th><th>Имя</th><th>Email</th><th>Роль</th><th>Действия</th></tr></thead>
+          <tbody id="usersTable"><tr><td colspan="5">Загрузка...</td></tr></tbody>
+        </table>
       </div>
-
-      <button class="icon-btn" id="topAccount" title="Аккаунт">◉</button>
-
-    </header>
-
-    <div class="content" id="chatContent">
-
-      <div class="messages" id="messages">
-
-        <div class="welcome" id="welcome">
-          <div class="welcome-logo">Maut <span>AI</span></div>
-          <p>Чем я могу помочь сегодня?</p>
-        </div>
-
-      </div>
-
     </div>
+  </div>
 
-    <div class="composer-area">
-
-      <div class="image-mode" id="imageMode">
-        <strong style="font-size:13px">✦ Генерация изображений</strong>
-        <input id="imagePrompt" placeholder="Опиши изображение, которое нужно создать...">
-        <button class="primary-btn" id="generateImage">Создать изображение</button>
-        <div id="imageResult"></div>
+  <div class="admin-section" id="section-keys">
+    <div class="admin-card">
+      <h3>Создать Maut Plus ключи</h3>
+      <div class="admin-row">
+        <input class="admin-input" id="keyCount" type="number" min="1" max="100" value="1" placeholder="Количество">
+        <input class="admin-input" id="keyDays" type="number" min="1" max="3650" value="30" placeholder="Дней">
       </div>
-
-      <div class="composer">
-
-        <textarea
-          id="messageInput"
-          placeholder="Спросите что-нибудь у Maut AI..."
-          rows="1"
-        ></textarea>
-
-        <div class="composer-bottom">
-
-          <div class="composer-tools">
-            <button class="tool-btn" id="imageModeButton">＋ Изображение</button>
-            <button class="tool-btn" id="clearButton">Очистить</button>
-          </div>
-
-          <button class="send-btn" id="sendButton" title="Отправить">↑</button>
-
-        </div>
-
-      </div>
-
-      <div class="disclaimer">
-        Maut AI может допускать ошибки. Проверяйте важную информацию.
-      </div>
-
+      <button class="primary-btn" id="createKeys">Создать ключи</button>
+      <div id="keysResult"></div>
     </div>
+  </div>
 
-    <!-- ADMIN / MODERATOR PANEL -->
+  <div class="admin-section" id="section-memory">
+    <div class="admin-card">
+      <h3>Добавить информацию в память Maut AI</h3>
+      <input class="admin-input" id="memoryTitle" placeholder="Название">
+      <textarea class="admin-input" id="memoryContent" rows="4" placeholder="Информация для памяти"></textarea>
+      <button class="primary-btn" id="addMemory">Добавить</button>
+    </div>
+    <div class="admin-card"><h3>Сохранённая память</h3><div id="memoryList">Загрузка...</div></div>
+  </div>
 
-    <section class="admin-panel" id="adminPanel">
-
-      <div class="admin-inner">
-
-        <button class="small-btn" id="closeAdmin">← Вернуться в чат</button>
-
-        <h1 class="admin-heading" id="panelHeading">Панель управления</h1>
-        <div class="admin-description" id="panelDescription">
-          Управление Maut AI
-        </div>
-
-        <div class="admin-tabs" id="adminTabs">
-
-          <button class="admin-tab active" data-section="users">Пользователи</button>
-          <button class="admin-tab" data-section="keys">Maut Plus</button>
-          <button class="admin-tab" data-section="memory">Память ИИ</button>
-          <button class="admin-tab" data-section="requests">Заявки</button>
-
-        </div>
-
-        <!-- USERS -->
-
-        <div class="admin-section active" id="section-users">
-
-          <div class="admin-card">
-            <h3>Пользователи</h3>
-            <div class="admin-table-wrap">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Имя</th>
-                    <th>Email</th>
-                    <th>Роль</th>
-                    <th>Действия</th>
-                  </tr>
-                </thead>
-                <tbody id="usersTable">
-                  <tr><td colspan="5">Загрузка...</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- GIFT KEYS -->
-
-        <div class="admin-section" id="section-keys">
-
-          <div class="admin-card">
-            <h3>Создать Maut Plus ключ</h3>
-
-            <div class="admin-row">
-              <input class="admin-input" id="keyCount" type="number" min="1" max="100" value="1" placeholder="Количество">
-              <input class="admin-input" id="keyDays" type="number" min="1" max="3650" value="30" placeholder="Дней">
-            </div>
-
-            <button class="primary-btn" id="createKeys">Создать ключи</button>
-            <div id="keysResult"></div>
-          </div>
-
-        </div>
-
-        <!-- MEMORY -->
-
-        <div class="admin-section" id="section-memory">
-
-          <div class="admin-card">
-            <h3>Добавить информацию в память Maut AI</h3>
-            <input class="admin-input" id="memoryTitle" placeholder="Название">
-            <textarea class="admin-input" id="memoryContent" rows="4" placeholder="Информация для памяти"></textarea>
-            <button class="primary-btn" id="addMemory">Добавить</button>
-          </div>
-
-          <div class="admin-card">
-            <h3>Сохранённая память</h3>
-            <div id="memoryList">Загрузка...</div>
-          </div>
-
-        </div>
-
-        <!-- REQUESTS -->
-
-        <div class="admin-section" id="section-requests">
-
-          <div class="admin-card">
-            <h3>Заявки на модератора</h3>
-            <div id="requestsList">Загрузка...</div>
-          </div>
-
-        </div>
-
-      </div>
-
-    </section>
-
-  </main>
-
+  <div class="admin-section" id="section-requests">
+    <div class="admin-card"><h3>Заявки на модератора</h3><div id="requestsList">Загрузка...</div></div>
+  </div>
+</div>
+</section>
+</main>
 </div>
 
 <div class="overlay" id="overlay"></div>
 
-<!-- AUTH MODAL -->
-
 <div class="modal" id="authModal">
-
-  <div class="modal-header">
-    <h2 id="authTitle">Вход в Maut AI</h2>
-    <button class="close-btn" data-close="authModal">×</button>
-  </div>
-
+  <div class="modal-header"><h2 id="authTitle">Вход в Maut AI</h2><button class="close-btn" data-close="authModal">×</button></div>
   <form id="authForm">
-
-    <div class="field hidden" id="nameField">
-      <label>Имя</label>
-      <input id="authName" autocomplete="name" placeholder="Ваше имя">
-    </div>
-
-    <div class="field">
-      <label>Email</label>
-      <input id="authEmail" type="email" autocomplete="email" required placeholder="example@email.com">
-    </div>
-
-    <div class="field">
-      <label>Пароль</label>
-      <input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="Ваш пароль">
-    </div>
-
+    <div class="field hidden" id="nameField"><label>Имя</label><input id="authName" autocomplete="name" placeholder="Ваше имя"></div>
+    <div class="field"><label>Email</label><input id="authEmail" type="email" autocomplete="email" required placeholder="example@email.com"></div>
+    <div class="field"><label>Пароль</label><input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="Ваш пароль"></div>
     <div class="form-error" id="authError"></div>
-
     <button class="primary-btn" type="submit" id="authSubmit">Войти</button>
-
   </form>
-
-  <div class="switch-auth">
-    <span id="authSwitchText">Нет аккаунта?</span>
-    <button id="authSwitch">Создать аккаунт</button>
-  </div>
-
+  <div class="switch-auth"><span id="authSwitchText">Нет аккаунта?</span> <button id="authSwitch">Создать аккаунт</button></div>
 </div>
-
-<!-- ACCOUNT MODAL -->
 
 <div class="modal" id="accountModal">
-
-  <div class="modal-header">
-    <h2>Мой аккаунт</h2>
-    <button class="close-btn" data-close="accountModal">×</button>
-  </div>
-
+  <div class="modal-header"><h2>Мой аккаунт</h2><button class="close-btn" data-close="accountModal">×</button></div>
   <div class="admin-card">
-    <div style="color:#999;font-size:12px">Имя</div>
-    <div id="accountName" style="margin:5px 0 15px">—</div>
-
-    <div style="color:#999;font-size:12px">Email</div>
-    <div id="accountEmail" style="margin:5px 0 15px">—</div>
-
-    <div style="color:#999;font-size:12px">Статус</div>
-    <div id="accountRole" style="margin-top:5px">Обычный аккаунт</div>
+    <div style="color:#999;font-size:12px">Имя</div><div id="accountName" style="margin:5px 0 15px">—</div>
+    <div style="color:#999;font-size:12px">Email</div><div id="accountEmail" style="margin:5px 0 15px">—</div>
+    <div style="color:#999;font-size:12px">Статус</div><div id="accountRole" style="margin-top:5px">Обычный аккаунт</div>
   </div>
-
   <button class="primary-btn" id="accountRedeem">Активировать Plus</button>
   <button class="secondary-btn" id="accountLogout">Выйти из аккаунта</button>
-
 </div>
-
-<!-- REDEEM MODAL -->
 
 <div class="modal" id="redeemModal">
-
-  <div class="modal-header">
-    <h2>Maut Plus</h2>
-    <button class="close-btn" data-close="redeemModal">×</button>
-  </div>
-
-  <p style="color:#999;font-size:13px">
-    Введите подарочный ключ, чтобы активировать Maut Plus.
-  </p>
-
-  <div class="field">
-    <label>Ключ активации</label>
-    <input id="redeemCode" placeholder="MAUT-XXXX-XXXX">
-  </div>
-
+  <div class="modal-header"><h2>Maut Plus</h2><button class="close-btn" data-close="redeemModal">×</button></div>
+  <p style="color:#999;font-size:13px">Введите подарочный ключ, чтобы активировать Maut Plus.</p>
+  <div class="field"><label>Ключ активации</label><input id="redeemCode" placeholder="MAUT-XXXX-XXXX"></div>
   <div id="redeemMessage"></div>
   <button class="primary-btn" id="redeemSubmit">Активировать</button>
-
 </div>
 
-<!-- MODERATOR REQUEST -->
-
 <div class="modal" id="requestModal">
-
-  <div class="modal-header">
-    <h2>Заявка на модератора</h2>
-    <button class="close-btn" data-close="requestModal">×</button>
-  </div>
-
-  <p style="font-size:13px;color:#999">
-    Расскажите, почему вы хотите стать модератором Maut AI.
-  </p>
-
-  <div class="field">
-    <label>Сообщение</label>
-    <textarea id="requestText" rows="5" placeholder="Ваша заявка..."></textarea>
-  </div>
-
+  <div class="modal-header"><h2>Заявка на модератора</h2><button class="close-btn" data-close="requestModal">×</button></div>
+  <p style="font-size:13px;color:#999">Расскажите, почему вы хотите стать модератором Maut AI.</p>
+  <div class="field"><label>Сообщение</label><textarea id="requestText" rows="5" placeholder="Ваша заявка..."></textarea></div>
   <div id="requestMessage"></div>
   <button class="primary-btn" id="sendRequest">Отправить заявку</button>
-
 </div>
 
 <script>
-/* =========================================
-   MAUT AI FRONTEND
-========================================= */
+"use strict";
 
 const $ = id => document.getElementById(id);
 
@@ -1203,15 +326,9 @@ let authMode = "login";
 let isSending = false;
 let isModeratorPanel = false;
 
-const API = "";
-
-/* =========================================
-   API HELPER
-========================================= */
-
 async function api(path, options = {}) {
-  const response = await fetch(API + path, {
-    credentials:"include",
+  const response = await fetch(path, {
+    credentials:"same-origin",
     ...options,
     headers:{
       ...(options.body ? {"Content-Type":"application/json"} : {}),
@@ -1220,68 +337,45 @@ async function api(path, options = {}) {
   });
 
   let data = {};
-
-  try {
-    data = await response.json();
-  } catch {
-    data = {};
-  }
+  try { data = await response.json(); } catch {}
 
   if (!response.ok) {
-    throw new Error(data.error || data.message || "Произошла ошибка.");
+    throw new Error(data.error || data.message || `Ошибка сервера (${response.status})`);
   }
-
   return data;
 }
 
-function post(path, body) {
-  return api(path, {
-    method:"POST",
-    body:JSON.stringify(body)
-  });
+function post(path, body = {}) {
+  return api(path, {method:"POST", body:JSON.stringify(body)});
+}
+function patch(path, body = {}) {
+  return api(path, {method:"PATCH", body:JSON.stringify(body)});
 }
 
-function patch(path, body) {
-  return api(path, {
-    method:"PATCH",
-    body:JSON.stringify(body)
-  });
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  })[char]);
 }
-
-/* =========================================
-   MODALS
-========================================= */
 
 function openModal(id) {
   closeAllModals();
   $(id).classList.add("visible");
   $("overlay").classList.add("visible");
 }
-
 function closeModal(id) {
   $(id).classList.remove("visible");
-
-  if (!document.querySelector(".modal.visible")) {
-    $("overlay").classList.remove("visible");
-  }
+  if (!document.querySelector(".modal.visible")) $("overlay").classList.remove("visible");
 }
-
 function closeAllModals() {
-  document.querySelectorAll(".modal").forEach(m => {
-    m.classList.remove("visible");
-  });
-
+  document.querySelectorAll(".modal").forEach(m => m.classList.remove("visible"));
   $("overlay").classList.remove("visible");
 }
 
 document.querySelectorAll("[data-close]").forEach(button => {
-  button.addEventListener("click", () => {
-    closeModal(button.dataset.close);
-  });
+  button.addEventListener("click", () => closeModal(button.dataset.close));
 });
-
 $("overlay").addEventListener("click", closeAllModals);
-
 document.addEventListener("keydown", event => {
   if (event.key === "Escape") {
     closeAllModals();
@@ -1290,164 +384,87 @@ document.addEventListener("keydown", event => {
   }
 });
 
-/* =========================================
-   SIDEBAR
-========================================= */
-
 function openSidebar() {
   $("sidebar").classList.add("open");
   $("overlay").classList.add("visible");
 }
-
 function closeSidebar() {
   $("sidebar").classList.remove("open");
-
-  if (!document.querySelector(".modal.visible")) {
-    $("overlay").classList.remove("visible");
-  }
+  if (!document.querySelector(".modal.visible")) $("overlay").classList.remove("visible");
 }
-
 $("openSidebar").addEventListener("click", openSidebar);
 $("closeSidebar").addEventListener("click", () => {
-  $("sidebar").classList.remove("closed");
-
-  if (window.innerWidth <= 700) {
-    closeSidebar();
-  } else {
-    $("sidebar").classList.add("closed");
-  }
+  if (window.innerWidth <= 700) closeSidebar();
+  else $("sidebar").classList.add("closed");
 });
-
 $("newChat").addEventListener("click", newChat);
 
-/* =========================================
-   PROFILE
-========================================= */
-
-$("profileButton").addEventListener("click", () => {
-  $("profileMenu").classList.toggle("visible");
-});
-
-$("topAccount").addEventListener("click", () => {
-  if (currentUser) {
-    showAccount();
-  } else {
-    openAuth("login");
-  }
-});
-
-function closeProfileMenu() {
-  $("profileMenu").classList.remove("visible");
-}
+$("profileButton").addEventListener("click", () => $("profileMenu").classList.toggle("visible"));
+$("topAccount").addEventListener("click", () => currentUser ? showAccount() : openAuth("login"));
+function closeProfileMenu() { $("profileMenu").classList.remove("visible"); }
 
 $("profileAccount").addEventListener("click", () => {
   closeProfileMenu();
-
-  if (currentUser) {
-    showAccount();
-  } else {
-    openAuth("login");
-  }
+  currentUser ? showAccount() : openAuth("login");
 });
-
 $("logoutButton").addEventListener("click", logout);
 $("accountLogout").addEventListener("click", logout);
-
 $("redeemButton").addEventListener("click", () => {
   closeProfileMenu();
   openModal("redeemModal");
 });
-
 $("accountRedeem").addEventListener("click", () => {
   closeModal("accountModal");
   openModal("redeemModal");
 });
-
 $("moderatorRequestButton").addEventListener("click", () => {
   closeProfileMenu();
-
-  if (!currentUser) {
-    openAuth("login");
-    return;
-  }
-
+  if (!currentUser) return openAuth("login");
   $("requestMessage").textContent = "";
   $("requestText").value = "";
   openModal("requestModal");
 });
 
-/* =========================================
-   AUTH
-========================================= */
-
 function openAuth(mode) {
   authMode = mode;
   $("authError").textContent = "";
-
   const register = mode === "register";
-
   $("authTitle").textContent = register ? "Создать аккаунт" : "Вход в Maut AI";
   $("authSubmit").textContent = register ? "Зарегистрироваться" : "Войти";
   $("nameField").classList.toggle("hidden", !register);
-
-  $("authSwitchText").textContent = register
-    ? "Уже есть аккаунт?"
-    : "Нет аккаунта?";
-
-  $("authSwitch").textContent = register
-    ? "Войти"
-    : "Создать аккаунт";
-
+  $("authSwitchText").textContent = register ? "Уже есть аккаунт?" : "Нет аккаунта?";
+  $("authSwitch").textContent = register ? "Войти" : "Создать аккаунт";
   openModal("authModal");
 }
-
-$("authSwitch").addEventListener("click", () => {
-  openAuth(authMode === "login" ? "register" : "login");
-});
+$("authSwitch").addEventListener("click", () => openAuth(authMode === "login" ? "register" : "login"));
 
 $("authForm").addEventListener("submit", async event => {
   event.preventDefault();
-
   $("authError").textContent = "";
-
   const email = $("authEmail").value.trim();
   const password = $("authPassword").value;
   const name = $("authName").value.trim();
 
   try {
-    const endpoint = authMode === "register"
-      ? "/api/auth/register"
-      : "/api/auth/login";
-
-    const data = await post(endpoint, {
-      email,
-      password,
-      name
-    });
+    const data = authMode === "register"
+      ? await post("/api/auth/register", {name,email,password})
+      : await post("/api/auth/login", {email,password});
 
     currentUser = data.user || data;
-
     closeModal("authModal");
     updateUserUI();
     await loadChats();
-
   } catch (error) {
     $("authError").textContent = error.message;
   }
 });
 
 async function logout() {
-  try {
-    await post("/api/auth/logout", {});
-  } catch (error) {
-    console.error(error);
-  }
-
+  try { await post("/api/auth/logout"); } catch (error) { console.error(error); }
   currentUser = null;
   chats = [];
   history = [];
   currentChatId = null;
-
   closeAllModals();
   closeProfileMenu();
   updateUserUI();
@@ -1459,35 +476,20 @@ async function logout() {
 async function loadCurrentUser() {
   try {
     const data = await api("/api/auth/me");
-
-    currentUser = data.user || data;
-
-    if (currentUser && currentUser.id) {
-      updateUserUI();
-      await loadChats();
-    }
+    currentUser = data.user || null;
+    updateUserUI();
+    if (currentUser) await loadChats();
   } catch {
     currentUser = null;
     updateUserUI();
   }
 }
 
-/* =========================================
-   USER UI
-========================================= */
-
 function getRole() {
   return String(currentUser?.role || "user").toLowerCase();
 }
-
-function isAdmin() {
-  return getRole() === "admin";
-}
-
-function isModerator() {
-  return getRole() === "moderator" || isAdmin();
-}
-
+function isAdmin() { return getRole() === "admin"; }
+function isModerator() { return getRole() === "moderator" || isAdmin(); }
 function isPlus() {
   return Boolean(currentUser?.is_plus || currentUser?.plus || currentUser?.plan === "plus");
 }
@@ -1497,72 +499,47 @@ function updateUserUI() {
     $("profileName").textContent = "Гость";
     $("profileStatus").textContent = "Войти в аккаунт";
     $("avatar").textContent = "?";
-
     $("adminButton").classList.add("hidden");
     $("moderatorButton").classList.add("hidden");
     $("moderatorRequestButton").classList.remove("hidden");
-
     return;
   }
 
   const name = currentUser.name || currentUser.email || "Пользователь";
-
   $("profileName").textContent = name;
-  $("profileStatus").textContent =
-    isAdmin() ? "Администратор" :
+  $("profileStatus").textContent = isAdmin() ? "Администратор" :
     getRole() === "moderator" ? "Модератор" :
-    isPlus() ? "Maut Plus" :
-    "Пользователь";
-
+    isPlus() ? "Maut Plus" : "Пользователь";
   $("avatar").textContent = name.charAt(0).toUpperCase();
-
   $("adminButton").classList.toggle("hidden", !isAdmin());
   $("moderatorButton").classList.toggle("hidden", !isModerator());
   $("moderatorRequestButton").classList.toggle("hidden", isModerator());
 }
 
 function showAccount() {
-  if (!currentUser) {
-    openAuth("login");
-    return;
-  }
-
+  if (!currentUser) return openAuth("login");
   $("accountName").textContent = currentUser.name || "—";
   $("accountEmail").textContent = currentUser.email || "—";
-
-  $("accountRole").textContent =
-    isAdmin() ? "Администратор" :
+  $("accountRole").textContent = isAdmin() ? "Администратор" :
     getRole() === "moderator" ? "Модератор" :
-    isPlus() ? "Maut Plus" :
-    "Обычный аккаунт";
-
+    isPlus() ? "Maut Plus" : "Обычный аккаунт";
   openModal("accountModal");
 }
 
-/* =========================================
-   CHAT HISTORY
-========================================= */
-
 async function loadChats() {
   if (!currentUser) return;
-
   try {
     const data = await api("/api/chats");
-
-    chats = Array.isArray(data)
-      ? data
-      : data.chats || [];
-
+    chats = Array.isArray(data) ? data : data.chats || [];
     renderChats();
   } catch (error) {
-    console.error("Не удалось загрузить чаты:", error);
+    console.error("Загрузка чатов:", error);
   }
 }
 
 function renderChats() {
   const container = $("chatList");
   container.innerHTML = "";
-
   if (!chats.length) {
     container.innerHTML = '<div class="empty-state">Нет чатов</div>';
     return;
@@ -1570,11 +547,7 @@ function renderChats() {
 
   chats.forEach(chat => {
     const item = document.createElement("div");
-
-    item.className =
-      "chat-item" +
-      (String(chat.id) === String(currentChatId) ? " active" : "");
-
+    item.className = "chat-item" + (String(chat.id) === String(currentChatId) ? " active" : "");
     const title = document.createElement("div");
     title.className = "chat-item-title";
     title.textContent = chat.title || "Новый чат";
@@ -1583,49 +556,30 @@ function renderChats() {
     remove.className = "chat-delete";
     remove.textContent = "×";
     remove.title = "Удалить чат";
-
     remove.addEventListener("click", async event => {
       event.stopPropagation();
       await deleteChat(chat.id);
     });
 
     item.append(title, remove);
-
-    item.addEventListener("click", () => {
-      openChat(chat.id);
-    });
-
+    item.addEventListener("click", () => openChat(chat.id));
     container.appendChild(item);
   });
 }
 
 async function createChat() {
-  const data = await post("/api/chats", {
-    title:"Новый чат"
-  });
-
+  const data = await post("/api/chats", {title:"Новый чат"});
   const chat = data.chat || data;
-
-  if (!chat.id) {
-    throw new Error("Сервер не вернул ID чата.");
-  }
-
+  if (!chat.id) throw new Error("Сервер не вернул ID чата.");
   currentChatId = chat.id;
-
   await loadChats();
-
   return chat;
 }
 
 async function newChat() {
-  if (!currentUser) {
-    openAuth("login");
-    return;
-  }
-
+  if (!currentUser) return openAuth("login");
   currentChatId = null;
   history = [];
-
   showWelcome();
   renderChats();
   hideAdminPanel();
@@ -1634,34 +588,17 @@ async function newChat() {
 
 async function openChat(id) {
   if (!currentUser) return;
-
   try {
     const data = await api("/api/chats/" + encodeURIComponent(id));
-
     currentChatId = id;
-
-    const chat = data.chat || data;
-    const messages = data.messages || chat.messages || [];
-
-    history = messages.map(message => ({
-      role:message.role,
-      content:message.content
-    }));
-
+    const messages = data.messages || data.chat?.messages || [];
+    history = messages.map(message => ({role:message.role,content:message.content}));
     $("messages").innerHTML = "";
-
-    if (!history.length) {
-      showWelcome();
-    } else {
-      history.forEach(message => {
-        addMessage(message.role, message.content);
-      });
-    }
-
+    if (!history.length) showWelcome();
+    else history.forEach(message => addMessage(message.role,message.content));
     renderChats();
     hideAdminPanel();
     closeSidebar();
-
   } catch (error) {
     alert(error.message);
   }
@@ -1669,97 +606,47 @@ async function openChat(id) {
 
 async function deleteChat(id) {
   if (!confirm("Удалить этот чат?")) return;
-
   try {
-    await api("/api/chats/" + encodeURIComponent(id), {
-      method:"DELETE"
-    });
-
+    await api("/api/chats/" + encodeURIComponent(id), {method:"DELETE"});
     if (String(currentChatId) === String(id)) {
       currentChatId = null;
       history = [];
       showWelcome();
     }
-
     await loadChats();
-
   } catch (error) {
     alert(error.message);
   }
 }
-
-/* =========================================
-   MESSAGE RENDERING
-========================================= */
 
 function showWelcome() {
   $("messages").innerHTML = `
     <div class="welcome" id="welcome">
       <div class="welcome-logo">Maut <span>AI</span></div>
       <p>Чем я могу помочь сегодня?</p>
-    </div>
-  `;
-}
-
-function escapeHTML(value) {
-  return String(value).replace(/[&<>"']/g, char => ({
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    '"':"&quot;",
-    "'":"&#039;"
-  })[char]);
+    </div>`;
 }
 
 function formatMessage(text) {
   let safe = escapeHTML(text);
-
-  // Code blocks
-  safe = safe.replace(
-    /```([\w+-]*)\n?([\s\S]*?)```/g,
-    (_, language, code) =>
-      `<pre><code>${code.trim()}</code></pre>`
-  );
-
-  // Inline code
-  safe = safe.replace(/`([^`]+)`/g, "<code>$1</code>");
-
-  // Bold
-  safe = safe.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-
-  // Italic
-  safe = safe.replace(/\*(.*?)\*/g, "<em>$1</em>");
-
-  // Headings
-  safe = safe.replace(/^### (.*)$/gm, "<h3>$1</h3>");
-  safe = safe.replace(/^## (.*)$/gm, "<h2>$1</h2>");
-  safe = safe.replace(/^# (.*)$/gm, "<h1>$1</h1>");
-
-  // Lists
-  safe = safe.replace(/^\- (.*)$/gm, "<li>$1</li>");
-  safe = safe.replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>");
-
-  // Paragraphs
-  safe = safe.split(/\n\n+/).map(part => {
-    if (
-      part.startsWith("<pre>") ||
-      part.startsWith("<h") ||
-      part.startsWith("<ul>")
-    ) {
-      return part;
-    }
-
-    return `<p>${part.replace(/\n/g, "<br>")}</p>`;
+  safe = safe.replace(/```([\w+-]*)\n?([\s\S]*?)```/g,
+    (_,language,code) => `<pre><code>${code.trim()}</code></pre>`);
+  safe = safe.replace(/`([^`]+)`/g,"<code>$1</code>");
+  safe = safe.replace(/\*\*(.*?)\*\*/g,"<strong>$1</strong>");
+  safe = safe.replace(/\*(.*?)\*/g,"<em>$1</em>");
+  safe = safe.replace(/^### (.*)$/gm,"<h3>$1</h3>");
+  safe = safe.replace(/^## (.*)$/gm,"<h2>$1</h2>");
+  safe = safe.replace(/^# (.*)$/gm,"<h1>$1</h1>");
+  safe = safe.replace(/^\- (.*)$/gm,"<li>$1</li>");
+  safe = safe.replace(/(<li>.*<\/li>)/gs,"<ul>$1</ul>");
+  return safe.split(/\n\n+/).map(part => {
+    if (/^<(pre|h[1-6]|ul)/.test(part)) return part;
+    return `<p>${part.replace(/\n/g,"<br>")}</p>`;
   }).join("");
-
-  return safe;
 }
 
 function addMessage(role, content) {
-  const welcome = $("welcome");
-
-  if (welcome) welcome.remove();
-
+  $("welcome")?.remove();
   const message = document.createElement("div");
   message.className = "message";
 
@@ -1769,134 +656,75 @@ function addMessage(role, content) {
 
   const body = document.createElement("div");
   body.className = "message-body";
-
   body.innerHTML = formatMessage(content);
-
-  message.append(avatar, body);
+  message.append(avatar,body);
 
   if (role === "assistant") {
     const actions = document.createElement("div");
     actions.className = "message-actions";
-
     const copy = document.createElement("button");
     copy.textContent = "Копировать";
-
     copy.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(content);
         copy.textContent = "Скопировано";
-        setTimeout(() => copy.textContent = "Копировать", 1500);
-      } catch {
-        copy.textContent = "Ошибка";
-      }
+        setTimeout(() => copy.textContent = "Копировать",1500);
+      } catch { copy.textContent = "Ошибка"; }
     });
-
     actions.append(copy);
     body.append(actions);
   }
 
   $("messages").appendChild(message);
-
   $("chatContent").scrollTop = $("chatContent").scrollHeight;
 }
 
-/* =========================================
-   SEND MESSAGE
-========================================= */
+async function saveChatMessage(role, content) {
+  if (!currentChatId) return;
+  await post("/api/chats/" + encodeURIComponent(currentChatId) + "/messages", {role,content});
+}
 
 async function sendMessage() {
   if (isSending) return;
-
   const input = $("messageInput");
   const message = input.value.trim();
-
   if (!message) return;
-
-  if (!currentUser) {
-    openAuth("login");
-    return;
-  }
+  if (!currentUser) return openAuth("login");
 
   isSending = true;
   $("sendButton").disabled = true;
-
   input.value = "";
   input.style.height = "45px";
 
-  addMessage("user", message);
-
-  history.push({
-    role:"user",
-    content:message
-  });
+  addMessage("user",message);
+  history.push({role:"user",content:message});
 
   const typing = document.createElement("div");
   typing.className = "message";
   typing.id = "typingIndicator";
-  typing.innerHTML = `
-    <div class="message-avatar">M</div>
-    <div class="message-body typing">Maut AI печатает...</div>
-  `;
-
+  typing.innerHTML = '<div class="message-avatar">M</div><div class="message-body typing">Maut AI печатает...</div>';
   $("messages").appendChild(typing);
 
   try {
-    if (!currentChatId) {
-      await createChat();
-    }
+    if (!currentChatId) await createChat();
+
+    await saveChatMessage("user",message);
 
     const data = await post("/api/chat", {
       message,
-      history:history.slice(-30),
-      chatId:currentChatId
+      history:history.slice(-30)
     });
 
     $("typingIndicator")?.remove();
+    const answer = data.reply || "Не удалось получить ответ.";
+    history.push({role:"assistant",content:answer});
+    addMessage("assistant",answer);
 
-    const answer =
-      data.reply ||
-      data.response ||
-      data.message ||
-      data.content ||
-      "Не удалось получить ответ.";
-
-    history.push({
-      role:"assistant",
-      content:answer
-    });
-
-    addMessage("assistant", answer);
-
-    try {
-      await post(
-        "/api/chats/" + encodeURIComponent(currentChatId) + "/messages",
-        {
-          role:"user",
-          content:message
-        }
-      );
-
-      await post(
-        "/api/chats/" + encodeURIComponent(currentChatId) + "/messages",
-        {
-          role:"assistant",
-          content:answer
-        }
-      );
-    } catch (saveError) {
-      console.warn("Сохранение истории:", saveError);
-    }
-
+    await saveChatMessage("assistant",answer);
     await loadChats();
-
   } catch (error) {
     $("typingIndicator")?.remove();
-
-    addMessage(
-      "assistant",
-      "Произошла ошибка: " + error.message
-    );
-
+    addMessage("assistant","Произошла ошибка: " + error.message);
   } finally {
     isSending = false;
     $("sendButton").disabled = false;
@@ -1904,227 +732,160 @@ async function sendMessage() {
   }
 }
 
-$("sendButton").addEventListener("click", sendMessage);
-
-$("messageInput").addEventListener("keydown", event => {
+$("sendButton").addEventListener("click",sendMessage);
+$("messageInput").addEventListener("keydown",event => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
     sendMessage();
   }
 });
-
-$("messageInput").addEventListener("input", () => {
+$("messageInput").addEventListener("input",() => {
   const input = $("messageInput");
   input.style.height = "45px";
-  input.style.height = Math.min(input.scrollHeight, 180) + "px";
+  input.style.height = Math.min(input.scrollHeight,180) + "px";
 });
-
-$("clearButton").addEventListener("click", () => {
+$("clearButton").addEventListener("click",() => {
   $("messageInput").value = "";
   $("messageInput").focus();
 });
 
-/* =========================================
-   IMAGE GENERATION
-========================================= */
-
-$("imageModeButton").addEventListener("click", () => {
+$("imageModeButton").addEventListener("click",() => {
   $("imageMode").classList.toggle("visible");
   $("imageModeButton").classList.toggle("selected");
 });
 
-$("generateImage").addEventListener("click", async () => {
+$("generateImage").addEventListener("click",async () => {
   const prompt = $("imagePrompt").value.trim();
-
   if (!prompt) {
     $("imageResult").textContent = "Введите описание изображения.";
     return;
   }
+  if (!currentUser) return openAuth("login");
 
-  if (!currentUser) {
-    openAuth("login");
-    return;
-  }
-
-  $("generateImage").disabled = true;
-  $("generateImage").textContent = "Создаём изображение...";
+  const button = $("generateImage");
+  button.disabled = true;
+  button.textContent = "Создаём изображение...";
   $("imageResult").textContent = "";
 
   try {
-    const data = await post("/api/images", { prompt });
+    const data = await post("/api/images",{prompt});
+    let imageValue = data.image;
 
-    const imageUrl =
-      data.url ||
-      data.image ||
-      data.imageUrl ||
-      data.data?.[0]?.url;
+    if (!imageValue) throw new Error("Сервер не вернул изображение.");
 
-    if (!imageUrl) {
-      throw new Error("Сервер не вернул изображение.");
+    let imageUrl = imageValue;
+    if (typeof imageValue === "object") {
+      imageUrl = imageValue.url || imageValue.src || "";
+    }
+    if (typeof imageUrl !== "string" || !imageUrl) {
+      throw new Error("Неизвестный формат изображения от сервера.");
     }
 
     const img = document.createElement("img");
     img.className = "generated-image";
-    img.src = imageUrl;
+    img.src = imageUrl.startsWith("data:") || imageUrl.startsWith("http")
+      ? imageUrl : "data:image/png;base64," + imageUrl;
     img.alt = prompt;
-
-    $("imageResult").innerHTML = "";
-    $("imageResult").appendChild(img);
-
+    $("imageResult").replaceChildren(img);
   } catch (error) {
     $("imageResult").textContent = error.message;
-
   } finally {
-    $("generateImage").disabled = false;
-    $("generateImage").textContent = "Создать изображение";
+    button.disabled = false;
+    button.textContent = "Создать изображение";
   }
 });
 
-/* =========================================
-   MAUT PLUS REDEEM
-========================================= */
-
-$("redeemSubmit").addEventListener("click", async () => {
+$("redeemSubmit").addEventListener("click",async () => {
   const code = $("redeemCode").value.trim();
-
+  const message = $("redeemMessage");
   if (!code) {
-    $("redeemMessage").textContent = "Введите ключ.";
+    message.className = "form-error";
+    message.textContent = "Введите ключ.";
     return;
   }
-
-  $("redeemMessage").textContent = "Проверяем ключ...";
-
+  message.className = "";
+  message.textContent = "Проверяем ключ...";
   try {
-    const data = await post("/api/gift-codes/redeem", { code });
-
-    $("redeemMessage").className = "form-success";
-    $("redeemMessage").textContent =
-      data.message || "Maut Plus успешно активирован!";
-
+    const data = await post("/api/gift-codes/redeem",{code});
+    message.className = "form-success";
+    message.textContent = data.message || "Maut Plus успешно активирован!";
     await loadCurrentUser();
-
   } catch (error) {
-    $("redeemMessage").className = "form-error";
-    $("redeemMessage").textContent = error.message;
+    message.className = "form-error";
+    message.textContent = error.message;
   }
 });
 
-/* =========================================
-   MODERATOR REQUEST
-========================================= */
-
-$("sendRequest").addEventListener("click", async () => {
+$("sendRequest").addEventListener("click",async () => {
   const message = $("requestText").value.trim();
-
+  const output = $("requestMessage");
   if (!message) {
-    $("requestMessage").textContent = "Напишите сообщение.";
+    output.className = "form-error";
+    output.textContent = "Напишите сообщение.";
     return;
   }
-
   try {
-    await post("/api/moderator-requests", { message });
-
-    $("requestMessage").className = "form-success";
-    $("requestMessage").textContent = "Заявка отправлена.";
-
+    await post("/api/moderator-requests",{message});
+    output.className = "form-success";
+    output.textContent = "Заявка отправлена.";
     $("requestText").value = "";
-
   } catch (error) {
-    $("requestMessage").className = "form-error";
-    $("requestMessage").textContent = error.message;
+    output.className = "form-error";
+    output.textContent = error.message;
   }
 });
 
-/* =========================================
-   ADMIN PANEL
-========================================= */
-
-$("adminButton").addEventListener("click", () => {
+$("adminButton").addEventListener("click",() => {
   closeProfileMenu();
   openAdminPanel(false);
 });
-
-$("moderatorButton").addEventListener("click", () => {
+$("moderatorButton").addEventListener("click",() => {
   closeProfileMenu();
   openAdminPanel(true);
 });
 
 function openAdminPanel(moderatorOnly) {
   if (!currentUser || !isModerator()) return;
-
   isModeratorPanel = moderatorOnly && !isAdmin();
-
   $("adminPanel").classList.add("visible");
-
-  $("panelHeading").textContent =
-    isModeratorPanel ? "Панель модератора" : "Панель администратора";
-
-  $("panelDescription").textContent =
-    isModeratorPanel
-      ? "Управление нарушениями пользователей"
-      : "Управление Maut AI";
-
-  $("adminTabs").classList.toggle("hidden", isModeratorPanel);
+  $("panelHeading").textContent = isModeratorPanel ? "Панель модератора" : "Панель администратора";
+  $("panelDescription").textContent = isModeratorPanel ? "Управление пользователями" : "Управление Maut AI";
+  $("adminTabs").classList.toggle("hidden",isModeratorPanel);
 
   if (isModeratorPanel) {
-    document.querySelectorAll(".admin-section").forEach(section => {
-      section.classList.remove("active");
-    });
-
+    document.querySelectorAll(".admin-section").forEach(section => section.classList.remove("active"));
     $("section-users").classList.add("active");
     loadUsers(true);
-
   } else {
     switchAdminTab("users");
-    loadUsers(false);
   }
 }
-
-function hideAdminPanel() {
-  $("adminPanel").classList.remove("visible");
-}
-
-$("closeAdmin").addEventListener("click", hideAdminPanel);
+function hideAdminPanel() { $("adminPanel").classList.remove("visible"); }
+$("closeAdmin").addEventListener("click",hideAdminPanel);
 
 document.querySelectorAll(".admin-tab").forEach(tab => {
-  tab.addEventListener("click", () => {
-    switchAdminTab(tab.dataset.section);
-  });
+  tab.addEventListener("click",() => switchAdminTab(tab.dataset.section));
 });
 
 function switchAdminTab(section) {
   document.querySelectorAll(".admin-tab").forEach(tab => {
-    tab.classList.toggle("active", tab.dataset.section === section);
+    tab.classList.toggle("active",tab.dataset.section === section);
   });
-
   document.querySelectorAll(".admin-section").forEach(item => {
-    item.classList.toggle("active", item.id === "section-" + section);
+    item.classList.toggle("active",item.id === "section-" + section);
   });
-
   if (section === "users") loadUsers(false);
   if (section === "memory") loadMemory();
   if (section === "requests") loadRequests();
 }
 
-/* =========================================
-   ADMIN USERS / MODERATION
-========================================= */
-
 async function loadUsers(moderatorOnly) {
   const tbody = $("usersTable");
   tbody.innerHTML = '<tr><td colspan="5">Загрузка...</td></tr>';
-
   try {
-    const endpoint = moderatorOnly
-      ? "/api/moderator/users"
-      : "/api/admin/users";
-
+    const endpoint = moderatorOnly ? "/api/moderation/users" : "/api/admin/users";
     const data = await api(endpoint);
-
-    const users = Array.isArray(data)
-      ? data
-      : data.users || [];
-
+    const users = Array.isArray(data) ? data : data.users || [];
     tbody.innerHTML = "";
 
     if (!users.length) {
@@ -2134,200 +895,133 @@ async function loadUsers(moderatorOnly) {
 
     users.forEach(user => {
       const tr = document.createElement("tr");
-
       const id = document.createElement("td");
       id.textContent = user.id;
-
       const name = document.createElement("td");
       name.textContent = user.name || "Без имени";
-
       const email = document.createElement("td");
       email.textContent = user.email || "—";
-
       const role = document.createElement("td");
       role.textContent = user.role || "user";
-
       const actions = document.createElement("td");
 
       if (!moderatorOnly) {
         const roleButton = document.createElement("button");
         roleButton.className = "small-btn";
         roleButton.textContent = "Роль";
-        roleButton.addEventListener("click", () => changeRole(user.id));
+        roleButton.addEventListener("click",() => changeRole(user.id));
         actions.appendChild(roleButton);
       }
 
-      if (user.banned_until) {
-        const unban = document.createElement("button");
-        unban.className = "small-btn success";
-        unban.textContent = "Разбанить";
-        unban.addEventListener("click", () => moderateUser(user.id, "unban", moderatorOnly));
-        actions.appendChild(unban);
-      } else {
-        const ban = document.createElement("button");
-        ban.className = "small-btn danger";
-        ban.textContent = "Бан 7 дней";
-        ban.addEventListener("click", () => moderateUser(user.id, "ban", moderatorOnly));
-        actions.appendChild(ban);
+      const banned = Boolean(user.banned_until);
+      const banButton = document.createElement("button");
+      banButton.className = banned ? "small-btn success" : "small-btn danger";
+      banButton.textContent = banned ? "Разбанить" : "Бан";
+      banButton.addEventListener("click",() => moderateUser(user.id,banned ? "unban" : "ban",moderatorOnly));
+      actions.appendChild(banButton);
+
+      if (moderatorOnly) {
+        const muteButton = document.createElement("button");
+        muteButton.className = "small-btn";
+        muteButton.textContent = user.muted_until ? "Снять мут" : "Мут";
+        muteButton.addEventListener("click",() => moderateUser(user.id,user.muted_until ? "unmute" : "mute",true));
+        actions.appendChild(muteButton);
       }
 
-      const mute = document.createElement("button");
-      mute.className = "small-btn";
-      mute.textContent = "Мут 25 мин";
-      mute.addEventListener("click", () => moderateUser(user.id, "mute", moderatorOnly));
-
-      actions.appendChild(mute);
-
-      tr.append(id, name, email, role, actions);
+      tr.append(id,name,email,role,actions);
       tbody.appendChild(tr);
     });
-
   } catch (error) {
-    tbody.innerHTML =
-      `<tr><td colspan="5">${escapeHTML(error.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5">${escapeHTML(error.message)}</td></tr>`;
   }
 }
 
 async function changeRole(id) {
   const role = prompt("Введите роль: user, moderator или admin");
-
   if (!role) return;
-
   if (!["user","moderator","admin"].includes(role.toLowerCase())) {
     alert("Неизвестная роль.");
     return;
   }
-
   try {
-    await patch(
-      "/api/admin/users/" + encodeURIComponent(id) + "/role",
-      { role:role.toLowerCase() }
-    );
-
+    await patch("/api/admin/users/" + encodeURIComponent(id) + "/role",{role:role.toLowerCase()});
     await loadUsers(false);
-
-  } catch (error) {
-    alert(error.message);
-  }
+  } catch (error) { alert(error.message); }
 }
 
-async function moderateUser(id, action, moderatorOnly) {
+async function moderateUser(id,action,moderatorOnly) {
   const descriptions = {
-    ban:"Заблокировать пользователя на 7 дней?",
-    mute:"Выдать мут на 25 минут?",
-    unban:"Снять блокировку?"
+    ban:"Заблокировать пользователя?",
+    unban:"Снять блокировку?",
+    mute:"Выдать мут?",
+    unmute:"Снять мут?"
   };
-
   if (!confirm(descriptions[action])) return;
-
   try {
-    let endpoint;
-
-    if (moderatorOnly) {
-      endpoint = "/api/moderator/users/" +
-        encodeURIComponent(id) + "/" + action;
-    } else {
-      endpoint = "/api/admin/users/" +
-        encodeURIComponent(id) + "/" +
-        (action === "mute" ? "mute" : action);
-    }
-
-    await post(endpoint, {});
-
+    const base = moderatorOnly ? "/api/moderation/users/" : "/api/admin/users/";
+    const endpoint = base + encodeURIComponent(id) + "/" + action;
+    await post(endpoint,{});
     await loadUsers(moderatorOnly);
-
-  } catch (error) {
-    alert(error.message);
-  }
+  } catch (error) { alert(error.message); }
 }
 
-/* =========================================
-   ADMIN GIFT CODES
-========================================= */
-
-$("createKeys").addEventListener("click", async () => {
-  const count = Number($("keyCount").value);
+$("createKeys").addEventListener("click",async () => {
+  const amount = Number($("keyCount").value);
   const days = Number($("keyDays").value);
-
-  if (!Number.isInteger(count) || count < 1 || count > 100) {
+  if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
     alert("Количество должно быть от 1 до 100.");
     return;
   }
-
   if (!Number.isInteger(days) || days < 1 || days > 3650) {
     alert("Количество дней должно быть от 1 до 3650.");
     return;
   }
 
-  $("createKeys").disabled = true;
+  const button = $("createKeys");
+  button.disabled = true;
   $("keysResult").textContent = "Создаём ключи...";
-
   try {
-    const data = await post("/api/admin/gift-codes", {
-      count,
-      days
-    });
-
+    const data = await post("/api/admin/gift-codes",{amount,days});
     const codes = data.codes || data.keys || [];
-
     $("keysResult").innerHTML = "";
 
     if (Array.isArray(codes) && codes.length) {
       codes.forEach(code => {
+        const value = typeof code === "string" ? code : code.code || code.key || "";
         const line = document.createElement("div");
         line.className = "admin-card";
         line.style.marginTop = "10px";
-
-        const value = typeof code === "string"
-          ? code
-          : code.code || code.key || JSON.stringify(code);
-
         const text = document.createElement("span");
         text.textContent = value;
-
         const copy = document.createElement("button");
         copy.className = "small-btn";
         copy.textContent = "Копировать";
-
-        copy.addEventListener("click", async () => {
-          await navigator.clipboard.writeText(value);
-          copy.textContent = "Скопировано";
+        copy.addEventListener("click",async () => {
+          try {
+            await navigator.clipboard.writeText(value);
+            copy.textContent = "Скопировано";
+          } catch { copy.textContent = "Ошибка копирования"; }
         });
-
-        line.append(text, copy);
+        line.append(text,copy);
         $("keysResult").appendChild(line);
       });
-
     } else {
-      $("keysResult").textContent =
-        data.message || "Запрос выполнен. Проверьте ответ сервера.";
+      $("keysResult").textContent = data.message || "Ключи созданы. Ответ сервера не содержит списка ключей.";
     }
-
   } catch (error) {
     $("keysResult").textContent = error.message;
-
   } finally {
-    $("createKeys").disabled = false;
+    button.disabled = false;
   }
 });
-
-/* =========================================
-   ADMIN MEMORY
-========================================= */
 
 async function loadMemory() {
   const container = $("memoryList");
   container.textContent = "Загрузка...";
-
   try {
     const data = await api("/api/admin/memory");
-
-    const items = Array.isArray(data)
-      ? data
-      : data.memory || data.items || [];
-
+    const items = Array.isArray(data) ? data : data.memory || [];
     container.innerHTML = "";
-
     if (!items.length) {
       container.innerHTML = '<div class="empty-state">Память пока пуста</div>';
       return;
@@ -2336,10 +1030,8 @@ async function loadMemory() {
     items.forEach(item => {
       const card = document.createElement("div");
       card.className = "admin-card";
-
       const title = document.createElement("h3");
       title.textContent = item.title || "Запись";
-
       const content = document.createElement("p");
       content.style.color = "#aaa";
       content.style.fontSize = "12px";
@@ -2348,99 +1040,55 @@ async function loadMemory() {
       const edit = document.createElement("button");
       edit.className = "small-btn";
       edit.textContent = "Изменить";
-
-      edit.addEventListener("click", async () => {
-        const newTitle = prompt("Название:", item.title || "");
+      edit.addEventListener("click",async () => {
+        const newTitle = prompt("Название:",item.title || "");
         if (newTitle === null) return;
-
-        const newContent = prompt("Содержание:", item.content || "");
+        const newContent = prompt("Содержание:",item.content || "");
         if (newContent === null) return;
-
         try {
-          await patch(
-            "/api/admin/memory/" + encodeURIComponent(item.id),
-            {
-              title:newTitle,
-              content:newContent
-            }
-          );
-
-          loadMemory();
-        } catch (error) {
-          alert(error.message);
-        }
+          await patch("/api/admin/memory/" + encodeURIComponent(item.id),{title:newTitle,content:newContent});
+          await loadMemory();
+        } catch (error) { alert(error.message); }
       });
 
       const remove = document.createElement("button");
       remove.className = "small-btn danger";
       remove.textContent = "Удалить";
-
-      remove.addEventListener("click", async () => {
+      remove.addEventListener("click",async () => {
         if (!confirm("Удалить эту запись?")) return;
-
         try {
-          await api(
-            "/api/admin/memory/" + encodeURIComponent(item.id),
-            { method:"DELETE" }
-          );
-
-          loadMemory();
-        } catch (error) {
-          alert(error.message);
-        }
+          await api("/api/admin/memory/" + encodeURIComponent(item.id),{method:"DELETE"});
+          await loadMemory();
+        } catch (error) { alert(error.message); }
       });
 
-      card.append(title, content, edit, remove);
+      card.append(title,content,edit,remove);
       container.appendChild(card);
     });
-
   } catch (error) {
     container.textContent = error.message;
   }
 }
 
-$("addMemory").addEventListener("click", async () => {
+$("addMemory").addEventListener("click",async () => {
   const title = $("memoryTitle").value.trim();
   const content = $("memoryContent").value.trim();
-
-  if (!title || !content) {
-    alert("Заполните название и содержание.");
-    return;
-  }
-
+  if (!title || !content) return alert("Заполните название и содержание.");
   try {
-    await post("/api/admin/memory", {
-      title,
-      content
-    });
-
+    await post("/api/admin/memory",{title,content});
     $("memoryTitle").value = "";
     $("memoryContent").value = "";
-
     await loadMemory();
-
-  } catch (error) {
-    alert(error.message);
-  }
+  } catch (error) { alert(error.message); }
 });
-
-/* =========================================
-   ADMIN MODERATOR REQUESTS
-========================================= */
 
 async function loadRequests() {
   const container = $("requestsList");
   container.textContent = "Загрузка...";
-
   try {
     const data = await api("/api/admin/moderator-requests");
-
-    const requests = Array.isArray(data)
-      ? data
-      : data.requests || [];
-
+    const requests = Array.isArray(data) ? data : data.requests || [];
     container.innerHTML = "";
-
     if (!requests.length) {
       container.innerHTML = '<div class="empty-state">Заявок нет</div>';
       return;
@@ -2449,78 +1097,49 @@ async function loadRequests() {
     requests.forEach(request => {
       const card = document.createElement("div");
       card.className = "admin-card";
-
       const title = document.createElement("h3");
-      title.textContent =
-        request.name ||
-        request.email ||
-        "Пользователь #" + request.user_id;
-
+      title.textContent = request.name || request.email || "Пользователь #" + request.user_id;
       const message = document.createElement("p");
       message.style.color = "#aaa";
       message.style.fontSize = "13px";
       message.textContent = request.message || "";
-
       const status = document.createElement("p");
       status.style.color = "#888";
       status.style.fontSize = "11px";
       status.textContent = "Статус: " + (request.status || "pending");
-
-      card.append(title, message, status);
+      card.append(title,message,status);
 
       if (request.status === "pending" || !request.status) {
         const approve = document.createElement("button");
         approve.className = "small-btn success";
         approve.textContent = "Одобрить";
-
-        approve.addEventListener("click", () => {
-          reviewRequest(request.id, "approve");
-        });
-
+        approve.addEventListener("click",() => reviewRequest(request.id,"approve"));
         const reject = document.createElement("button");
         reject.className = "small-btn danger";
         reject.textContent = "Отклонить";
-
-        reject.addEventListener("click", () => {
-          reviewRequest(request.id, "reject");
-        });
-
-        card.append(approve, reject);
+        reject.addEventListener("click",() => reviewRequest(request.id,"reject"));
+        card.append(approve,reject);
       }
-
       container.appendChild(card);
     });
-
   } catch (error) {
     container.textContent = error.message;
   }
 }
 
-async function reviewRequest(id, action) {
+async function reviewRequest(id,action) {
   try {
-    await post(
-      "/api/admin/moderator-requests/" + encodeURIComponent(id),
-      { action }
-    );
-
+    await post("/api/admin/moderator-requests/" + encodeURIComponent(id),{action});
     await loadRequests();
-
-  } catch (error) {
-    alert(error.message);
-  }
+  } catch (error) { alert(error.message); }
 }
-
-/* =========================================
-   INITIALIZATION
-========================================= */
 
 async function initialize() {
   await loadCurrentUser();
   updateUserUI();
+  renderChats();
 }
-
 initialize();
 </script>
-
 </body>
 </html>
