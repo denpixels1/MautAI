@@ -2,1562 +2,2525 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#101010">
-  <title>Maut AI</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg: #101010;
-      --sidebar: #171717;
-      --panel: #202020;
-      --panel2: #292929;
-      --border: #303030;
-      --text: #f2f2f2;
-      --muted: #999;
-      --accent: #b7a0ff;
-      --danger: #ff6868;
-      --green: #65d69a;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      height: 100vh;
-      overflow: hidden;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Inter, Arial, sans-serif;
-    }
-
-    button, input, textarea, select { font: inherit; }
-    button { cursor: pointer; }
-
-    .app {
-      display: flex;
-      height: 100vh;
-      width: 100%;
-    }
-
-    .sidebar {
-      width: 270px;
-      min-width: 270px;
-      background: var(--sidebar);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      padding: 16px 12px;
-      transition: transform .25s;
-      z-index: 10;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px 20px;
-      font-size: 19px;
-      font-weight: 700;
-      letter-spacing: -.5px;
-    }
-
-    .brand-mark {
-      width: 30px;
-      height: 30px;
-      display: grid;
-      place-items: center;
-      border-radius: 10px;
-      background: var(--accent);
-      color: #17131f;
-      font-weight: 900;
-    }
-
-    .new-chat, .side-button {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      border: 1px solid var(--border);
-      border-radius: 11px;
-      padding: 12px;
-      background: transparent;
-      color: var(--text);
-      text-align: left;
-      margin-bottom: 8px;
-    }
-
-    .new-chat:hover, .side-button:hover { background: var(--panel); }
-
-    .side-label {
-      color: var(--muted);
-      font-size: 12px;
-      padding: 18px 10px 8px;
-    }
-
-    .history {
-      flex: 1;
-      overflow-y: auto;
-      min-height: 0;
-    }
-
-    .history-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px;
-      margin: 3px 0;
-      border-radius: 9px;
-      color: #ccc;
-      cursor: pointer;
-      font-size: 13px;
-    }
-
-    .history-item:hover, .history-item.active {
-      background: var(--panel2);
-      color: white;
-    }
-
-    .history-title {
-      overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      flex: 1;
-    }
-
-    .account {
-      border-top: 1px solid var(--border);
-      padding-top: 12px;
-      position: relative;
-    }
-
-    .account-button {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      border: 0;
-      border-radius: 10px;
-      padding: 10px;
-      background: transparent;
-      color: var(--text);
-      text-align: left;
-    }
-
-    .account-button:hover { background: var(--panel); }
-
-    .avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      background: #51436f;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-
-    .account-info { min-width: 0; flex: 1; }
-    .account-name { font-size: 13px; font-weight: 600; }
-    .account-email { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
-
-    .rank {
-      display: inline-block;
-      font-size: 10px;
-      font-weight: 700;
-      border-radius: 20px;
-      padding: 3px 7px;
-      margin-top: 5px;
-      background: #383838;
-      color: #ddd;
-    }
-
-    .rank.Admin { background: #573c20; color: #ffd28a; }
-    .rank.Plus { background: #43336a; color: #d6c5ff; }
-    .rank.Moder { background: #254b3a; color: #9ce8bd; }
-
-    .main {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-    }
-
-    .topbar {
-      height: 58px;
-      min-height: 58px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 20px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .top-left, .top-right { display: flex; align-items: center; gap: 10px; }
-
-    .icon-button {
-      width: 38px;
-      height: 38px;
-      border: 0;
-      border-radius: 10px;
-      color: var(--text);
-      background: transparent;
-      font-size: 18px;
-    }
-
-    .icon-button:hover { background: var(--panel2); }
-
-    .top-title { font-size: 14px; font-weight: 600; }
-
-    .login-button {
-      border: 1px solid var(--border);
-      background: var(--panel);
-      color: white;
-      padding: 9px 14px;
-      border-radius: 9px;
-    }
-
-    .chat-area {
-      flex: 1;
-      overflow-y: auto;
-      padding: 30px 20px 20px;
-    }
-
-    .welcome {
-      max-width: 720px;
-      margin: 13vh auto 30px;
-      text-align: center;
-    }
-
-    .welcome h1 {
-      font-size: clamp(30px, 5vw, 46px);
-      margin: 0 0 12px;
-      letter-spacing: -1.5px;
-    }
-
-    .welcome p { color: var(--muted); }
-
-    .messages {
-      max-width: 780px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 22px;
-    }
-
-    .message { display: flex; gap: 12px; align-items: flex-start; }
-    .message.user { justify-content: flex-end; }
-
-    .message-avatar {
-      width: 30px;
-      height: 30px;
-      flex-shrink: 0;
-      display: grid;
-      place-items: center;
-      border-radius: 50%;
-      background: var(--panel2);
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .message.user .message-avatar { order: 2; background: #51436f; }
-
-    .message-body { max-width: min(85%, 680px); min-width: 0; }
-
-    .message-name {
-      color: var(--muted);
-      font-size: 11px;
-      margin-bottom: 6px;
-    }
-
-    .message-content {
-      line-height: 1.65;
-      font-size: 14px;
-      overflow-wrap: anywhere;
-      white-space: pre-wrap;
-    }
-
-    .message.user .message-content {
-      background: #292929;
-      border-radius: 17px;
-      padding: 12px 15px;
-    }
-
-    .message-content img {
-      display: block;
-      max-width: 100%;
-      border-radius: 12px;
-      margin-top: 10px;
-    }
-
-    .composer-wrap {
-      padding: 12px 20px 18px;
-    }
-
-    .composer {
-      max-width: 780px;
-      margin: 0 auto;
-      border: 1px solid #414141;
-      border-radius: 17px;
-      background: #1d1d1d;
-      padding: 10px 12px;
-      box-shadow: 0 8px 30px #0003;
-    }
-
-    .composer textarea {
-      width: 100%;
-      resize: none;
-      border: 0;
-      outline: 0;
-      background: transparent;
-      color: white;
-      padding: 8px 5px;
-      min-height: 42px;
-      max-height: 180px;
-      line-height: 1.5;
-    }
-
-    .composer-bottom {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .composer-tools { display: flex; gap: 7px; }
-
-    .tool-button {
-      background: transparent;
-      color: #bbb;
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      padding: 8px 11px;
-      font-size: 12px;
-    }
-
-    .tool-button.active { color: var(--accent); border-color: var(--accent); }
-
-    .send-button {
-      width: 38px;
-      height: 38px;
-      border: 0;
-      border-radius: 11px;
-      background: var(--accent);
-      color: #17131f;
-      font-size: 19px;
-      font-weight: 700;
-    }
-
-    .send-button:disabled { opacity: .45; cursor: not-allowed; }
-
-    .status {
-      max-width: 780px;
-      min-height: 18px;
-      margin: 7px auto 0;
-      text-align: center;
-      color: var(--muted);
-      font-size: 11px;
-    }
-
-    .overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 30;
-      background: #0009;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-    }
-
-    .overlay.open { display: flex; }
-
-    .modal {
-      width: min(440px, 100%);
-      max-height: 88vh;
-      overflow-y: auto;
-      background: #1b1b1b;
-      border: 1px solid var(--border);
-      border-radius: 17px;
-      padding: 22px;
-      box-shadow: 0 20px 70px #0008;
-    }
-
-    .modal.wide { width: min(850px, 100%); }
-
-    .modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-
-    .modal-header h2 { font-size: 19px; margin: 0; }
-
-    .close-button {
-      border: 0;
-      background: transparent;
-      color: #aaa;
-      font-size: 23px;
-    }
-
-    .field { margin: 13px 0; }
-    .field label { display: block; font-size: 12px; color: #bbb; margin-bottom: 7px; }
-
-    .field input, .field textarea, .field select {
-      width: 100%;
-      background: #111;
-      border: 1px solid #393939;
-      color: white;
-      border-radius: 9px;
-      padding: 11px;
-      outline: 0;
-    }
-
-    .field input:focus, .field textarea:focus { border-color: var(--accent); }
-
-    .primary-button, .secondary-button, .danger-button {
-      border: 0;
-      border-radius: 9px;
-      padding: 10px 14px;
-      color: white;
-      background: #57477d;
-    }
-
-    .primary-button { background: var(--accent); color: #17131f; font-weight: 700; }
-    .secondary-button { background: #353535; }
-    .danger-button { background: #713434; }
-    .full-button { width: 100%; margin-top: 10px; }
-
-    .modal-error { color: #ff7777; font-size: 12px; min-height: 18px; margin-top: 8px; }
-    .muted { color: var(--muted); font-size: 12px; line-height: 1.5; }
-
-    .profile-menu {
-      display: none;
-      position: absolute;
-      bottom: 65px;
-      left: 0;
-      right: 0;
-      background: #242424;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 7px;
-      box-shadow: 0 10px 30px #0008;
-    }
-
-    .profile-menu.open { display: block; }
-
-    .menu-item {
-      width: 100%;
-      padding: 10px;
-      border: 0;
-      border-radius: 8px;
-      background: transparent;
-      color: white;
-      text-align: left;
-      font-size: 13px;
-    }
-
-    .menu-item:hover { background: #353535; }
-
-    .admin-tabs {
-      display: flex;
-      gap: 7px;
-      overflow-x: auto;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .admin-tab {
-      flex-shrink: 0;
-      border: 1px solid var(--border);
-      background: #252525;
-      color: #ddd;
-      border-radius: 8px;
-      padding: 9px 12px;
-      font-size: 12px;
-    }
-
-    .admin-tab.active { border-color: var(--accent); color: var(--accent); }
-
-    .admin-content { padding-top: 16px; }
-
-    .admin-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 0;
-      border-bottom: 1px solid #333;
-      font-size: 12px;
-    }
-
-    .admin-row-main { min-width: 0; flex: 1; }
-    .admin-row-main strong { display: block; margin-bottom: 4px; }
-    .admin-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-
-    .admin-actions button, .admin-actions select {
-      font-size: 11px;
-      padding: 7px 9px;
-    }
-
-    .code-list {
-      background: #111;
-      border: 1px solid #333;
-      border-radius: 10px;
-      padding: 12px;
-      margin-top: 12px;
-      overflow-wrap: anywhere;
-      white-space: pre-wrap;
-      font-family: monospace;
-      font-size: 13px;
-    }
-
-    .discord {
-      color: var(--accent);
-      font-weight: 700;
-      user-select: all;
-    }
-
-    .hidden { display: none !important; }
-
-    @media (max-width: 760px) {
-      .sidebar {
-        position: fixed;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        transform: translateX(-105%);
-        box-shadow: 10px 0 30px #0006;
-      }
-      .sidebar.mobile-open { transform: translateX(0); }
-      .topbar { padding: 0 12px; }
-      .chat-area { padding: 20px 13px; }
-      .composer-wrap { padding: 10px 10px 14px; }
-      .welcome { margin-top: 10vh; }
-      .message-body { max-width: 88%; }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101010">
+<title>Maut AI</title>
+
+<style>
+:root {
+  --bg:#101010;
+  --sidebar:#171717;
+  --panel:#202020;
+  --panel2:#292929;
+  --text:#f2f2f2;
+  --muted:#999;
+  --border:#303030;
+  --accent:#d8d8d8;
+  --danger:#e05252;
+  --radius:14px;
+}
+
+* { box-sizing:border-box; }
+
+body {
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Inter,Arial,sans-serif;
+  height:100vh;
+  overflow:hidden;
+}
+
+button,input,textarea,select {
+  font:inherit;
+}
+
+button {
+  cursor:pointer;
+  color:inherit;
+}
+
+.app {
+  height:100vh;
+  display:flex;
+  overflow:hidden;
+}
+
+/* SIDEBAR */
+
+.sidebar {
+  width:270px;
+  min-width:270px;
+  background:var(--sidebar);
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  padding:15px;
+  transition:transform .25s,width .25s;
+  z-index:10;
+}
+
+.sidebar-top {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:22px;
+}
+
+.logo {
+  font-size:21px;
+  font-weight:750;
+  letter-spacing:-1px;
+}
+
+.logo span {
+  color:#999;
+}
+
+.icon-btn {
+  width:37px;
+  height:37px;
+  border:0;
+  background:transparent;
+  border-radius:10px;
+  color:#aaa;
+  font-size:20px;
+}
+
+.icon-btn:hover {
+  background:var(--panel2);
+  color:white;
+}
+
+.new-chat {
+  width:100%;
+  border:1px solid var(--border);
+  background:transparent;
+  border-radius:11px;
+  padding:12px;
+  text-align:left;
+  margin-bottom:20px;
+}
+
+.new-chat:hover {
+  background:var(--panel);
+}
+
+.sidebar-label {
+  color:#777;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:1px;
+  margin:8px 5px 10px;
+}
+
+.chat-list {
+  flex:1;
+  overflow-y:auto;
+}
+
+.chat-item {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:5px;
+  padding:10px;
+  border-radius:9px;
+  color:#bbb;
+  cursor:pointer;
+  font-size:13px;
+  margin-bottom:3px;
+}
+
+.chat-item:hover,
+.chat-item.active {
+  background:var(--panel2);
+  color:white;
+}
+
+.chat-item-title {
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  flex:1;
+}
+
+.chat-delete {
+  border:0;
+  background:transparent;
+  color:#777;
+  font-size:17px;
+  opacity:0;
+}
+
+.chat-item:hover .chat-delete {
+  opacity:1;
+}
+
+.sidebar-bottom {
+  border-top:1px solid var(--border);
+  padding-top:12px;
+}
+
+.profile-button {
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px;
+  border:0;
+  border-radius:11px;
+  background:transparent;
+  text-align:left;
+}
+
+.profile-button:hover {
+  background:var(--panel2);
+}
+
+.avatar {
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  background:#383838;
+  display:grid;
+  place-items:center;
+  font-weight:bold;
+}
+
+.profile-info {
+  flex:1;
+  min-width:0;
+}
+
+.profile-name {
+  font-size:13px;
+  font-weight:600;
+}
+
+.profile-status {
+  color:#888;
+  font-size:11px;
+  margin-top:3px;
+}
+
+/* MAIN */
+
+.main {
+  flex:1;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  position:relative;
+}
+
+.topbar {
+  height:60px;
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 20px;
+  border-bottom:1px solid var(--border);
+}
+
+.topbar-left {
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.topbar-title {
+  font-weight:650;
+  font-size:15px;
+}
+
+.model-label {
+  color:#888;
+  font-size:12px;
+  border:1px solid var(--border);
+  padding:5px 9px;
+  border-radius:20px;
+}
+
+.menu-toggle {
+  display:none;
+}
+
+.content {
+  flex:1;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+}
+
+.messages {
+  width:100%;
+  max-width:850px;
+  margin:0 auto;
+  padding:30px 25px 20px;
+  flex:1;
+}
+
+.welcome {
+  min-height:60vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+
+.welcome-logo {
+  font-size:42px;
+  font-weight:800;
+  letter-spacing:-2px;
+  margin-bottom:14px;
+}
+
+.welcome-logo span {
+  color:#777;
+}
+
+.welcome p {
+  color:#999;
+  font-size:15px;
+}
+
+.message {
+  display:flex;
+  gap:14px;
+  margin:25px 0;
+  animation:appear .2s ease;
+}
+
+@keyframes appear {
+  from { opacity:0; transform:translateY(5px); }
+  to { opacity:1; transform:translateY(0); }
+}
+
+.message-avatar {
+  width:32px;
+  height:32px;
+  min-width:32px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  background:#292929;
+  font-size:12px;
+  font-weight:bold;
+}
+
+.message-body {
+  flex:1;
+  min-width:0;
+  line-height:1.7;
+  font-size:14px;
+  overflow-wrap:anywhere;
+}
+
+.message-body pre {
+  background:#080808;
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:15px;
+  overflow-x:auto;
+}
+
+.message-body code {
+  background:#292929;
+  border-radius:4px;
+  padding:2px 5px;
+}
+
+.message-body pre code {
+  background:transparent;
+  padding:0;
+}
+
+.message-body p {
+  margin:0 0 12px;
+}
+
+.message-body ul,
+.message-body ol {
+  padding-left:23px;
+}
+
+.message-actions {
+  display:flex;
+  gap:7px;
+  margin-top:10px;
+}
+
+.message-actions button {
+  border:0;
+  background:transparent;
+  color:#777;
+  font-size:12px;
+  padding:5px;
+}
+
+.message-actions button:hover {
+  color:white;
+}
+
+.typing {
+  color:#888;
+  font-size:13px;
+}
+
+/* INPUT */
+
+.composer-area {
+  padding:15px 20px 22px;
+  flex-shrink:0;
+}
+
+.composer {
+  max-width:850px;
+  margin:auto;
+  background:#202020;
+  border:1px solid #393939;
+  border-radius:17px;
+  padding:12px;
+  box-shadow:0 5px 30px #0004;
+}
+
+.composer textarea {
+  display:block;
+  width:100%;
+  resize:none;
+  min-height:45px;
+  max-height:180px;
+  padding:8px;
+  border:0;
+  outline:0;
+  color:white;
+  background:transparent;
+  font-size:14px;
+}
+
+.composer-bottom {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.composer-tools {
+  display:flex;
+  gap:7px;
+}
+
+.tool-btn {
+  background:transparent;
+  border:0;
+  color:#999;
+  border-radius:8px;
+  padding:8px 10px;
+  font-size:12px;
+}
+
+.tool-btn:hover,
+.tool-btn.selected {
+  background:#353535;
+  color:white;
+}
+
+.send-btn {
+  width:38px;
+  height:38px;
+  border:0;
+  border-radius:11px;
+  background:#eee;
+  color:#111;
+  font-size:18px;
+  font-weight:bold;
+}
+
+.send-btn:hover {
+  background:white;
+}
+
+.send-btn:disabled {
+  opacity:.4;
+  cursor:not-allowed;
+}
+
+.disclaimer {
+  text-align:center;
+  color:#666;
+  font-size:10px;
+  margin-top:10px;
+}
+
+/* IMAGE MODE */
+
+.image-mode {
+  display:none;
+  max-width:850px;
+  width:100%;
+  margin:0 auto 12px;
+  padding:13px;
+  background:#1b1b1b;
+  border:1px solid var(--border);
+  border-radius:12px;
+}
+
+.image-mode.visible {
+  display:block;
+}
+
+.image-mode input {
+  width:100%;
+  margin-top:8px;
+  background:#292929;
+  color:white;
+  border:1px solid #444;
+  padding:10px;
+  border-radius:8px;
+  outline:none;
+}
+
+.generated-image {
+  max-width:100%;
+  border-radius:12px;
+  margin-top:15px;
+}
+
+/* OVERLAY AND MODALS */
+
+.overlay {
+  display:none;
+  position:fixed;
+  inset:0;
+  background:#0009;
+  z-index:20;
+}
+
+.overlay.visible {
+  display:block;
+}
+
+.modal {
+  display:none;
+  position:fixed;
+  z-index:30;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  width:min(440px,calc(100% - 30px));
+  max-height:85vh;
+  overflow-y:auto;
+  background:#1d1d1d;
+  border:1px solid #393939;
+  border-radius:17px;
+  padding:22px;
+  box-shadow:0 20px 80px #0009;
+}
+
+.modal.visible {
+  display:block;
+}
+
+.modal-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:20px;
+}
+
+.modal-header h2 {
+  font-size:18px;
+  margin:0;
+}
+
+.close-btn {
+  border:0;
+  background:transparent;
+  color:#aaa;
+  font-size:23px;
+}
+
+.field {
+  margin-bottom:13px;
+}
+
+.field label {
+  display:block;
+  color:#aaa;
+  font-size:12px;
+  margin-bottom:7px;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width:100%;
+  background:#292929;
+  color:white;
+  border:1px solid #414141;
+  border-radius:9px;
+  padding:12px;
+  outline:none;
+}
+
+.field input:focus,
+.field textarea:focus {
+  border-color:#888;
+}
+
+.primary-btn {
+  width:100%;
+  background:#eee;
+  color:#111;
+  border:0;
+  padding:12px;
+  border-radius:9px;
+  font-weight:650;
+  margin-top:7px;
+}
+
+.primary-btn:hover {
+  background:white;
+}
+
+.secondary-btn {
+  width:100%;
+  border:1px solid #444;
+  background:transparent;
+  color:white;
+  padding:11px;
+  border-radius:9px;
+  margin-top:8px;
+}
+
+.form-error {
+  color:#ff7373;
+  font-size:12px;
+  margin:10px 0;
+}
+
+.form-success {
+  color:#8ed7a0;
+  font-size:12px;
+  margin:10px 0;
+}
+
+.switch-auth {
+  text-align:center;
+  color:#999;
+  font-size:12px;
+  margin-top:15px;
+}
+
+.switch-auth button {
+  border:0;
+  background:transparent;
+  color:white;
+  text-decoration:underline;
+}
+
+/* ADMIN */
+
+.admin-panel {
+  display:none;
+  position:absolute;
+  inset:60px 0 0;
+  z-index:5;
+  background:var(--bg);
+  overflow-y:auto;
+  padding:25px;
+}
+
+.admin-panel.visible {
+  display:block;
+}
+
+.admin-inner {
+  max-width:1050px;
+  margin:auto;
+}
+
+.admin-heading {
+  font-size:25px;
+  margin:5px 0;
+}
+
+.admin-description {
+  color:#888;
+  font-size:13px;
+  margin-bottom:25px;
+}
+
+.admin-tabs {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  border-bottom:1px solid var(--border);
+  padding-bottom:12px;
+  margin-bottom:20px;
+}
+
+.admin-tab {
+  border:1px solid var(--border);
+  background:transparent;
+  color:#aaa;
+  border-radius:8px;
+  padding:9px 13px;
+  font-size:12px;
+}
+
+.admin-tab.active {
+  background:#eee;
+  color:#111;
+}
+
+.admin-section {
+  display:none;
+}
+
+.admin-section.active {
+  display:block;
+}
+
+.admin-card {
+  background:#1b1b1b;
+  border:1px solid var(--border);
+  padding:16px;
+  border-radius:12px;
+  margin-bottom:12px;
+}
+
+.admin-card h3 {
+  font-size:14px;
+  margin:0 0 12px;
+}
+
+.admin-table-wrap {
+  overflow-x:auto;
+}
+
+.admin-table {
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+  min-width:500px;
+}
+
+.admin-table th,
+.admin-table td {
+  padding:12px 9px;
+  text-align:left;
+  border-bottom:1px solid var(--border);
+}
+
+.admin-table th {
+  color:#888;
+  font-weight:500;
+}
+
+.small-btn {
+  border:1px solid #444;
+  border-radius:7px;
+  padding:6px 9px;
+  background:#292929;
+  color:white;
+  font-size:11px;
+  margin:2px;
+}
+
+.small-btn.danger {
+  color:#ff8585;
+}
+
+.small-btn.success {
+  color:#91d99e;
+}
+
+.admin-input {
+  background:#292929;
+  color:white;
+  border:1px solid #444;
+  border-radius:8px;
+  padding:10px;
+  outline:none;
+  width:100%;
+  margin:5px 0;
+}
+
+.admin-row {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+
+.admin-row > * {
+  flex:1;
+}
+
+.empty-state {
+  color:#777;
+  text-align:center;
+  padding:30px;
+  font-size:13px;
+}
+
+/* PROFILE MENU */
+
+.profile-menu {
+  display:none;
+  position:absolute;
+  bottom:75px;
+  left:15px;
+  width:240px;
+  background:#252525;
+  border:1px solid #444;
+  border-radius:12px;
+  padding:7px;
+  z-index:15;
+  box-shadow:0 10px 30px #0008;
+}
+
+.profile-menu.visible {
+  display:block;
+}
+
+.profile-menu button {
+  width:100%;
+  padding:11px;
+  background:transparent;
+  border:0;
+  color:#ddd;
+  text-align:left;
+  border-radius:7px;
+  font-size:13px;
+}
+
+.profile-menu button:hover {
+  background:#383838;
+}
+
+.hidden {
+  display:none !important;
+}
+
+/* MOBILE */
+
+@media(max-width:700px) {
+  .sidebar {
+    position:fixed;
+    top:0;
+    bottom:0;
+    left:0;
+    transform:translateX(-100%);
+    width:280px;
+    min-width:280px;
+  }
+
+  .sidebar.open {
+    transform:translateX(0);
+  }
+
+  .menu-toggle {
+    display:block;
+  }
+
+  .topbar {
+    padding:0 12px;
+  }
+
+  .messages {
+    padding:20px 14px;
+  }
+
+  .composer-area {
+    padding:10px;
+  }
+
+  .admin-panel {
+    padding:15px;
+  }
+
+  .welcome-logo {
+    font-size:35px;
+  }
+
+  .model-label {
+    display:none;
+  }
+}
+
+@media(min-width:701px) {
+  .sidebar.closed {
+    display:none;
+  }
+
+  .sidebar-close {
+    display:block;
+  }
+}
+</style>
 </head>
 
 <body>
+
 <div class="app">
+
+  <!-- SIDEBAR -->
+
   <aside class="sidebar" id="sidebar">
-    <div class="brand">
-      <div class="brand-mark">M</div>
-      <span>Maut AI</span>
+
+    <div class="sidebar-top">
+      <div class="logo">Maut <span>AI</span></div>
+      <button class="icon-btn sidebar-close" id="closeSidebar" title="Закрыть панель">×</button>
     </div>
 
     <button class="new-chat" id="newChat">＋ Новый чат</button>
-    <button class="side-button" id="imageMode">▧ Создать изображение</button>
 
-    <div class="side-label">ИСТОРИЯ</div>
-    <div class="history" id="history"></div>
+    <div class="sidebar-label">История</div>
+    <div class="chat-list" id="chatList">
+      <div class="empty-state">Нет чатов</div>
+    </div>
 
-    <div class="account">
+    <div class="sidebar-bottom">
+
+      <button class="profile-button" id="profileButton">
+        <div class="avatar" id="avatar">?</div>
+        <div class="profile-info">
+          <div class="profile-name" id="profileName">Гость</div>
+          <div class="profile-status" id="profileStatus">Войти в аккаунт</div>
+        </div>
+        <span style="color:#777">⋯</span>
+      </button>
+
       <div class="profile-menu" id="profileMenu">
-        <button class="menu-item" id="profileOpen">Мой профиль</button>
-        <button class="menu-item" id="redeemOpen">Активировать Plus-ключ</button>
-        <button class="menu-item" id="moderRequest">Запросить Moder</button>
-        <button class="menu-item hidden" id="adminOpen">Панель Admin</button>
-        <button class="menu-item" id="logoutBtn">Выйти из аккаунта</button>
+        <button id="profileAccount">Аккаунт</button>
+        <button id="redeemButton">Активировать Maut Plus</button>
+        <button id="adminButton" class="hidden">Панель администратора</button>
+        <button id="moderatorButton" class="hidden">Панель модератора</button>
+        <button id="moderatorRequestButton">Стать модератором</button>
+        <button id="logoutButton">Выйти</button>
       </div>
 
-      <button class="account-button" id="accountButton">
-        <div class="avatar" id="avatar">?</div>
-        <div class="account-info">
-          <div class="account-name" id="profileName">Гость</div>
-          <div class="account-email" id="profileEmail">Войди в аккаунт</div>
-          <span class="rank" id="profileRank">Guest</span>
-        </div>
-        <span>···</span>
-      </button>
     </div>
   </aside>
 
+  <!-- MAIN -->
+
   <main class="main">
+
     <header class="topbar">
-      <div class="top-left">
-        <button class="icon-button" id="menuBtn" aria-label="Меню">☰</button>
-        <div class="top-title">Maut AI</div>
+
+      <div class="topbar-left">
+        <button class="icon-btn menu-toggle" id="openSidebar">☰</button>
+        <div class="topbar-title">Maut AI</div>
+        <div class="model-label">AI Assistant</div>
       </div>
-      <div class="top-right">
-        <button class="login-button" id="loginBtn">Войти</button>
-      </div>
+
+      <button class="icon-btn" id="topAccount" title="Аккаунт">◉</button>
+
     </header>
 
-    <section class="chat-area" id="chatArea">
-      <div class="welcome" id="welcome">
-        <h1>Чем могу помочь?</h1>
-        <p>Добро пожаловать в Maut AI.</p>
+    <div class="content" id="chatContent">
+
+      <div class="messages" id="messages">
+
+        <div class="welcome" id="welcome">
+          <div class="welcome-logo">Maut <span>AI</span></div>
+          <p>Чем я могу помочь сегодня?</p>
+        </div>
+
       </div>
-      <div class="messages" id="messages"></div>
+
+    </div>
+
+    <div class="composer-area">
+
+      <div class="image-mode" id="imageMode">
+        <strong style="font-size:13px">✦ Генерация изображений</strong>
+        <input id="imagePrompt" placeholder="Опиши изображение, которое нужно создать...">
+        <button class="primary-btn" id="generateImage">Создать изображение</button>
+        <div id="imageResult"></div>
+      </div>
+
+      <div class="composer">
+
+        <textarea
+          id="messageInput"
+          placeholder="Спросите что-нибудь у Maut AI..."
+          rows="1"
+        ></textarea>
+
+        <div class="composer-bottom">
+
+          <div class="composer-tools">
+            <button class="tool-btn" id="imageModeButton">＋ Изображение</button>
+            <button class="tool-btn" id="clearButton">Очистить</button>
+          </div>
+
+          <button class="send-btn" id="sendButton" title="Отправить">↑</button>
+
+        </div>
+
+      </div>
+
+      <div class="disclaimer">
+        Maut AI может допускать ошибки. Проверяйте важную информацию.
+      </div>
+
+    </div>
+
+    <!-- ADMIN / MODERATOR PANEL -->
+
+    <section class="admin-panel" id="adminPanel">
+
+      <div class="admin-inner">
+
+        <button class="small-btn" id="closeAdmin">← Вернуться в чат</button>
+
+        <h1 class="admin-heading" id="panelHeading">Панель управления</h1>
+        <div class="admin-description" id="panelDescription">
+          Управление Maut AI
+        </div>
+
+        <div class="admin-tabs" id="adminTabs">
+
+          <button class="admin-tab active" data-section="users">Пользователи</button>
+          <button class="admin-tab" data-section="keys">Maut Plus</button>
+          <button class="admin-tab" data-section="memory">Память ИИ</button>
+          <button class="admin-tab" data-section="requests">Заявки</button>
+
+        </div>
+
+        <!-- USERS -->
+
+        <div class="admin-section active" id="section-users">
+
+          <div class="admin-card">
+            <h3>Пользователи</h3>
+            <div class="admin-table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Имя</th>
+                    <th>Email</th>
+                    <th>Роль</th>
+                    <th>Действия</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTable">
+                  <tr><td colspan="5">Загрузка...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- GIFT KEYS -->
+
+        <div class="admin-section" id="section-keys">
+
+          <div class="admin-card">
+            <h3>Создать Maut Plus ключ</h3>
+
+            <div class="admin-row">
+              <input class="admin-input" id="keyCount" type="number" min="1" max="100" value="1" placeholder="Количество">
+              <input class="admin-input" id="keyDays" type="number" min="1" max="3650" value="30" placeholder="Дней">
+            </div>
+
+            <button class="primary-btn" id="createKeys">Создать ключи</button>
+            <div id="keysResult"></div>
+          </div>
+
+        </div>
+
+        <!-- MEMORY -->
+
+        <div class="admin-section" id="section-memory">
+
+          <div class="admin-card">
+            <h3>Добавить информацию в память Maut AI</h3>
+            <input class="admin-input" id="memoryTitle" placeholder="Название">
+            <textarea class="admin-input" id="memoryContent" rows="4" placeholder="Информация для памяти"></textarea>
+            <button class="primary-btn" id="addMemory">Добавить</button>
+          </div>
+
+          <div class="admin-card">
+            <h3>Сохранённая память</h3>
+            <div id="memoryList">Загрузка...</div>
+          </div>
+
+        </div>
+
+        <!-- REQUESTS -->
+
+        <div class="admin-section" id="section-requests">
+
+          <div class="admin-card">
+            <h3>Заявки на модератора</h3>
+            <div id="requestsList">Загрузка...</div>
+          </div>
+
+        </div>
+
+      </div>
+
     </section>
 
-    <div class="composer-wrap">
-      <form class="composer" id="chatForm">
-        <textarea id="prompt" rows="1" placeholder="Напиши сообщение Maut AI..." required></textarea>
-        <div class="composer-bottom">
-          <div class="composer-tools">
-            <button class="tool-button" type="button" id="imageBtn">▧ Изображение</button>
-            <button class="tool-button" type="button" id="clearBtn">Очистить</button>
-          </div>
-          <button class="send-button" id="sendBtn" type="submit">↑</button>
-        </div>
-      </form>
-      <div class="status" id="status"></div>
-    </div>
   </main>
+
 </div>
 
-<!-- Авторизация -->
-<div class="overlay" id="authModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h2 id="modalTitle">Войти в Maut AI</h2>
-      <button class="close-button" id="closeModal">×</button>
-    </div>
-    <p class="muted" id="modalSubtitle">Войди, чтобы пользоваться Maut AI.</p>
-    <form id="authForm">
-      <div class="field hidden" id="nameField">
-        <label for="name">Имя</label>
-        <input id="name" maxlength="60" autocomplete="name">
-      </div>
-      <div class="field">
-        <label for="email">Email</label>
-        <input id="email" type="email" required autocomplete="email">
-      </div>
-      <div class="field">
-        <label for="password">Пароль</label>
-        <input id="password" type="password" required minlength="8" maxlength="128" autocomplete="current-password">
-      </div>
-      <div class="modal-error" id="authError"></div>
-      <button class="primary-button full-button" id="authSubmit" type="submit">Войти</button>
-    </form>
-    <p class="muted" style="text-align:center;margin-top:16px">
-      <span id="switchText">Нет аккаунта?</span>
-      <a href="#" id="switchAuth" style="color:var(--accent)">Зарегистрироваться</a>
-    </p>
+<div class="overlay" id="overlay"></div>
+
+<!-- AUTH MODAL -->
+
+<div class="modal" id="authModal">
+
+  <div class="modal-header">
+    <h2 id="authTitle">Вход в Maut AI</h2>
+    <button class="close-btn" data-close="authModal">×</button>
   </div>
-</div>
 
-<!-- Профиль -->
-<div class="overlay" id="profileModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h2>Мой профиль</h2>
-      <button class="close-button" data-close="profileModal">×</button>
-    </div>
-    <div id="profileDetails"></div>
-    <p class="muted">Для вопросов о Plus или рангах напиши в Discord:</p>
-    <p class="discord">denkrixell_26041</p>
-    <button class="secondary-button full-button" id="profileRedeem">Активировать Plus-ключ</button>
-  </div>
-</div>
+  <form id="authForm">
 
-<!-- Активация Plus -->
-<div class="overlay" id="redeemModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h2>Активировать Plus</h2>
-      <button class="close-button" data-close="redeemModal">×</button>
+    <div class="field hidden" id="nameField">
+      <label>Имя</label>
+      <input id="authName" autocomplete="name" placeholder="Ваше имя">
     </div>
-    <p class="muted">Введи одноразовый ключ, который ты получил от администрации.</p>
+
     <div class="field">
-      <label for="giftCode">Plus-ключ</label>
-      <input id="giftCode" placeholder="MAUT-XXXXXXXX-XXXXXXXX">
+      <label>Email</label>
+      <input id="authEmail" type="email" autocomplete="email" required placeholder="example@email.com">
     </div>
-    <div class="modal-error" id="redeemError"></div>
-    <button class="primary-button full-button" id="redeemButton">Активировать</button>
-    <p class="muted" style="margin-top:14px">Plus действует 7 дней после активации. Стоимость: $1 за 7 дней.</p>
-    <p class="muted">Для получения ключа: Discord <span class="discord">denkrixell_26041</span></p>
+
+    <div class="field">
+      <label>Пароль</label>
+      <input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="Ваш пароль">
+    </div>
+
+    <div class="form-error" id="authError"></div>
+
+    <button class="primary-btn" type="submit" id="authSubmit">Войти</button>
+
+  </form>
+
+  <div class="switch-auth">
+    <span id="authSwitchText">Нет аккаунта?</span>
+    <button id="authSwitch">Создать аккаунт</button>
   </div>
+
 </div>
 
-<!-- Admin -->
-<div class="overlay" id="adminModal">
-  <div class="modal wide">
-    <div class="modal-header">
-      <h2>Панель Admin</h2>
-      <button class="close-button" data-close="adminModal">×</button>
-    </div>
+<!-- ACCOUNT MODAL -->
 
-    <div class="admin-tabs">
-      <button class="admin-tab active" data-tab="users">Пользователи</button>
-      <button class="admin-tab" data-tab="keys">Plus-ключи</button>
-      <button class="admin-tab" data-tab="memory">Память ИИ</button>
-      <button class="admin-tab" data-tab="requests">Заявки Moder</button>
-    </div>
+<div class="modal" id="accountModal">
 
-    <div class="admin-content" id="adminContent">
-      <p class="muted">Загружаю панель...</p>
-    </div>
+  <div class="modal-header">
+    <h2>Мой аккаунт</h2>
+    <button class="close-btn" data-close="accountModal">×</button>
   </div>
+
+  <div class="admin-card">
+    <div style="color:#999;font-size:12px">Имя</div>
+    <div id="accountName" style="margin:5px 0 15px">—</div>
+
+    <div style="color:#999;font-size:12px">Email</div>
+    <div id="accountEmail" style="margin:5px 0 15px">—</div>
+
+    <div style="color:#999;font-size:12px">Статус</div>
+    <div id="accountRole" style="margin-top:5px">Обычный аккаунт</div>
+  </div>
+
+  <button class="primary-btn" id="accountRedeem">Активировать Plus</button>
+  <button class="secondary-btn" id="accountLogout">Выйти из аккаунта</button>
+
+</div>
+
+<!-- REDEEM MODAL -->
+
+<div class="modal" id="redeemModal">
+
+  <div class="modal-header">
+    <h2>Maut Plus</h2>
+    <button class="close-btn" data-close="redeemModal">×</button>
+  </div>
+
+  <p style="color:#999;font-size:13px">
+    Введите подарочный ключ, чтобы активировать Maut Plus.
+  </p>
+
+  <div class="field">
+    <label>Ключ активации</label>
+    <input id="redeemCode" placeholder="MAUT-XXXX-XXXX">
+  </div>
+
+  <div id="redeemMessage"></div>
+  <button class="primary-btn" id="redeemSubmit">Активировать</button>
+
+</div>
+
+<!-- MODERATOR REQUEST -->
+
+<div class="modal" id="requestModal">
+
+  <div class="modal-header">
+    <h2>Заявка на модератора</h2>
+    <button class="close-btn" data-close="requestModal">×</button>
+  </div>
+
+  <p style="font-size:13px;color:#999">
+    Расскажите, почему вы хотите стать модератором Maut AI.
+  </p>
+
+  <div class="field">
+    <label>Сообщение</label>
+    <textarea id="requestText" rows="5" placeholder="Ваша заявка..."></textarea>
+  </div>
+
+  <div id="requestMessage"></div>
+  <button class="primary-btn" id="sendRequest">Отправить заявку</button>
+
 </div>
 
 <script>
-(() => {
-  'use strict';
+/* =========================================
+   MAUT AI FRONTEND
+========================================= */
 
-  const $ = id => document.getElementById(id);
+const $ = id => document.getElementById(id);
 
-  let user = null;
-  let currentChatId = null;
-  let chats = [];
-  let authMode = 'login';
-  let imageModeOn = false;
-  let busy = false;
-  let adminTab = 'users';
+let currentUser = null;
+let currentChatId = null;
+let chats = [];
+let history = [];
+let authMode = "login";
+let isSending = false;
+let isModeratorPanel = false;
 
-  async function api(url, options = {}) {
-    const response = await fetch(url, {
-      credentials: 'same-origin',
-      ...options,
-      headers: {
-        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
-        ...(options.headers || {})
-      }
+const API = "";
+
+/* =========================================
+   API HELPER
+========================================= */
+
+async function api(path, options = {}) {
+  const response = await fetch(API + path, {
+    credentials:"include",
+    ...options,
+    headers:{
+      ...(options.body ? {"Content-Type":"application/json"} : {}),
+      ...(options.headers || {})
+    }
+  });
+
+  let data = {};
+
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || "Произошла ошибка.");
+  }
+
+  return data;
+}
+
+function post(path, body) {
+  return api(path, {
+    method:"POST",
+    body:JSON.stringify(body)
+  });
+}
+
+function patch(path, body) {
+  return api(path, {
+    method:"PATCH",
+    body:JSON.stringify(body)
+  });
+}
+
+/* =========================================
+   MODALS
+========================================= */
+
+function openModal(id) {
+  closeAllModals();
+  $(id).classList.add("visible");
+  $("overlay").classList.add("visible");
+}
+
+function closeModal(id) {
+  $(id).classList.remove("visible");
+
+  if (!document.querySelector(".modal.visible")) {
+    $("overlay").classList.remove("visible");
+  }
+}
+
+function closeAllModals() {
+  document.querySelectorAll(".modal").forEach(m => {
+    m.classList.remove("visible");
+  });
+
+  $("overlay").classList.remove("visible");
+}
+
+document.querySelectorAll("[data-close]").forEach(button => {
+  button.addEventListener("click", () => {
+    closeModal(button.dataset.close);
+  });
+});
+
+$("overlay").addEventListener("click", closeAllModals);
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    closeAllModals();
+    closeProfileMenu();
+    closeSidebar();
+  }
+});
+
+/* =========================================
+   SIDEBAR
+========================================= */
+
+function openSidebar() {
+  $("sidebar").classList.add("open");
+  $("overlay").classList.add("visible");
+}
+
+function closeSidebar() {
+  $("sidebar").classList.remove("open");
+
+  if (!document.querySelector(".modal.visible")) {
+    $("overlay").classList.remove("visible");
+  }
+}
+
+$("openSidebar").addEventListener("click", openSidebar);
+$("closeSidebar").addEventListener("click", () => {
+  $("sidebar").classList.remove("closed");
+
+  if (window.innerWidth <= 700) {
+    closeSidebar();
+  } else {
+    $("sidebar").classList.add("closed");
+  }
+});
+
+$("newChat").addEventListener("click", newChat);
+
+/* =========================================
+   PROFILE
+========================================= */
+
+$("profileButton").addEventListener("click", () => {
+  $("profileMenu").classList.toggle("visible");
+});
+
+$("topAccount").addEventListener("click", () => {
+  if (currentUser) {
+    showAccount();
+  } else {
+    openAuth("login");
+  }
+});
+
+function closeProfileMenu() {
+  $("profileMenu").classList.remove("visible");
+}
+
+$("profileAccount").addEventListener("click", () => {
+  closeProfileMenu();
+
+  if (currentUser) {
+    showAccount();
+  } else {
+    openAuth("login");
+  }
+});
+
+$("logoutButton").addEventListener("click", logout);
+$("accountLogout").addEventListener("click", logout);
+
+$("redeemButton").addEventListener("click", () => {
+  closeProfileMenu();
+  openModal("redeemModal");
+});
+
+$("accountRedeem").addEventListener("click", () => {
+  closeModal("accountModal");
+  openModal("redeemModal");
+});
+
+$("moderatorRequestButton").addEventListener("click", () => {
+  closeProfileMenu();
+
+  if (!currentUser) {
+    openAuth("login");
+    return;
+  }
+
+  $("requestMessage").textContent = "";
+  $("requestText").value = "";
+  openModal("requestModal");
+});
+
+/* =========================================
+   AUTH
+========================================= */
+
+function openAuth(mode) {
+  authMode = mode;
+  $("authError").textContent = "";
+
+  const register = mode === "register";
+
+  $("authTitle").textContent = register ? "Создать аккаунт" : "Вход в Maut AI";
+  $("authSubmit").textContent = register ? "Зарегистрироваться" : "Войти";
+  $("nameField").classList.toggle("hidden", !register);
+
+  $("authSwitchText").textContent = register
+    ? "Уже есть аккаунт?"
+    : "Нет аккаунта?";
+
+  $("authSwitch").textContent = register
+    ? "Войти"
+    : "Создать аккаунт";
+
+  openModal("authModal");
+}
+
+$("authSwitch").addEventListener("click", () => {
+  openAuth(authMode === "login" ? "register" : "login");
+});
+
+$("authForm").addEventListener("submit", async event => {
+  event.preventDefault();
+
+  $("authError").textContent = "";
+
+  const email = $("authEmail").value.trim();
+  const password = $("authPassword").value;
+  const name = $("authName").value.trim();
+
+  try {
+    const endpoint = authMode === "register"
+      ? "/api/auth/register"
+      : "/api/auth/login";
+
+    const data = await post(endpoint, {
+      email,
+      password,
+      name
     });
 
-    const data = await response.json().catch(() => ({}));
+    currentUser = data.user || data;
 
-    if (!response.ok) {
-      throw new Error(data.error || `Ошибка сервера: ${response.status}`);
-    }
-
-    return data;
-  }
-
-  function showStatus(text, isError = false) {
-    $('status').textContent = text || '';
-    $('status').style.color = isError ? '#ff7777' : '#999';
-  }
-
-  function setBusy(value) {
-    busy = value;
-    $('sendBtn').disabled = value;
-    $('imageBtn').disabled = value;
-    $('sendBtn').textContent = value ? '…' : '↑';
-  }
-
-  function openModal(id) {
-    $(id).classList.add('open');
-  }
-
-  function closeModal(id) {
-    $(id).classList.remove('open');
-  }
-
-  function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, char => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;'
-    })[char]);
-  }
-
-  function rankHtml(role) {
-    const safeRole = ['Admin', 'Plus', 'Moder', 'Free'].includes(role) ? role : 'Free';
-    return `<span class="rank ${safeRole}">${safeRole}</span>`;
-  }
-
-  function renderUser() {
-    if (!user) {
-      $('profileName').textContent = 'Гость';
-      $('profileEmail').textContent = 'Войди в аккаунт';
-      $('avatar').textContent = '?';
-      $('profileRank').textContent = 'Guest';
-      $('profileRank').className = 'rank';
-      $('loginBtn').classList.remove('hidden');
-      $('adminOpen').classList.add('hidden');
-      $('accountButton').title = 'Войти в аккаунт';
-      return;
-    }
-
-    $('profileName').textContent = user.name || user.username;
-    $('profileEmail').textContent = user.email || '';
-    $('avatar').textContent = (user.name || user.username || 'M').slice(0, 1).toUpperCase();
-    $('profileRank').textContent = user.role || 'Free';
-    $('profileRank').className = `rank ${user.role || 'Free'}`;
-    $('loginBtn').classList.add('hidden');
-    $('adminOpen').classList.toggle('hidden', user.role !== 'Admin');
-    $('accountButton').title = 'Профиль';
-  }
-
-  function addMessage(role, content, image = null) {
-    $('welcome').classList.add('hidden');
-
-    const wrapper = document.createElement('div');
-    wrapper.className = `message ${role}`;
-
-    const avatar = document.createElement('div');
-    avatar.className = 'message-avatar';
-    avatar.textContent = role === 'user'
-      ? (user?.name || 'Я').slice(0, 1).toUpperCase()
-      : 'M';
-
-    const body = document.createElement('div');
-    body.className = 'message-body';
-
-    const name = document.createElement('div');
-    name.className = 'message-name';
-    name.textContent = role === 'user'
-      ? (user?.name || 'Ты')
-      : 'Maut AI';
-
-    if (role === 'user' && user?.role) {
-      const badge = document.createElement('span');
-      badge.innerHTML = ' ' + rankHtml(user.role);
-      name.appendChild(badge);
-    }
-
-    const text = document.createElement('div');
-    text.className = 'message-content';
-    text.textContent = content || '';
-
-    if (image && typeof image === 'string' && image.startsWith('data:image/')) {
-      const img = document.createElement('img');
-      img.src = image;
-      img.alt = 'Созданное изображение';
-      text.appendChild(img);
-    }
-
-    body.append(name, text);
-    wrapper.append(avatar, body);
-    $('messages').appendChild(wrapper);
-
-    $('chatArea').scrollTop = $('chatArea').scrollHeight;
-  }
-
-  function clearMessages() {
-    $('messages').innerHTML = '';
-    $('welcome').classList.remove('hidden');
-  }
-
-  async function refreshMe() {
-    try {
-      const data = await api('/api/auth/me');
-      user = data.user;
-    } catch {
-      user = null;
-    }
-
-    renderUser();
-
-    if (user) {
-      await loadChats();
-    } else {
-      chats = [];
-      currentChatId = null;
-      renderHistory();
-    }
-  }
-
-  async function loadChats() {
-    if (!user) return;
-
-    try {
-      const data = await api('/api/chats');
-      chats = data.chats || [];
-      renderHistory();
-    } catch (error) {
-      showStatus(error.message, true);
-    }
-  }
-
-  function renderHistory() {
-    const container = $('history');
-    container.innerHTML = '';
-
-    for (const chat of chats) {
-      const item = document.createElement('div');
-      item.className = 'history-item' + (String(chat.id) === String(currentChatId) ? ' active' : '');
-
-      const title = document.createElement('span');
-      title.className = 'history-title';
-      title.textContent = chat.title || 'Новый чат';
-
-      const remove = document.createElement('button');
-      remove.className = 'icon-button';
-      remove.textContent = '×';
-      remove.title = 'Удалить чат';
-      remove.style.width = '25px';
-      remove.style.height = '25px';
-
-      item.addEventListener('click', () => openChat(chat.id));
-
-      remove.addEventListener('click', async event => {
-        event.stopPropagation();
-        if (!confirm('Удалить этот чат?')) return;
-
-        try {
-          await api(`/api/chats/${chat.id}`, { method: 'DELETE' });
-          if (String(currentChatId) === String(chat.id)) {
-            currentChatId = null;
-            clearMessages();
-          }
-          await loadChats();
-        } catch (error) {
-          showStatus(error.message, true);
-        }
-      });
-
-      item.append(title, remove);
-      container.appendChild(item);
-    }
-  }
-
-  async function createChat() {
-    if (!user) {
-      openAuth('login');
-      return null;
-    }
-
-    const data = await api('/api/chats', { method: 'POST', body: '{}' });
-    currentChatId = data.chat.id;
-    clearMessages();
+    closeModal("authModal");
+    updateUserUI();
     await loadChats();
-    return currentChatId;
+
+  } catch (error) {
+    $("authError").textContent = error.message;
+  }
+});
+
+async function logout() {
+  try {
+    await post("/api/auth/logout", {});
+  } catch (error) {
+    console.error(error);
   }
 
-  async function openChat(id) {
-    if (!user) return;
+  currentUser = null;
+  chats = [];
+  history = [];
+  currentChatId = null;
 
-    try {
-      const data = await api(`/api/chats/${id}`);
-      currentChatId = id;
-      clearMessages();
+  closeAllModals();
+  closeProfileMenu();
+  updateUserUI();
+  renderChats();
+  showWelcome();
+  hideAdminPanel();
+}
 
-      for (const message of data.messages || []) {
-        addMessage(message.role, message.content, message.image);
-      }
+async function loadCurrentUser() {
+  try {
+    const data = await api("/api/auth/me");
 
-      renderHistory();
-      $('sidebar').classList.remove('mobile-open');
-    } catch (error) {
-      showStatus(error.message, true);
-    }
-  }
+    currentUser = data.user || data;
 
-  async function saveMessage(role, content, image = null) {
-    if (!currentChatId) return;
-
-    return api(`/api/chats/${currentChatId}/messages`, {
-      method: 'POST',
-      body: JSON.stringify({ role, content, image })
-    });
-  }
-
-  async function ensureChat() {
-    if (currentChatId) return currentChatId;
-    return createChat();
-  }
-
-  async function sendMessage(event) {
-    event?.preventDefault();
-
-    if (busy) return;
-
-    const prompt = $('prompt').value.trim();
-    if (!prompt) return;
-
-    if (!user) {
-      openAuth('login');
-      return;
-    }
-
-    setBusy(true);
-    showStatus(imageModeOn ? 'Создаю изображение…' : 'Maut AI думает…');
-
-    try {
-      await ensureChat();
-
-      if (imageModeOn) {
-        addMessage('user', prompt);
-        await saveMessage('user', prompt);
-
-        const data = await api('/api/images', {
-          method: 'POST',
-          body: JSON.stringify({ prompt })
-        });
-
-        addMessage('assistant', 'Изображение готово.', data.image);
-        await saveMessage('assistant', 'Изображение готово.', data.image);
-      } else {
-        addMessage('user', prompt);
-        await saveMessage('user', prompt);
-
-        const history = [...$('messages').querySelectorAll('.message')]
-          .slice(-10)
-          .map(element => {
-            const isUser = element.classList.contains('user');
-            const content = element.querySelector('.message-content')?.textContent || '';
-            return {
-              role: isUser ? 'user' : 'assistant',
-              content
-            };
-          });
-
-        const data = await api('/api/chat', {
-          method: 'POST',
-          body: JSON.stringify({ message: prompt, history })
-        });
-
-        addMessage('assistant', data.reply);
-        await saveMessage('assistant', data.reply);
-      }
-
-      $('prompt').value = '';
-      resizePrompt();
+    if (currentUser && currentUser.id) {
+      updateUserUI();
       await loadChats();
-      showStatus('');
-    } catch (error) {
-      showStatus(error.message, true);
-    } finally {
-      setBusy(false);
     }
+  } catch {
+    currentUser = null;
+    updateUserUI();
+  }
+}
+
+/* =========================================
+   USER UI
+========================================= */
+
+function getRole() {
+  return String(currentUser?.role || "user").toLowerCase();
+}
+
+function isAdmin() {
+  return getRole() === "admin";
+}
+
+function isModerator() {
+  return getRole() === "moderator" || isAdmin();
+}
+
+function isPlus() {
+  return Boolean(currentUser?.is_plus || currentUser?.plus || currentUser?.plan === "plus");
+}
+
+function updateUserUI() {
+  if (!currentUser) {
+    $("profileName").textContent = "Гость";
+    $("profileStatus").textContent = "Войти в аккаунт";
+    $("avatar").textContent = "?";
+
+    $("adminButton").classList.add("hidden");
+    $("moderatorButton").classList.add("hidden");
+    $("moderatorRequestButton").classList.remove("hidden");
+
+    return;
   }
 
-  function resizePrompt() {
-    const input = $('prompt');
-    input.style.height = 'auto';
-    input.style.height = Math.min(input.scrollHeight, 180) + 'px';
+  const name = currentUser.name || currentUser.email || "Пользователь";
+
+  $("profileName").textContent = name;
+  $("profileStatus").textContent =
+    isAdmin() ? "Администратор" :
+    getRole() === "moderator" ? "Модератор" :
+    isPlus() ? "Maut Plus" :
+    "Пользователь";
+
+  $("avatar").textContent = name.charAt(0).toUpperCase();
+
+  $("adminButton").classList.toggle("hidden", !isAdmin());
+  $("moderatorButton").classList.toggle("hidden", !isModerator());
+  $("moderatorRequestButton").classList.toggle("hidden", isModerator());
+}
+
+function showAccount() {
+  if (!currentUser) {
+    openAuth("login");
+    return;
   }
 
-  function openAuth(mode = 'login') {
-    authMode = mode;
-    $('authError').textContent = '';
-    $('modalTitle').textContent = mode === 'login' ? 'Войти в Maut AI' : 'Создать аккаунт';
-    $('modalSubtitle').textContent = mode === 'login'
-      ? 'Войди, чтобы пользоваться Maut AI.'
-      : 'Создай аккаунт Maut AI.';
-    $('nameField').classList.toggle('hidden', mode === 'login');
-    $('name').required = mode === 'register';
-    $('authSubmit').textContent = mode === 'login' ? 'Войти' : 'Зарегистрироваться';
-    $('switchText').textContent = mode === 'login' ? 'Нет аккаунта? ' : 'Уже есть аккаунт? ';
-    $('switchAuth').textContent = mode === 'login' ? 'Зарегистрироваться' : 'Войти';
-    $('password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
-    openModal('authModal');
+  $("accountName").textContent = currentUser.name || "—";
+  $("accountEmail").textContent = currentUser.email || "—";
+
+  $("accountRole").textContent =
+    isAdmin() ? "Администратор" :
+    getRole() === "moderator" ? "Модератор" :
+    isPlus() ? "Maut Plus" :
+    "Обычный аккаунт";
+
+  openModal("accountModal");
+}
+
+/* =========================================
+   CHAT HISTORY
+========================================= */
+
+async function loadChats() {
+  if (!currentUser) return;
+
+  try {
+    const data = await api("/api/chats");
+
+    chats = Array.isArray(data)
+      ? data
+      : data.chats || [];
+
+    renderChats();
+  } catch (error) {
+    console.error("Не удалось загрузить чаты:", error);
+  }
+}
+
+function renderChats() {
+  const container = $("chatList");
+  container.innerHTML = "";
+
+  if (!chats.length) {
+    container.innerHTML = '<div class="empty-state">Нет чатов</div>';
+    return;
   }
 
-  async function submitAuth(event) {
-    event.preventDefault();
+  chats.forEach(chat => {
+    const item = document.createElement("div");
 
-    const payload = {
-      email: $('email').value.trim(),
-      password: $('password').value
-    };
+    item.className =
+      "chat-item" +
+      (String(chat.id) === String(currentChatId) ? " active" : "");
 
-    if (authMode === 'register') {
-      payload.name = $('name').value.trim();
+    const title = document.createElement("div");
+    title.className = "chat-item-title";
+    title.textContent = chat.title || "Новый чат";
+
+    const remove = document.createElement("button");
+    remove.className = "chat-delete";
+    remove.textContent = "×";
+    remove.title = "Удалить чат";
+
+    remove.addEventListener("click", async event => {
+      event.stopPropagation();
+      await deleteChat(chat.id);
+    });
+
+    item.append(title, remove);
+
+    item.addEventListener("click", () => {
+      openChat(chat.id);
+    });
+
+    container.appendChild(item);
+  });
+}
+
+async function createChat() {
+  const data = await post("/api/chats", {
+    title:"Новый чат"
+  });
+
+  const chat = data.chat || data;
+
+  if (!chat.id) {
+    throw new Error("Сервер не вернул ID чата.");
+  }
+
+  currentChatId = chat.id;
+
+  await loadChats();
+
+  return chat;
+}
+
+async function newChat() {
+  if (!currentUser) {
+    openAuth("login");
+    return;
+  }
+
+  currentChatId = null;
+  history = [];
+
+  showWelcome();
+  renderChats();
+  hideAdminPanel();
+  closeSidebar();
+}
+
+async function openChat(id) {
+  if (!currentUser) return;
+
+  try {
+    const data = await api("/api/chats/" + encodeURIComponent(id));
+
+    currentChatId = id;
+
+    const chat = data.chat || data;
+    const messages = data.messages || chat.messages || [];
+
+    history = messages.map(message => ({
+      role:message.role,
+      content:message.content
+    }));
+
+    $("messages").innerHTML = "";
+
+    if (!history.length) {
+      showWelcome();
+    } else {
+      history.forEach(message => {
+        addMessage(message.role, message.content);
+      });
     }
 
-    $('authSubmit').disabled = true;
-    $('authError').textContent = '';
+    renderChats();
+    hideAdminPanel();
+    closeSidebar();
+
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function deleteChat(id) {
+  if (!confirm("Удалить этот чат?")) return;
+
+  try {
+    await api("/api/chats/" + encodeURIComponent(id), {
+      method:"DELETE"
+    });
+
+    if (String(currentChatId) === String(id)) {
+      currentChatId = null;
+      history = [];
+      showWelcome();
+    }
+
+    await loadChats();
+
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+/* =========================================
+   MESSAGE RENDERING
+========================================= */
+
+function showWelcome() {
+  $("messages").innerHTML = `
+    <div class="welcome" id="welcome">
+      <div class="welcome-logo">Maut <span>AI</span></div>
+      <p>Чем я могу помочь сегодня?</p>
+    </div>
+  `;
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#039;"
+  })[char]);
+}
+
+function formatMessage(text) {
+  let safe = escapeHTML(text);
+
+  // Code blocks
+  safe = safe.replace(
+    /```([\w+-]*)\n?([\s\S]*?)```/g,
+    (_, language, code) =>
+      `<pre><code>${code.trim()}</code></pre>`
+  );
+
+  // Inline code
+  safe = safe.replace(/`([^`]+)`/g, "<code>$1</code>");
+
+  // Bold
+  safe = safe.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+  // Italic
+  safe = safe.replace(/\*(.*?)\*/g, "<em>$1</em>");
+
+  // Headings
+  safe = safe.replace(/^### (.*)$/gm, "<h3>$1</h3>");
+  safe = safe.replace(/^## (.*)$/gm, "<h2>$1</h2>");
+  safe = safe.replace(/^# (.*)$/gm, "<h1>$1</h1>");
+
+  // Lists
+  safe = safe.replace(/^\- (.*)$/gm, "<li>$1</li>");
+  safe = safe.replace(/(<li>.*<\/li>)/gs, "<ul>$1</ul>");
+
+  // Paragraphs
+  safe = safe.split(/\n\n+/).map(part => {
+    if (
+      part.startsWith("<pre>") ||
+      part.startsWith("<h") ||
+      part.startsWith("<ul>")
+    ) {
+      return part;
+    }
+
+    return `<p>${part.replace(/\n/g, "<br>")}</p>`;
+  }).join("");
+
+  return safe;
+}
+
+function addMessage(role, content) {
+  const welcome = $("welcome");
+
+  if (welcome) welcome.remove();
+
+  const message = document.createElement("div");
+  message.className = "message";
+
+  const avatar = document.createElement("div");
+  avatar.className = "message-avatar";
+  avatar.textContent = role === "user" ? "Вы" : "M";
+
+  const body = document.createElement("div");
+  body.className = "message-body";
+
+  body.innerHTML = formatMessage(content);
+
+  message.append(avatar, body);
+
+  if (role === "assistant") {
+    const actions = document.createElement("div");
+    actions.className = "message-actions";
+
+    const copy = document.createElement("button");
+    copy.textContent = "Копировать";
+
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(content);
+        copy.textContent = "Скопировано";
+        setTimeout(() => copy.textContent = "Копировать", 1500);
+      } catch {
+        copy.textContent = "Ошибка";
+      }
+    });
+
+    actions.append(copy);
+    body.append(actions);
+  }
+
+  $("messages").appendChild(message);
+
+  $("chatContent").scrollTop = $("chatContent").scrollHeight;
+}
+
+/* =========================================
+   SEND MESSAGE
+========================================= */
+
+async function sendMessage() {
+  if (isSending) return;
+
+  const input = $("messageInput");
+  const message = input.value.trim();
+
+  if (!message) return;
+
+  if (!currentUser) {
+    openAuth("login");
+    return;
+  }
+
+  isSending = true;
+  $("sendButton").disabled = true;
+
+  input.value = "";
+  input.style.height = "45px";
+
+  addMessage("user", message);
+
+  history.push({
+    role:"user",
+    content:message
+  });
+
+  const typing = document.createElement("div");
+  typing.className = "message";
+  typing.id = "typingIndicator";
+  typing.innerHTML = `
+    <div class="message-avatar">M</div>
+    <div class="message-body typing">Maut AI печатает...</div>
+  `;
+
+  $("messages").appendChild(typing);
+
+  try {
+    if (!currentChatId) {
+      await createChat();
+    }
+
+    const data = await post("/api/chat", {
+      message,
+      history:history.slice(-30),
+      chatId:currentChatId
+    });
+
+    $("typingIndicator")?.remove();
+
+    const answer =
+      data.reply ||
+      data.response ||
+      data.message ||
+      data.content ||
+      "Не удалось получить ответ.";
+
+    history.push({
+      role:"assistant",
+      content:answer
+    });
+
+    addMessage("assistant", answer);
 
     try {
-      const data = await api(
-        authMode === 'login' ? '/api/auth/login' : '/api/auth/register',
+      await post(
+        "/api/chats/" + encodeURIComponent(currentChatId) + "/messages",
         {
-          method: 'POST',
-          body: JSON.stringify(payload)
+          role:"user",
+          content:message
         }
       );
 
-      user = data.user;
-      closeModal('authModal');
-      $('authForm').reset();
-      renderUser();
-      clearMessages();
-      await loadChats();
-      showStatus('Ты вошёл в аккаунт.');
-    } catch (error) {
-      $('authError').textContent = error.message;
-    } finally {
-      $('authSubmit').disabled = false;
-    }
-  }
-
-  async function redeemCode() {
-    const code = $('giftCode').value.trim();
-
-    if (!code) {
-      $('redeemError').textContent = 'Введи ключ.';
-      return;
-    }
-
-    $('redeemButton').disabled = true;
-    $('redeemError').textContent = '';
-
-    try {
-      await api('/api/gift-codes/redeem', {
-        method: 'POST',
-        body: JSON.stringify({ code })
-      });
-
-      $('redeemError').style.color = 'var(--green)';
-      $('redeemError').textContent = 'Plus активирован на 7 дней!';
-      $('giftCode').value = '';
-
-      await refreshMe();
-
-      setTimeout(() => closeModal('redeemModal'), 1300);
-    } catch (error) {
-      $('redeemError').style.color = '#ff7777';
-      $('redeemError').textContent = error.message;
-    } finally {
-      $('redeemButton').disabled = false;
-    }
-  }
-
-  async function requestModer() {
-    if (!user) return openAuth('login');
-
-    try {
-      await api('/api/moderator-requests', {
-        method: 'POST',
-        body: '{}'
-      });
-      alert('Заявка отправлена. Ожидай решения Admin.');
-    } catch (error) {
-      alert(error.message);
-    }
-  }
-
-  function showProfile() {
-    if (!user) return openAuth('login');
-
-    const expiry = user.plusExpiresAt
-      ? new Date(user.plusExpiresAt).toLocaleString()
-      : 'Не применяется';
-
-    $('profileDetails').innerHTML = `
-      <div class="field"><label>Имя</label><div>${escapeHtml(user.name)}</div></div>
-      <div class="field"><label>Email</label><div>${escapeHtml(user.email || '')}</div></div>
-      <div class="field"><label>Ранг</label><div>${rankHtml(user.role)}</div></div>
-      <div class="field"><label>Окончание Plus</label><div>${escapeHtml(expiry)}</div></div>
-    `;
-
-    openModal('profileModal');
-  }
-
-  async function openAdmin() {
-    if (user?.role !== 'Admin') {
-      alert('Нет доступа.');
-      return;
-    }
-
-    $('profileMenu').classList.remove('open');
-    openModal('adminModal');
-    await renderAdmin();
-  }
-
-  async function renderAdmin() {
-    const content = $('adminContent');
-    content.innerHTML = '<p class="muted">Загружаю...</p>';
-
-    document.querySelectorAll('.admin-tab').forEach(button => {
-      button.classList.toggle('active', button.dataset.tab === adminTab);
-    });
-
-    try {
-      if (adminTab === 'users') {
-        const data = await api('/api/admin/users');
-
-        content.innerHTML = `
-          <h3>Пользователи</h3>
-          <p class="muted">Управление рангами и блокировками аккаунтов.</p>
-          <div id="adminUsers"></div>
-        `;
-
-        const list = $('adminUsers');
-
-        for (const person of data.users) {
-          const row = document.createElement('div');
-          row.className = 'admin-row';
-
-          const info = document.createElement('div');
-          info.className = 'admin-row-main';
-
-          const title = document.createElement('strong');
-          title.textContent = `${person.name} · ${person.username}`;
-
-          const details = document.createElement('div');
-          details.className = 'muted';
-          details.textContent = `${person.email || ''} · ${person.role}${person.banned ? ' · ЗАБАНЕН' : ''}`;
-
-          info.append(title, details);
-
-          const actions = document.createElement('div');
-          actions.className = 'admin-actions';
-
-          if (person.role !== 'Admin' && person.id !== user.id) {
-            const select = document.createElement('select');
-
-            for (const role of ['Free', 'Plus', 'Moder']) {
-              const option = document.createElement('option');
-              option.value = role;
-              option.textContent = role;
-              option.selected = person.role === role;
-              select.appendChild(option);
-            }
-
-            const save = document.createElement('button');
-            save.className = 'secondary-button';
-            save.textContent = 'Ранг';
-
-            save.addEventListener('click', async () => {
-              try {
-                await api(`/api/admin/users/${person.id}/role`, {
-                  method: 'PATCH',
-                  body: JSON.stringify({ role: select.value })
-                });
-                await renderAdmin();
-              } catch (error) {
-                alert(error.message);
-              }
-            });
-
-            const ban = document.createElement('button');
-            ban.className = person.banned ? 'secondary-button' : 'danger-button';
-            ban.textContent = person.banned ? 'Разбан' : 'Бан';
-
-            ban.addEventListener('click', async () => {
-              if (!confirm(person.banned ? 'Разблокировать аккаунт?' : 'Заблокировать аккаунт?')) return;
-
-              try {
-                await api(`/api/admin/users/${person.id}/${person.banned ? 'unban' : 'ban'}`, {
-                  method: 'POST',
-                  body: '{}'
-                });
-                await renderAdmin();
-              } catch (error) {
-                alert(error.message);
-              }
-            });
-
-            actions.append(select, save, ban);
-          }
-
-          row.append(info, actions);
-          list.appendChild(row);
+      await post(
+        "/api/chats/" + encodeURIComponent(currentChatId) + "/messages",
+        {
+          role:"assistant",
+          content:answer
         }
-      }
-
-      if (adminTab === 'keys') {
-        content.innerHTML = `
-          <h3>Генерация Plus-ключей</h3>
-          <p class="muted">Создавай одноразовые ключи. Они показываются только один раз после создания.</p>
-          <div class="field">
-            <label for="keyCount">Количество ключей (1–100)</label>
-            <input id="keyCount" type="number" min="1" max="100" value="1">
-          </div>
-          <button class="primary-button" id="generateKeys">Создать ключи</button>
-          <div id="generatedKeys"></div>
-        `;
-
-        $('generateKeys').addEventListener('click', async () => {
-          const count = Number($('keyCount').value);
-
-          try {
-            const data = await api('/api/admin/gift-codes', {
-              method: 'POST',
-              body: JSON.stringify({ count })
-            });
-
-            const output = $('generatedKeys');
-            output.innerHTML = '';
-
-            const codeBox = document.createElement('div');
-            codeBox.className = 'code-list';
-            codeBox.textContent = data.codes.join('\n');
-
-            const copy = document.createElement('button');
-            copy.className = 'secondary-button';
-            copy.textContent = 'Скопировать все ключи';
-
-            copy.addEventListener('click', async () => {
-              await navigator.clipboard.writeText(data.codes.join('\n'));
-              copy.textContent = 'Скопировано!';
-            });
-
-            output.append(codeBox, copy);
-          } catch (error) {
-            alert(error.message);
-          }
-        });
-      }
-
-      if (adminTab === 'memory') {
-        const data = await api('/api/admin/memory');
-
-        content.innerHTML = `
-          <h3>Долгосрочная память Maut AI</h3>
-          <p class="muted">Добавляй факты, которые ИИ будет учитывать в будущих разговорах.</p>
-          <div class="field">
-            <label for="memoryFact">Новый факт</label>
-            <textarea id="memoryFact" rows="3" maxlength="2000" placeholder="Например: Den Whelan — создатель Maut AI."></textarea>
-          </div>
-          <button class="primary-button" id="addMemory">Сохранить в память</button>
-          <div id="memoryList"></div>
-        `;
-
-        $('addMemory').addEventListener('click', async () => {
-          const fact = $('memoryFact').value.trim();
-          if (!fact) return alert('Напиши факт.');
-
-          try {
-            await api('/api/admin/memory', {
-              method: 'POST',
-              body: JSON.stringify({ fact })
-            });
-            await renderAdmin();
-          } catch (error) {
-            alert(error.message);
-          }
-        });
-
-        for (const item of data.memory) {
-          const row = document.createElement('div');
-          row.className = 'admin-row';
-
-          const text = document.createElement('div');
-          text.className = 'admin-row-main';
-          text.textContent = item.fact;
-
-          const actions = document.createElement('div');
-          actions.className = 'admin-actions';
-
-          const edit = document.createElement('button');
-          edit.className = 'secondary-button';
-          edit.textContent = 'Изменить';
-          edit.addEventListener('click', async () => {
-            const fact = prompt('Измени факт:', item.fact);
-            if (fact === null || !fact.trim()) return;
-
-            try {
-              await api(`/api/admin/memory/${item.id}`, {
-                method: 'PATCH',
-                body: JSON.stringify({ fact: fact.trim() })
-              });
-              await renderAdmin();
-            } catch (error) {
-              alert(error.message);
-            }
-          });
-
-          const remove = document.createElement('button');
-          remove.className = 'danger-button';
-          remove.textContent = 'Удалить';
-          remove.addEventListener('click', async () => {
-            if (!confirm('Удалить этот факт из памяти?')) return;
-
-            try {
-              await api(`/api/admin/memory/${item.id}`, { method: 'DELETE' });
-              await renderAdmin();
-            } catch (error) {
-              alert(error.message);
-            }
-          });
-
-          actions.append(edit, remove);
-          row.append(text, actions);
-          $('memoryList').appendChild(row);
-        }
-      }
-
-      if (adminTab === 'requests') {
-        const data = await api('/api/admin/moderator-requests');
-
-        content.innerHTML = `
-          <h3>Заявки на Moder</h3>
-          <div id="requestList"></div>
-        `;
-
-        for (const request of data.requests) {
-          const row = document.createElement('div');
-          row.className = 'admin-row';
-
-          const info = document.createElement('div');
-          info.className = 'admin-row-main';
-
-          const name = document.createElement('strong');
-          name.textContent = request.display_name || request.username;
-
-          const state = document.createElement('div');
-          state.className = 'muted';
-          state.textContent = `${request.email || ''} · ${request.status}`;
-
-          info.append(name, state);
-
-          const actions = document.createElement('div');
-          actions.className = 'admin-actions';
-
-          if (request.status === 'pending') {
-            for (const [label, approve] of [['Одобрить', true], ['Отклонить', false]]) {
-              const button = document.createElement('button');
-              button.className = approve ? 'primary-button' : 'danger-button';
-              button.textContent = label;
-
-              button.addEventListener('click', async () => {
-                try {
-                  await api(`/api/admin/moderator-requests/${request.id}`, {
-                    method: 'POST',
-                    body: JSON.stringify({ approve })
-                  });
-                  await renderAdmin();
-                } catch (error) {
-                  alert(error.message);
-                }
-              });
-
-              actions.appendChild(button);
-            }
-          }
-
-          row.append(info, actions);
-          $('requestList').appendChild(row);
-        }
-      }
-    } catch (error) {
-      content.innerHTML = `<p class="modal-error">${escapeHtml(error.message)}</p>`;
+      );
+    } catch (saveError) {
+      console.warn("Сохранение истории:", saveError);
     }
+
+    await loadChats();
+
+  } catch (error) {
+    $("typingIndicator")?.remove();
+
+    addMessage(
+      "assistant",
+      "Произошла ошибка: " + error.message
+    );
+
+  } finally {
+    isSending = false;
+    $("sendButton").disabled = false;
+    input.focus();
   }
+}
 
-  $('chatForm').addEventListener('submit', sendMessage);
-  $('authForm').addEventListener('submit', submitAuth);
-  $('prompt').addEventListener('input', resizePrompt);
+$("sendButton").addEventListener("click", sendMessage);
 
-  $('prompt').addEventListener('keydown', event => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      sendMessage(event);
-    }
-  });
-
-  $('newChat').addEventListener('click', async () => {
-    if (!user) return openAuth('login');
-
-    try {
-      await createChat();
-      $('sidebar').classList.remove('mobile-open');
-    } catch (error) {
-      showStatus(error.message, true);
-    }
-  });
-
-  $('loginBtn').addEventListener('click', () => openAuth('login'));
-  $('closeModal').addEventListener('click', () => closeModal('authModal'));
-
-  $('switchAuth').addEventListener('click', event => {
+$("messageInput").addEventListener("keydown", event => {
+  if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
-    openAuth(authMode === 'login' ? 'register' : 'login');
-  });
+    sendMessage();
+  }
+});
 
-  $('accountButton').addEventListener('click', () => {
-    if (!user) return openAuth('login');
-    $('profileMenu').classList.toggle('open');
-  });
+$("messageInput").addEventListener("input", () => {
+  const input = $("messageInput");
+  input.style.height = "45px";
+  input.style.height = Math.min(input.scrollHeight, 180) + "px";
+});
 
-  $('profileOpen').addEventListener('click', () => {
-    $('profileMenu').classList.remove('open');
-    showProfile();
-  });
+$("clearButton").addEventListener("click", () => {
+  $("messageInput").value = "";
+  $("messageInput").focus();
+});
 
-  $('redeemOpen').addEventListener('click', () => {
-    $('profileMenu').classList.remove('open');
-    $('redeemError').textContent = '';
-    openModal('redeemModal');
-  });
+/* =========================================
+   IMAGE GENERATION
+========================================= */
 
-  $('profileRedeem').addEventListener('click', () => {
-    closeModal('profileModal');
-    openModal('redeemModal');
-  });
+$("imageModeButton").addEventListener("click", () => {
+  $("imageMode").classList.toggle("visible");
+  $("imageModeButton").classList.toggle("selected");
+});
 
-  $('redeemButton').addEventListener('click', redeemCode);
-  $('moderRequest').addEventListener('click', () => {
-    $('profileMenu').classList.remove('open');
-    requestModer();
-  });
+$("generateImage").addEventListener("click", async () => {
+  const prompt = $("imagePrompt").value.trim();
 
-  $('adminOpen').addEventListener('click', openAdmin);
+  if (!prompt) {
+    $("imageResult").textContent = "Введите описание изображения.";
+    return;
+  }
 
-  $('logoutBtn').addEventListener('click', async () => {
-    try {
-      await api('/api/auth/logout', { method: 'POST', body: '{}' });
-    } catch {}
+  if (!currentUser) {
+    openAuth("login");
+    return;
+  }
 
-    user = null;
-    currentChatId = null;
-    chats = [];
-    renderUser();
-    renderHistory();
-    clearMessages();
-    $('profileMenu').classList.remove('open');
-    showStatus('Ты вышел из аккаунта.');
-  });
+  $("generateImage").disabled = true;
+  $("generateImage").textContent = "Создаём изображение...";
+  $("imageResult").textContent = "";
 
-  $('menuBtn').addEventListener('click', () => {
-    $('sidebar').classList.toggle('mobile-open');
-  });
+  try {
+    const data = await post("/api/images", { prompt });
 
-  $('imageMode').addEventListener('click', () => {
-    imageModeOn = !imageModeOn;
-    $('imageMode').classList.toggle('active', imageModeOn);
-    $('imageBtn').classList.toggle('active', imageModeOn);
-    $('prompt').placeholder = imageModeOn
-      ? 'Опиши изображение, которое нужно создать...'
-      : 'Напиши сообщение Maut AI...';
-    $('sidebar').classList.remove('mobile-open');
-  });
+    const imageUrl =
+      data.url ||
+      data.image ||
+      data.imageUrl ||
+      data.data?.[0]?.url;
 
-  $('imageBtn').addEventListener('click', () => {
-    imageModeOn = !imageModeOn;
-    $('imageBtn').classList.toggle('active', imageModeOn);
-    $('imageMode').classList.toggle('active', imageModeOn);
-    $('prompt').placeholder = imageModeOn
-      ? 'Опиши изображение, которое нужно создать...'
-      : 'Напиши сообщение Maut AI...';
-  });
-
-  $('clearBtn').addEventListener('click', () => {
-    if (!confirm('Очистить сообщения на экране?')) return;
-    clearMessages();
-    currentChatId = null;
-    renderHistory();
-  });
-
-  document.querySelectorAll('[data-close]').forEach(button => {
-    button.addEventListener('click', () => closeModal(button.dataset.close));
-  });
-
-  document.querySelectorAll('.overlay').forEach(overlay => {
-    overlay.addEventListener('click', event => {
-      if (event.target === overlay) overlay.classList.remove('open');
-    });
-  });
-
-  document.querySelectorAll('.admin-tab').forEach(button => {
-    button.addEventListener('click', async () => {
-      adminTab = button.dataset.tab;
-      await renderAdmin();
-    });
-  });
-
-  document.addEventListener('click', event => {
-    if (!event.target.closest('.account')) {
-      $('profileMenu').classList.remove('open');
+    if (!imageUrl) {
+      throw new Error("Сервер не вернул изображение.");
     }
+
+    const img = document.createElement("img");
+    img.className = "generated-image";
+    img.src = imageUrl;
+    img.alt = prompt;
+
+    $("imageResult").innerHTML = "";
+    $("imageResult").appendChild(img);
+
+  } catch (error) {
+    $("imageResult").textContent = error.message;
+
+  } finally {
+    $("generateImage").disabled = false;
+    $("generateImage").textContent = "Создать изображение";
+  }
+});
+
+/* =========================================
+   MAUT PLUS REDEEM
+========================================= */
+
+$("redeemSubmit").addEventListener("click", async () => {
+  const code = $("redeemCode").value.trim();
+
+  if (!code) {
+    $("redeemMessage").textContent = "Введите ключ.";
+    return;
+  }
+
+  $("redeemMessage").textContent = "Проверяем ключ...";
+
+  try {
+    const data = await post("/api/gift-codes/redeem", { code });
+
+    $("redeemMessage").className = "form-success";
+    $("redeemMessage").textContent =
+      data.message || "Maut Plus успешно активирован!";
+
+    await loadCurrentUser();
+
+  } catch (error) {
+    $("redeemMessage").className = "form-error";
+    $("redeemMessage").textContent = error.message;
+  }
+});
+
+/* =========================================
+   MODERATOR REQUEST
+========================================= */
+
+$("sendRequest").addEventListener("click", async () => {
+  const message = $("requestText").value.trim();
+
+  if (!message) {
+    $("requestMessage").textContent = "Напишите сообщение.";
+    return;
+  }
+
+  try {
+    await post("/api/moderator-requests", { message });
+
+    $("requestMessage").className = "form-success";
+    $("requestMessage").textContent = "Заявка отправлена.";
+
+    $("requestText").value = "";
+
+  } catch (error) {
+    $("requestMessage").className = "form-error";
+    $("requestMessage").textContent = error.message;
+  }
+});
+
+/* =========================================
+   ADMIN PANEL
+========================================= */
+
+$("adminButton").addEventListener("click", () => {
+  closeProfileMenu();
+  openAdminPanel(false);
+});
+
+$("moderatorButton").addEventListener("click", () => {
+  closeProfileMenu();
+  openAdminPanel(true);
+});
+
+function openAdminPanel(moderatorOnly) {
+  if (!currentUser || !isModerator()) return;
+
+  isModeratorPanel = moderatorOnly && !isAdmin();
+
+  $("adminPanel").classList.add("visible");
+
+  $("panelHeading").textContent =
+    isModeratorPanel ? "Панель модератора" : "Панель администратора";
+
+  $("panelDescription").textContent =
+    isModeratorPanel
+      ? "Управление нарушениями пользователей"
+      : "Управление Maut AI";
+
+  $("adminTabs").classList.toggle("hidden", isModeratorPanel);
+
+  if (isModeratorPanel) {
+    document.querySelectorAll(".admin-section").forEach(section => {
+      section.classList.remove("active");
+    });
+
+    $("section-users").classList.add("active");
+    loadUsers(true);
+
+  } else {
+    switchAdminTab("users");
+    loadUsers(false);
+  }
+}
+
+function hideAdminPanel() {
+  $("adminPanel").classList.remove("visible");
+}
+
+$("closeAdmin").addEventListener("click", hideAdminPanel);
+
+document.querySelectorAll(".admin-tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    switchAdminTab(tab.dataset.section);
+  });
+});
+
+function switchAdminTab(section) {
+  document.querySelectorAll(".admin-tab").forEach(tab => {
+    tab.classList.toggle("active", tab.dataset.section === section);
   });
 
-  refreshMe();
-})();
+  document.querySelectorAll(".admin-section").forEach(item => {
+    item.classList.toggle("active", item.id === "section-" + section);
+  });
+
+  if (section === "users") loadUsers(false);
+  if (section === "memory") loadMemory();
+  if (section === "requests") loadRequests();
+}
+
+/* =========================================
+   ADMIN USERS / MODERATION
+========================================= */
+
+async function loadUsers(moderatorOnly) {
+  const tbody = $("usersTable");
+  tbody.innerHTML = '<tr><td colspan="5">Загрузка...</td></tr>';
+
+  try {
+    const endpoint = moderatorOnly
+      ? "/api/moderator/users"
+      : "/api/admin/users";
+
+    const data = await api(endpoint);
+
+    const users = Array.isArray(data)
+      ? data
+      : data.users || [];
+
+    tbody.innerHTML = "";
+
+    if (!users.length) {
+      tbody.innerHTML = '<tr><td colspan="5">Пользователей нет</td></tr>';
+      return;
+    }
+
+    users.forEach(user => {
+      const tr = document.createElement("tr");
+
+      const id = document.createElement("td");
+      id.textContent = user.id;
+
+      const name = document.createElement("td");
+      name.textContent = user.name || "Без имени";
+
+      const email = document.createElement("td");
+      email.textContent = user.email || "—";
+
+      const role = document.createElement("td");
+      role.textContent = user.role || "user";
+
+      const actions = document.createElement("td");
+
+      if (!moderatorOnly) {
+        const roleButton = document.createElement("button");
+        roleButton.className = "small-btn";
+        roleButton.textContent = "Роль";
+        roleButton.addEventListener("click", () => changeRole(user.id));
+        actions.appendChild(roleButton);
+      }
+
+      if (user.banned_until) {
+        const unban = document.createElement("button");
+        unban.className = "small-btn success";
+        unban.textContent = "Разбанить";
+        unban.addEventListener("click", () => moderateUser(user.id, "unban", moderatorOnly));
+        actions.appendChild(unban);
+      } else {
+        const ban = document.createElement("button");
+        ban.className = "small-btn danger";
+        ban.textContent = "Бан 7 дней";
+        ban.addEventListener("click", () => moderateUser(user.id, "ban", moderatorOnly));
+        actions.appendChild(ban);
+      }
+
+      const mute = document.createElement("button");
+      mute.className = "small-btn";
+      mute.textContent = "Мут 25 мин";
+      mute.addEventListener("click", () => moderateUser(user.id, "mute", moderatorOnly));
+
+      actions.appendChild(mute);
+
+      tr.append(id, name, email, role, actions);
+      tbody.appendChild(tr);
+    });
+
+  } catch (error) {
+    tbody.innerHTML =
+      `<tr><td colspan="5">${escapeHTML(error.message)}</td></tr>`;
+  }
+}
+
+async function changeRole(id) {
+  const role = prompt("Введите роль: user, moderator или admin");
+
+  if (!role) return;
+
+  if (!["user","moderator","admin"].includes(role.toLowerCase())) {
+    alert("Неизвестная роль.");
+    return;
+  }
+
+  try {
+    await patch(
+      "/api/admin/users/" + encodeURIComponent(id) + "/role",
+      { role:role.toLowerCase() }
+    );
+
+    await loadUsers(false);
+
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function moderateUser(id, action, moderatorOnly) {
+  const descriptions = {
+    ban:"Заблокировать пользователя на 7 дней?",
+    mute:"Выдать мут на 25 минут?",
+    unban:"Снять блокировку?"
+  };
+
+  if (!confirm(descriptions[action])) return;
+
+  try {
+    let endpoint;
+
+    if (moderatorOnly) {
+      endpoint = "/api/moderator/users/" +
+        encodeURIComponent(id) + "/" + action;
+    } else {
+      endpoint = "/api/admin/users/" +
+        encodeURIComponent(id) + "/" +
+        (action === "mute" ? "mute" : action);
+    }
+
+    await post(endpoint, {});
+
+    await loadUsers(moderatorOnly);
+
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+/* =========================================
+   ADMIN GIFT CODES
+========================================= */
+
+$("createKeys").addEventListener("click", async () => {
+  const count = Number($("keyCount").value);
+  const days = Number($("keyDays").value);
+
+  if (!Number.isInteger(count) || count < 1 || count > 100) {
+    alert("Количество должно быть от 1 до 100.");
+    return;
+  }
+
+  if (!Number.isInteger(days) || days < 1 || days > 3650) {
+    alert("Количество дней должно быть от 1 до 3650.");
+    return;
+  }
+
+  $("createKeys").disabled = true;
+  $("keysResult").textContent = "Создаём ключи...";
+
+  try {
+    const data = await post("/api/admin/gift-codes", {
+      count,
+      days
+    });
+
+    const codes = data.codes || data.keys || [];
+
+    $("keysResult").innerHTML = "";
+
+    if (Array.isArray(codes) && codes.length) {
+      codes.forEach(code => {
+        const line = document.createElement("div");
+        line.className = "admin-card";
+        line.style.marginTop = "10px";
+
+        const value = typeof code === "string"
+          ? code
+          : code.code || code.key || JSON.stringify(code);
+
+        const text = document.createElement("span");
+        text.textContent = value;
+
+        const copy = document.createElement("button");
+        copy.className = "small-btn";
+        copy.textContent = "Копировать";
+
+        copy.addEventListener("click", async () => {
+          await navigator.clipboard.writeText(value);
+          copy.textContent = "Скопировано";
+        });
+
+        line.append(text, copy);
+        $("keysResult").appendChild(line);
+      });
+
+    } else {
+      $("keysResult").textContent =
+        data.message || "Запрос выполнен. Проверьте ответ сервера.";
+    }
+
+  } catch (error) {
+    $("keysResult").textContent = error.message;
+
+  } finally {
+    $("createKeys").disabled = false;
+  }
+});
+
+/* =========================================
+   ADMIN MEMORY
+========================================= */
+
+async function loadMemory() {
+  const container = $("memoryList");
+  container.textContent = "Загрузка...";
+
+  try {
+    const data = await api("/api/admin/memory");
+
+    const items = Array.isArray(data)
+      ? data
+      : data.memory || data.items || [];
+
+    container.innerHTML = "";
+
+    if (!items.length) {
+      container.innerHTML = '<div class="empty-state">Память пока пуста</div>';
+      return;
+    }
+
+    items.forEach(item => {
+      const card = document.createElement("div");
+      card.className = "admin-card";
+
+      const title = document.createElement("h3");
+      title.textContent = item.title || "Запись";
+
+      const content = document.createElement("p");
+      content.style.color = "#aaa";
+      content.style.fontSize = "12px";
+      content.textContent = item.content || "";
+
+      const edit = document.createElement("button");
+      edit.className = "small-btn";
+      edit.textContent = "Изменить";
+
+      edit.addEventListener("click", async () => {
+        const newTitle = prompt("Название:", item.title || "");
+        if (newTitle === null) return;
+
+        const newContent = prompt("Содержание:", item.content || "");
+        if (newContent === null) return;
+
+        try {
+          await patch(
+            "/api/admin/memory/" + encodeURIComponent(item.id),
+            {
+              title:newTitle,
+              content:newContent
+            }
+          );
+
+          loadMemory();
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+
+      const remove = document.createElement("button");
+      remove.className = "small-btn danger";
+      remove.textContent = "Удалить";
+
+      remove.addEventListener("click", async () => {
+        if (!confirm("Удалить эту запись?")) return;
+
+        try {
+          await api(
+            "/api/admin/memory/" + encodeURIComponent(item.id),
+            { method:"DELETE" }
+          );
+
+          loadMemory();
+        } catch (error) {
+          alert(error.message);
+        }
+      });
+
+      card.append(title, content, edit, remove);
+      container.appendChild(card);
+    });
+
+  } catch (error) {
+    container.textContent = error.message;
+  }
+}
+
+$("addMemory").addEventListener("click", async () => {
+  const title = $("memoryTitle").value.trim();
+  const content = $("memoryContent").value.trim();
+
+  if (!title || !content) {
+    alert("Заполните название и содержание.");
+    return;
+  }
+
+  try {
+    await post("/api/admin/memory", {
+      title,
+      content
+    });
+
+    $("memoryTitle").value = "";
+    $("memoryContent").value = "";
+
+    await loadMemory();
+
+  } catch (error) {
+    alert(error.message);
+  }
+});
+
+/* =========================================
+   ADMIN MODERATOR REQUESTS
+========================================= */
+
+async function loadRequests() {
+  const container = $("requestsList");
+  container.textContent = "Загрузка...";
+
+  try {
+    const data = await api("/api/admin/moderator-requests");
+
+    const requests = Array.isArray(data)
+      ? data
+      : data.requests || [];
+
+    container.innerHTML = "";
+
+    if (!requests.length) {
+      container.innerHTML = '<div class="empty-state">Заявок нет</div>';
+      return;
+    }
+
+    requests.forEach(request => {
+      const card = document.createElement("div");
+      card.className = "admin-card";
+
+      const title = document.createElement("h3");
+      title.textContent =
+        request.name ||
+        request.email ||
+        "Пользователь #" + request.user_id;
+
+      const message = document.createElement("p");
+      message.style.color = "#aaa";
+      message.style.fontSize = "13px";
+      message.textContent = request.message || "";
+
+      const status = document.createElement("p");
+      status.style.color = "#888";
+      status.style.fontSize = "11px";
+      status.textContent = "Статус: " + (request.status || "pending");
+
+      card.append(title, message, status);
+
+      if (request.status === "pending" || !request.status) {
+        const approve = document.createElement("button");
+        approve.className = "small-btn success";
+        approve.textContent = "Одобрить";
+
+        approve.addEventListener("click", () => {
+          reviewRequest(request.id, "approve");
+        });
+
+        const reject = document.createElement("button");
+        reject.className = "small-btn danger";
+        reject.textContent = "Отклонить";
+
+        reject.addEventListener("click", () => {
+          reviewRequest(request.id, "reject");
+        });
+
+        card.append(approve, reject);
+      }
+
+      container.appendChild(card);
+    });
+
+  } catch (error) {
+    container.textContent = error.message;
+  }
+}
+
+async function reviewRequest(id, action) {
+  try {
+    await post(
+      "/api/admin/moderator-requests/" + encodeURIComponent(id),
+      { action }
+    );
+
+    await loadRequests();
+
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+/* =========================================
+   INITIALIZATION
+========================================= */
+
+async function initialize() {
+  await loadCurrentUser();
+  updateUserUI();
+}
+
+initialize();
 </script>
+
 </body>
 </html>
