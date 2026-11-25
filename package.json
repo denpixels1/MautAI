@@ -1,3 +1,4 @@
+
 {
   "name": "maut-ai",
   "version": "1.1.0",
@@ -8,11 +9,11 @@
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "connect-pg-simple": "^10.0.0",
+    "better-sqlite3": "^11.7.0",
+    "connect-sqlite3": "^0.9.16",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
-    "express-session": "^1.18.1",
-    "pg": "^8.13.1"
+    "express-session": "^1.18.1"
   }
 }
