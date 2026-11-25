@@ -262,24 +262,6 @@ function currentRank(userId) {
   return VALID_RANKS.includes(user.rank) ? user.rank : 'FREE';
 }
 
-function currentRank(userId) {
-  const user = db.prepare(
-    'SELECT email, rank FROM users WHERE id = ?'
-  ).get(userId);
-
-  if (!user) return 'FREE';
-
-  if (user.email?.toLowerCase() === ADMIN_EMAIL) {
-    if (user.rank !== 'ADMIN') {
-      db.prepare('UPDATE users SET rank = ? WHERE id = ?')
-        .run('ADMIN', userId);
-    }
-    return 'ADMIN';
-  }
-
-  return VALID_RANKS.includes(user.rank) ? user.rank : 'FREE';
-}
-
 function requireRank(...allowedRanks) {
   return (req, res, next) => {
     if (!req.session.user) {
@@ -690,7 +672,9 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
         });
       }
 
-      const reply = data?.choices?.[0]?.message?.content;      if (typeof reply === 'string' && reply.trim()) {
+      const reply = data?.choices?.[0]?.message?.content;
+
+      if (typeof reply === 'string' && reply.trim()) {
         return res.json({
           reply: reply.trim(),
           provider: 'groq'
@@ -876,24 +860,9 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
 });
 
 // ===== MAUT AI RANKS / ADMIN API =====
-function currentRank(req) {
-  const row = db.prepare('SELECT rank, email FROM users WHERE id = ?').get(req.session.user.id);
-  if (!row) return 'FREE';
-  if (String(row.email || '').toLowerCase() === ADMIN_EMAIL) return 'ADMIN';
-  return VALID_RANKS.includes(row.rank) ? row.rank : 'FREE';
-}
-
-function requireRank(...allowed) {
-  return (req, res, next) => {
-    if (!req.session.user) return res.status(401).json({ error: 'Сначала войди в аккаунт.' });
-    const rank = currentRank(req);
-    if (!allowed.includes(rank)) return res.status(403).json({ error: 'Недостаточно прав.' });
-    next();
-  };
-}
 
 app.get('/api/ranks/me', requireAuth, (req, res) => {
-  const rank = currentRank(req);
+  const rank = currentRank(req.session.user.id);
   req.session.user.rank = rank;
   res.set('Cache-Control', 'no-store');
   res.json({ rank });
@@ -927,7 +896,7 @@ app.post('/api/ranks/request', requireAuth, (req, res) => {
   const rank = String(req.body?.rank || '').toUpperCase();
   const message = String(req.body?.message || '').trim().slice(0, 500);
   if (!['PLUS','MODER','ADMIN'].includes(rank)) return res.status(400).json({error:'Неверный ранг.'});
-  const current = currentRank(req);
+  const current = currentRank(req.session.user.id);
   if (current === 'ADMIN' || (current === 'MODER' && rank !== 'ADMIN') || (current === 'PLUS' && rank === 'PLUS')) return res.status(400).json({error:'У тебя уже есть этот или более высокий ранг.'});
   const pending = db.prepare("SELECT id FROM rank_requests WHERE user_id=? AND status='PENDING'").get(req.session.user.id);
   if (pending) return res.status(409).json({error:'У тебя уже есть ожидающая заявка.'});
@@ -978,6 +947,7 @@ app.post('/api/admin/users/:id/ban', requireAuth, requireRank('ADMIN'), (req,res
   if(id===req.session.user.id||String(target.email||'').toLowerCase()===ADMIN_EMAIL) return res.status(403).json({error:'Нельзя заблокировать владельца.'});
   db.prepare('UPDATE users SET banned=1,ban_reason=? WHERE id=?').run(reason,id); res.json({success:true});
 });
+
 app.post('/api/admin/users/:id/unban', requireAuth, requireRank('ADMIN'), (req,res)=>{
   const id=Number(req.params.id); if(!Number.isSafeInteger(id)||id<1) return res.status(400).json({error:'Неверный ID.'});
   db.prepare('UPDATE users SET banned=0,ban_reason=NULL WHERE id=?').run(id); res.json({success:true});
