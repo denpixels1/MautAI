@@ -2,1567 +2,1561 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#212121">
-<title>Maut AI</title>
-<meta name="description" content="Maut AI — персональный ИИ-ассистент.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='13' fill='%23303030'/%3E%3Ctext x='50%25' y='53%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='44' font-weight='bold' fill='white'%3EL%3C/text%3E%3C/svg%3E">
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
-
-<style>
-:root {
-  color-scheme: dark;
-  --bg: #212121;
-  --side: #171717;
-  --panel: #2f2f2f;
-  --text: #ececec;
-  --muted: #a0a0a0;
-  --border: #414141;
-}
-
-* { box-sizing: border-box; }
-
-html, body {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  overflow: hidden;
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-
-button, input, textarea { font: inherit; }
-button { cursor: pointer; color: inherit; }
-
-.layout {
-  display: flex;
-  height: 100dvh;
-  min-height: 0;
-  overflow: hidden;
-}
-
-/* SIDEBAR */
-
-.sidebar {
-  width: 260px;
-  flex: 0 0 260px;
-  background: var(--side);
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-  overflow-y: auto;
-}
-
-.brand {
-  height: 46px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 9px;
-  text-decoration: none;
-  color: var(--text);
-  font-weight: 650;
-  font-size: 17px;
-}
-
-.brand-icon {
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 9px;
-  background: #303030;
-  border: 1px solid #505050;
-  color: white;
-  font-size: 25px;
-  font-weight: 800;
-  font-family: Arial, sans-serif;
-  line-height: 1;
-}
-
-.new-chat {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-  border: 1px solid var(--border);
-  background: transparent;
-  border-radius: 9px;
-  padding: 11px 12px;
-  margin: 12px 0 24px;
-}
-
-.new-chat:hover,
-.side-action:hover {
-  background: #242424;
-}
-
-.history-label {
-  font-size: 12px;
-  color: #aaa;
-  padding: 0 10px 8px;
-}
-
-.history {
-  overflow: auto;
-  min-height: 0;
-}
-
-.history-item {
-  display: block;
-  width: 100%;
-  padding: 9px 10px;
-  border: 0;
-  background: transparent;
-  border-radius: 8px;
-  text-align: left;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  font-size: 13px;
-}
-
-.history-item:hover,
-.history-item.active {
-  background: #303030;
-}
-
-.muted { color: var(--muted); }
-
-.small {
-  font-size: 12px;
-  padding: 0 10px;
-}
-
-.side-bottom { margin-top: auto; }
-
-.side-action {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 0;
-  background: transparent;
-  border-radius: 9px;
-  text-align: left;
-  padding: 11px 10px;
-}
-
-.profile {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  border-top: 1px solid #303030;
-  margin-top: 12px;
-  padding: 14px 3px 3px;
-}
-
-.avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: #6559a6;
-  font-weight: 650;
-  flex-shrink: 0;
-}
-
-.profile-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.profile-info strong,
-.profile-info span {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-info strong {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.profile-info span {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.dots {
-  border: 0;
-  background: transparent;
-  font-size: 20px;
-}
-
-/* MAIN */
-
-.main {
-  min-width: 0;
-  flex: 1;
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.topbar {
-  height: 60px;
-  flex: 0 0 60px;
-  display: flex;
-  align-items: center;
-  padding: 0 25px;
-  gap: 12px;
-}
-
-.model-label {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.model-label span {
-  color: #999;
-  margin-left: 4px;
-}
-
-.top-right { margin-left: auto; }
-
-.login-button {
-  background: transparent;
-  border: 1px solid #555;
-  border-radius: 20px;
-  padding: 7px 15px;
-  font-size: 13px;
-}
-
-.login-button:hover { background: #333; }
-
-.mobile-menu {
-  display: none;
-  background: transparent;
-  border: 0;
-  font-size: 20px;
-}
-
-/* CHAT */
-
-.chat-area {
-  width: min(790px, 100%);
-  padding: 30px 24px 20px;
-  margin: 0 auto;
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  display: flex;
-  flex-direction: column;
-}
-
-.welcome {
-  margin: auto 0;
-  text-align: center;
-  padding: 25px 0 40px;
-}
-
-.welcome-icon {
-  line-height: 1;
-  margin-bottom: 18px;
-  display: flex;
-  justify-content: center;
-}
-
-.welcome-icon .brand-icon {
-  width: 64px;
-  height: 64px;
-  font-size: 46px;
-  border-radius: 15px;
-}
-
-.welcome h1 {
-  font-size: clamp(27px, 4vw, 34px);
-  font-weight: 600;
-  letter-spacing: -.8px;
-  margin: 0 0 10px;
-}
-
-.welcome p {
-  margin: 0;
-  color: #aaa;
-  font-size: 15px;
-}
-
-.suggestions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  max-width: 580px;
-  margin: 28px auto 0;
-  text-align: left;
-}
-
-.suggestion {
-  min-height: 84px;
-  display: grid;
-  grid-template-columns: 24px 1fr;
-  grid-template-rows: auto auto;
-  align-content: center;
-  column-gap: 9px;
-  text-align: left;
-  padding: 15px;
-  border: 1px solid #454545;
-  background: transparent;
-  border-radius: 13px;
-}
-
-.suggestion:hover { background: #2b2b2b; }
-
-.suggestion > span {
-  grid-row: 1 / 3;
-  font-size: 18px;
-  color: #c2c2c2;
-}
-
-.suggestion b {
-  font-size: 13px;
-  font-weight: 550;
-}
-
-.suggestion small {
-  font-size: 12px;
-  color: #999;
-  margin-top: 3px;
-}
-
-/* COMPOSER */
-
-.composer-wrap {
-  width: min(790px, 100%);
-  flex: 0 0 auto;
-  position: relative;
-  z-index: 5;
-  background: var(--bg);
-  padding: 8px 24px max(18px, env(safe-area-inset-bottom));
-  margin: 0 auto;
-}
-
-.composer {
-  background: #2f2f2f;
-  border: 1px solid #484848;
-  border-radius: 25px;
-  padding: 12px 13px 10px;
-  box-shadow: 0 5px 20px #00000012;
-}
-
-.composer:focus-within { border-color: #666; }
-
-.composer textarea {
-  width: 100%;
-  resize: none;
-  max-height: 180px;
-  min-height: 31px;
-  outline: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  padding: 4px 4px 12px;
-}
-
-.composer textarea::placeholder { color: #aaa; }
-
-.composer-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.composer-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.tool {
-  border: 1px solid #555;
-  background: transparent;
-  border-radius: 18px;
-  padding: 6px 11px;
-  font-size: 12px;
-  color: #ddd;
-}
-
-.tool:hover { background: #404040; }
-
-.hint {
-  font-size: 10px;
-  color: #858585;
-}
-
-.send {
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 50%;
-  background: #eee;
-  color: #202020;
-  font-size: 22px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.send:disabled {
-  opacity: .45;
-  cursor: wait;
-}
-
-.fine-print {
-  text-align: center;
-  color: #858585;
-  font-size: 11px;
-  margin: 9px 0 0;
-}
-
-/* MESSAGES */
-
-.messages {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  min-width: 0;
-}
-
-.message {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  min-width: 0;
-}
-
-.message.user { justify-content: flex-end; }
-
-.bubble {
-  max-width: 88%;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-size: 15px;
-  line-height: 1.7;
-}
-
-.message.user .bubble {
-  white-space: pre-wrap;
-  background: #303030;
-  border-radius: 20px;
-  padding: 10px 15px;
-  max-width: 80%;
-}
-
-.message.assistant .bubble {
-  padding: 2px 0;
-  flex: 1;
-  white-space: normal;
-}
-
-.message-mark {
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  background: #303030;
-  border: 1px solid #505050;
-  color: white;
-  font-size: 18px;
-  font-weight: 800;
-  font-family: Arial, sans-serif;
-}
-
-.message-image {
-  display: block;
-  max-width: min(100%, 520px);
-  border-radius: 12px;
-  margin-top: 12px;
-}
-
-.bubble h1,
-.bubble h2,
-.bubble h3,
-.bubble h4 {
-  line-height: 1.35;
-  margin: 24px 0 12px;
-  font-weight: 650;
-}
-
-.bubble h1 { font-size: 26px; }
-.bubble h2 { font-size: 22px; }
-.bubble h3 { font-size: 18px; }
-
-.bubble p { margin: 0 0 14px; }
-.bubble p:last-child { margin-bottom: 0; }
-
-.bubble ul,
-.bubble ol {
-  padding-left: 26px;
-  margin: 10px 0 18px;
-}
-
-.bubble li {
-  padding-left: 4px;
-  margin: 5px 0;
-}
-
-.bubble strong {
-  font-weight: 700;
-  color: #fff;
-}
-
-.bubble a {
-  color: #9ecbff;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.bubble blockquote {
-  margin: 16px 0;
-  padding: 10px 16px;
-  border-left: 3px solid #777;
-  background: #292929;
-  color: #ccc;
-  border-radius: 0 8px 8px 0;
-}
-
-.bubble pre {
-  max-width: 100%;
-  overflow: auto;
-  padding: 16px;
-  margin: 14px 0;
-  border: 1px solid #404040;
-  border-radius: 12px;
-  background: #171717;
-  line-height: 1.6;
-}
-
-.bubble pre code {
-  padding: 0;
-  background: transparent;
-  white-space: pre;
-}
-
-.bubble :not(pre) > code {
-  padding: 2px 6px;
-  border-radius: 5px;
-  background: #373737;
-  font-family: Consolas, Monaco, monospace;
-  font-size: .9em;
-}
-
-.bubble table {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  overflow-x: auto;
-  border-collapse: collapse;
-  margin: 16px 0;
-}
-
-.bubble th,
-.bubble td {
-  border: 1px solid #454545;
-  padding: 9px 12px;
-  text-align: left;
-}
-
-.bubble th {
-  background: #303030;
-  font-weight: 650;
-}
-
-.bubble tr:nth-child(even) { background: #292929; }
-
-.bubble hr {
-  border: 0;
-  border-top: 1px solid #414141;
-  margin: 22px 0;
-}
-
-.bubble img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 10px;
-}
-
-/* STATUS */
-
-.status {
-  display: none;
-  margin: 0 auto 10px;
-  width: 100%;
-  font-size: 13px;
-  color: #d7d7d7;
-}
-
-.status.show { display: block; }
-.status.error { color: #ffaaa7; }
-
-/* AUTH MODAL */
-
-.modal-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 10;
-  background: #0009;
-  display: none;
-  place-items: center;
-  padding: 20px;
-}
-
-.modal-layer.open { display: grid; }
-
-.modal {
-  position: relative;
-  width: min(410px, 100%);
-  background: #242424;
-  border: 1px solid #454545;
-  border-radius: 20px;
-  padding: 28px;
-  box-shadow: 0 20px 80px #0007;
-}
-
-.modal-x {
-  position: absolute;
-  right: 14px;
-  top: 12px;
-  background: transparent;
-  border: 0;
-  font-size: 24px;
-  color: #aaa;
-}
-
-.modal-brand {
-  text-align: center;
-  margin: 0 0 10px;
-  display: flex;
-  justify-content: center;
-}
-
-.modal-brand .brand-icon {
-  width: 54px;
-  height: 54px;
-  font-size: 38px;
-  border-radius: 13px;
-}
-
-.modal h2 {
-  text-align: center;
-  margin: 0 0 6px;
-  font-size: 22px;
-}
-
-.modal > p {
-  text-align: center;
-  color: #aaa;
-  font-size: 13px;
-  margin: 0 0 22px;
-}
-
-.modal label {
-  display: block;
-  font-size: 12px;
-  color: #ccc;
-  margin: 12px 0;
-}
-
-.modal input {
-  display: block;
-  width: 100%;
-  margin-top: 6px;
-  padding: 11px 12px;
-  border: 1px solid #4b4b4b;
-  background: #171717;
-  color: white;
-  border-radius: 9px;
-  outline: 0;
-}
-
-.modal input:focus { border-color: #999; }
-
-.primary {
-  width: 100%;
-  border: 0;
-  background: #eee;
-  color: #222;
-  border-radius: 20px;
-  padding: 10px;
-  font-weight: 600;
-  margin-top: 8px;
-}
-
-.switch-auth {
-  display: block;
-  margin: 15px auto 0;
-  border: 0;
-  background: transparent;
-  color: #ccc;
-  font-size: 12px;
-}
-
-.form-error {
-  color: #ff9c97;
-  font-size: 12px;
-  margin: 5px 0;
-}
-
-.hidden { display: none !important; }
-
-/* MOBILE */
-
-@media (max-width: 760px) {
-  .sidebar {
-    position: fixed;
-    z-index: 8;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    transform: translateX(-105%);
-    transition: transform .2s;
-    box-shadow: 15px 0 50px #0006;
-    height: 100dvh;
-  }
-
-  .sidebar.open { transform: translateX(0); }
-
-  .mobile-menu { display: block; }
-
-  .topbar { padding: 0 15px; }
-
-  .chat-area { padding: 20px 15px; }
-
-  .composer-wrap {
-    padding: 8px 10px max(12px, env(safe-area-inset-bottom));
-  }
-
-  .suggestions {
-    grid-template-columns: 1fr;
-    max-width: 440px;
-  }
-
-  .welcome { padding: 15px 0 25px; }
-  .welcome h1 { font-size: 28px; }
-
-  .hint { display: none; }
-
-  .tool span { display: none; }
-
-  .composer { border-radius: 21px; }
-
-  .modal { padding: 24px; }
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101010">
+  <title>Maut AI</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101010;
+      --sidebar: #171717;
+      --panel: #202020;
+      --panel2: #292929;
+      --border: #303030;
+      --text: #f2f2f2;
+      --muted: #999;
+      --accent: #b7a0ff;
+      --danger: #ff6868;
+      --green: #65d69a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, Arial, sans-serif;
+    }
+
+    button, input, textarea, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .app {
+      display: flex;
+      height: 100vh;
+      width: 100%;
+    }
+
+    .sidebar {
+      width: 270px;
+      min-width: 270px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 16px 12px;
+      transition: transform .25s;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 20px;
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+    }
+
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #17131f;
+      font-weight: 900;
+    }
+
+    .new-chat, .side-button {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 12px;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      margin-bottom: 8px;
+    }
+
+    .new-chat:hover, .side-button:hover { background: var(--panel); }
+
+    .side-label {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 18px 10px 8px;
+    }
+
+    .history {
+      flex: 1;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px;
+      margin: 3px 0;
+      border-radius: 9px;
+      color: #ccc;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .history-item:hover, .history-item.active {
+      background: var(--panel2);
+      color: white;
+    }
+
+    .history-title {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    .account {
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      position: relative;
+    }
+
+    .account-button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      border: 0;
+      border-radius: 10px;
+      padding: 10px;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+    }
+
+    .account-button:hover { background: var(--panel); }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #51436f;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .account-info { min-width: 0; flex: 1; }
+    .account-name { font-size: 13px; font-weight: 600; }
+    .account-email { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+
+    .rank {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 20px;
+      padding: 3px 7px;
+      margin-top: 5px;
+      background: #383838;
+      color: #ddd;
+    }
+
+    .rank.Admin { background: #573c20; color: #ffd28a; }
+    .rank.Plus { background: #43336a; color: #d6c5ff; }
+    .rank.Moder { background: #254b3a; color: #9ce8bd; }
+
+    .main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .topbar {
+      height: 58px;
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .top-left, .top-right { display: flex; align-items: center; gap: 10px; }
+
+    .icon-button {
+      width: 38px;
+      height: 38px;
+      border: 0;
+      border-radius: 10px;
+      color: var(--text);
+      background: transparent;
+      font-size: 18px;
+    }
+
+    .icon-button:hover { background: var(--panel2); }
+
+    .top-title { font-size: 14px; font-weight: 600; }
+
+    .login-button {
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: white;
+      padding: 9px 14px;
+      border-radius: 9px;
+    }
+
+    .chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 30px 20px 20px;
+    }
+
+    .welcome {
+      max-width: 720px;
+      margin: 13vh auto 30px;
+      text-align: center;
+    }
+
+    .welcome h1 {
+      font-size: clamp(30px, 5vw, 46px);
+      margin: 0 0 12px;
+      letter-spacing: -1.5px;
+    }
+
+    .welcome p { color: var(--muted); }
+
+    .messages {
+      max-width: 780px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+    }
+
+    .message { display: flex; gap: 12px; align-items: flex-start; }
+    .message.user { justify-content: flex-end; }
+
+    .message-avatar {
+      width: 30px;
+      height: 30px;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--panel2);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .message.user .message-avatar { order: 2; background: #51436f; }
+
+    .message-body { max-width: min(85%, 680px); min-width: 0; }
+
+    .message-name {
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+
+    .message-content {
+      line-height: 1.65;
+      font-size: 14px;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .message.user .message-content {
+      background: #292929;
+      border-radius: 17px;
+      padding: 12px 15px;
+    }
+
+    .message-content img {
+      display: block;
+      max-width: 100%;
+      border-radius: 12px;
+      margin-top: 10px;
+    }
+
+    .composer-wrap {
+      padding: 12px 20px 18px;
+    }
+
+    .composer {
+      max-width: 780px;
+      margin: 0 auto;
+      border: 1px solid #414141;
+      border-radius: 17px;
+      background: #1d1d1d;
+      padding: 10px 12px;
+      box-shadow: 0 8px 30px #0003;
+    }
+
+    .composer textarea {
+      width: 100%;
+      resize: none;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: white;
+      padding: 8px 5px;
+      min-height: 42px;
+      max-height: 180px;
+      line-height: 1.5;
+    }
+
+    .composer-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .composer-tools { display: flex; gap: 7px; }
+
+    .tool-button {
+      background: transparent;
+      color: #bbb;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 8px 11px;
+      font-size: 12px;
+    }
+
+    .tool-button.active { color: var(--accent); border-color: var(--accent); }
+
+    .send-button {
+      width: 38px;
+      height: 38px;
+      border: 0;
+      border-radius: 11px;
+      background: var(--accent);
+      color: #17131f;
+      font-size: 19px;
+      font-weight: 700;
+    }
+
+    .send-button:disabled { opacity: .45; cursor: not-allowed; }
+
+    .status {
+      max-width: 780px;
+      min-height: 18px;
+      margin: 7px auto 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      background: #0009;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .overlay.open { display: flex; }
+
+    .modal {
+      width: min(440px, 100%);
+      max-height: 88vh;
+      overflow-y: auto;
+      background: #1b1b1b;
+      border: 1px solid var(--border);
+      border-radius: 17px;
+      padding: 22px;
+      box-shadow: 0 20px 70px #0008;
+    }
+
+    .modal.wide { width: min(850px, 100%); }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .modal-header h2 { font-size: 19px; margin: 0; }
+
+    .close-button {
+      border: 0;
+      background: transparent;
+      color: #aaa;
+      font-size: 23px;
+    }
+
+    .field { margin: 13px 0; }
+    .field label { display: block; font-size: 12px; color: #bbb; margin-bottom: 7px; }
+
+    .field input, .field textarea, .field select {
+      width: 100%;
+      background: #111;
+      border: 1px solid #393939;
+      color: white;
+      border-radius: 9px;
+      padding: 11px;
+      outline: 0;
+    }
+
+    .field input:focus, .field textarea:focus { border-color: var(--accent); }
+
+    .primary-button, .secondary-button, .danger-button {
+      border: 0;
+      border-radius: 9px;
+      padding: 10px 14px;
+      color: white;
+      background: #57477d;
+    }
+
+    .primary-button { background: var(--accent); color: #17131f; font-weight: 700; }
+    .secondary-button { background: #353535; }
+    .danger-button { background: #713434; }
+    .full-button { width: 100%; margin-top: 10px; }
+
+    .modal-error { color: #ff7777; font-size: 12px; min-height: 18px; margin-top: 8px; }
+    .muted { color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+    .profile-menu {
+      display: none;
+      position: absolute;
+      bottom: 65px;
+      left: 0;
+      right: 0;
+      background: #242424;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 7px;
+      box-shadow: 0 10px 30px #0008;
+    }
+
+    .profile-menu.open { display: block; }
+
+    .menu-item {
+      width: 100%;
+      padding: 10px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: white;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    .menu-item:hover { background: #353535; }
+
+    .admin-tabs {
+      display: flex;
+      gap: 7px;
+      overflow-x: auto;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .admin-tab {
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+      background: #252525;
+      color: #ddd;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 12px;
+    }
+
+    .admin-tab.active { border-color: var(--accent); color: var(--accent); }
+
+    .admin-content { padding-top: 16px; }
+
+    .admin-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid #333;
+      font-size: 12px;
+    }
+
+    .admin-row-main { min-width: 0; flex: 1; }
+    .admin-row-main strong { display: block; margin-bottom: 4px; }
+    .admin-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .admin-actions button, .admin-actions select {
+      font-size: 11px;
+      padding: 7px 9px;
+    }
+
+    .code-list {
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 12px;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    .discord {
+      color: var(--accent);
+      font-weight: 700;
+      user-select: all;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 760px) {
+      .sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        transform: translateX(-105%);
+        box-shadow: 10px 0 30px #0006;
+      }
+      .sidebar.mobile-open { transform: translateX(0); }
+      .topbar { padding: 0 12px; }
+      .chat-area { padding: 20px 13px; }
+      .composer-wrap { padding: 10px 10px 14px; }
+      .welcome { margin-top: 10vh; }
+      .message-body { max-width: 88%; }
+    }
+  </style>
 </head>
 
 <body>
-<div class="layout">
-
-<aside class="sidebar" id="sidebar">
-  <a class="brand" href="/">
-    <span class="brand-icon">L</span>
-    <span>Maut AI</span>
-  </a>
-
-  <button class="new-chat" id="newChat">
-    ＋ <span>Новый чат</span>
-  </button>
-
-  <div class="history-label">Недавние</div>
-
-  <div id="history" class="history">
-    <p class="muted small">Твои чаты появятся здесь</p>
-  </div>
-
-  <div class="side-bottom">
-    <button class="side-action" id="imageMode">
-      ▧ <span>Создать изображение</span>
-    </button>
-
-    <div class="profile">
-      <div class="avatar" id="avatar">G</div>
-
-      <div class="profile-info">
-        <strong id="profileName">Гость</strong>
-        <span id="profileEmail">Войди, чтобы начать</span>
-      </div>
-
-      <button class="dots" id="profileMenu" title="Аккаунт">···</button>
-    </div>
-  </div>
-</aside>
-
-<main class="main">
-
-  <header class="topbar">
-    <button class="mobile-menu" id="menuBtn" aria-label="Меню">☰</button>
-    <div class="model-label">Maut AI <span>⌄</span></div>
-    <div class="top-right">
-      <button class="login-button" id="loginBtn">Войти</button>
-    </div>
-  </header>
-
-  <section class="chat-area" id="chatArea">
-
-    <div class="welcome" id="welcome">
-      <div class="welcome-icon">
-        <span class="brand-icon">L</span>
-      </div>
-
-      <h1>С чего начнём?</h1>
-      <p>Спроси о чём угодно или придумай что-то новое.</p>
-
-      <div class="suggestions">
-        <button data-prompt="Объясни сложную тему простыми словами" class="suggestion">
-          <span>◉</span>
-          <b>Объясни тему</b>
-          <small>Разобраться в сложном</small>
-        </button>
-
-        <button data-prompt="Помоги придумать интересную игру" class="suggestion">
-          <span>⌘</span>
-          <b>Придумай идею</b>
-          <small>Игры, проекты и творчество</small>
-        </button>
-
-        <button data-prompt="Напиши короткую захватывающую историю" class="suggestion">
-          <span>✎</span>
-          <b>Напиши текст</b>
-          <small>Истории и сообщения</small>
-        </button>
-
-        <button data-image="1" class="suggestion">
-          <span>▧</span>
-          <b>Создай изображение</b>
-          <small>Воплоти идею в картинку</small>
-        </button>
-      </div>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">M</div>
+      <span>Maut AI</span>
     </div>
 
-    <div class="messages" id="messages" aria-live="polite"></div>
-  </section>
+    <button class="new-chat" id="newChat">＋ Новый чат</button>
+    <button class="side-button" id="imageMode">▧ Создать изображение</button>
 
-  <footer class="composer-wrap">
-    <div id="status" class="status" role="status"></div>
+    <div class="side-label">ИСТОРИЯ</div>
+    <div class="history" id="history"></div>
 
-    <form class="composer" id="chatForm">
-      <textarea
-        id="prompt"
-        rows="1"
-        maxlength="30000"
-        placeholder="Напиши Maut AI"
-        aria-label="Сообщение"
-      ></textarea>
+    <div class="account">
+      <div class="profile-menu" id="profileMenu">
+        <button class="menu-item" id="profileOpen">Мой профиль</button>
+        <button class="menu-item" id="redeemOpen">Активировать Plus-ключ</button>
+        <button class="menu-item" id="moderRequest">Запросить Moder</button>
+        <button class="menu-item hidden" id="adminOpen">Панель Admin</button>
+        <button class="menu-item" id="logoutBtn">Выйти из аккаунта</button>
+      </div>
 
-      <div class="composer-bottom">
-        <div class="composer-actions">
-          <button type="button" class="tool" id="imageBtn">
-            ＋ <span>Создать изображение</span>
-          </button>
-          <span class="hint">Enter — отправить · Shift+Enter — новая строка</span>
+      <button class="account-button" id="accountButton">
+        <div class="avatar" id="avatar">?</div>
+        <div class="account-info">
+          <div class="account-name" id="profileName">Гость</div>
+          <div class="account-email" id="profileEmail">Войди в аккаунт</div>
+          <span class="rank" id="profileRank">Guest</span>
         </div>
+        <span>···</span>
+      </button>
+    </div>
+  </aside>
 
-        <button class="send" id="sendBtn" type="submit" aria-label="Отправить">↑</button>
+  <main class="main">
+    <header class="topbar">
+      <div class="top-left">
+        <button class="icon-button" id="menuBtn" aria-label="Меню">☰</button>
+        <div class="top-title">Maut AI</div>
       </div>
-    </form>
+      <div class="top-right">
+        <button class="login-button" id="loginBtn">Войти</button>
+      </div>
+    </header>
 
-    <p class="fine-print">Maut AI может ошибаться. Проверяй важную информацию.</p>
-  </footer>
+    <section class="chat-area" id="chatArea">
+      <div class="welcome" id="welcome">
+        <h1>Чем могу помочь?</h1>
+        <p>Добро пожаловать в Maut AI.</p>
+      </div>
+      <div class="messages" id="messages"></div>
+    </section>
 
-</main>
+    <div class="composer-wrap">
+      <form class="composer" id="chatForm">
+        <textarea id="prompt" rows="1" placeholder="Напиши сообщение Maut AI..." required></textarea>
+        <div class="composer-bottom">
+          <div class="composer-tools">
+            <button class="tool-button" type="button" id="imageBtn">▧ Изображение</button>
+            <button class="tool-button" type="button" id="clearBtn">Очистить</button>
+          </div>
+          <button class="send-button" id="sendBtn" type="submit">↑</button>
+        </div>
+      </form>
+      <div class="status" id="status"></div>
+    </div>
+  </main>
 </div>
 
-<!-- AUTH MODAL -->
+<!-- Авторизация -->
+<div class="overlay" id="authModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Войти в Maut AI</h2>
+      <button class="close-button" id="closeModal">×</button>
+    </div>
+    <p class="muted" id="modalSubtitle">Войди, чтобы пользоваться Maut AI.</p>
+    <form id="authForm">
+      <div class="field hidden" id="nameField">
+        <label for="name">Имя</label>
+        <input id="name" maxlength="60" autocomplete="name">
+      </div>
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="password">Пароль</label>
+        <input id="password" type="password" required minlength="8" maxlength="128" autocomplete="current-password">
+      </div>
+      <div class="modal-error" id="authError"></div>
+      <button class="primary-button full-button" id="authSubmit" type="submit">Войти</button>
+    </form>
+    <p class="muted" style="text-align:center;margin-top:16px">
+      <span id="switchText">Нет аккаунта?</span>
+      <a href="#" id="switchAuth" style="color:var(--accent)">Зарегистрироваться</a>
+    </p>
+  </div>
+</div>
 
-<div class="modal-layer" id="authModal" aria-hidden="true">
-  <section class="modal">
-    <button class="modal-x" id="closeModal" aria-label="Закрыть">×</button>
+<!-- Профиль -->
+<div class="overlay" id="profileModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Мой профиль</h2>
+      <button class="close-button" data-close="profileModal">×</button>
+    </div>
+    <div id="profileDetails"></div>
+    <p class="muted">Для вопросов о Plus или рангах напиши в Discord:</p>
+    <p class="discord">denkrixell_26041</p>
+    <button class="secondary-button full-button" id="profileRedeem">Активировать Plus-ключ</button>
+  </div>
+</div>
 
-    <div class="modal-brand">
-      <span class="brand-icon">L</span>
+<!-- Активация Plus -->
+<div class="overlay" id="redeemModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Активировать Plus</h2>
+      <button class="close-button" data-close="redeemModal">×</button>
+    </div>
+    <p class="muted">Введи одноразовый ключ, который ты получил от администрации.</p>
+    <div class="field">
+      <label for="giftCode">Plus-ключ</label>
+      <input id="giftCode" placeholder="MAUT-XXXXXXXX-XXXXXXXX">
+    </div>
+    <div class="modal-error" id="redeemError"></div>
+    <button class="primary-button full-button" id="redeemButton">Активировать</button>
+    <p class="muted" style="margin-top:14px">Plus действует 7 дней после активации. Стоимость: $1 за 7 дней.</p>
+    <p class="muted">Для получения ключа: Discord <span class="discord">denkrixell_26041</span></p>
+  </div>
+</div>
+
+<!-- Admin -->
+<div class="overlay" id="adminModal">
+  <div class="modal wide">
+    <div class="modal-header">
+      <h2>Панель Admin</h2>
+      <button class="close-button" data-close="adminModal">×</button>
     </div>
 
-    <h2 id="modalTitle">Войти в Maut AI</h2>
-    <p id="modalSubtitle">Продолжи общение с ИИ.</p>
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="users">Пользователи</button>
+      <button class="admin-tab" data-tab="keys">Plus-ключи</button>
+      <button class="admin-tab" data-tab="memory">Память ИИ</button>
+      <button class="admin-tab" data-tab="requests">Заявки Moder</button>
+    </div>
 
-    <form id="authForm">
-      <label id="nameLabel" class="hidden">
-        Имя
-        <input id="name" autocomplete="name" maxlength="40" placeholder="Твоё имя">
-      </label>
-
-      <label>
-        Email
-        <input id="email" type="email" autocomplete="email" required placeholder="you@example.com">
-      </label>
-
-      <label>
-        Пароль
-        <input
-          id="password"
-          type="password"
-          minlength="8"
-          maxlength="128"
-          autocomplete="current-password"
-          required
-          placeholder="Не менее 8 символов"
-        >
-      </label>
-
-      <p class="form-error" id="authError"></p>
-      <button class="primary" id="authSubmit" type="submit">Войти</button>
-    </form>
-
-    <button class="switch-auth" id="switchAuth">
-      Нет аккаунта? Зарегистрироваться
-    </button>
-  </section>
+    <div class="admin-content" id="adminContent">
+      <p class="muted">Загружаю панель...</p>
+    </div>
+  </div>
 </div>
 
 <script>
 (() => {
-'use strict';
+  'use strict';
 
-const $ = id => document.getElementById(id);
+  const $ = id => document.getElementById(id);
 
-const els = {
-  sidebar: $('sidebar'),
-  history: $('history'),
-  newChat: $('newChat'),
-  imageMode: $('imageMode'),
-  avatar: $('avatar'),
-  profileName: $('profileName'),
-  profileEmail: $('profileEmail'),
-  menuBtn: $('menuBtn'),
-  loginBtn: $('loginBtn'),
-  profileMenu: $('profileMenu'),
-  chatArea: $('chatArea'),
-  welcome: $('welcome'),
-  messages: $('messages'),
-  prompt: $('prompt'),
-  chatForm: $('chatForm'),
-  sendBtn: $('sendBtn'),
-  imageBtn: $('imageBtn'),
-  status: $('status'),
-  authModal: $('authModal'),
-  closeModal: $('closeModal'),
-  modalTitle: $('modalTitle'),
-  modalSubtitle: $('modalSubtitle'),
-  authForm: $('authForm'),
-  nameLabel: $('nameLabel'),
-  name: $('name'),
-  email: $('email'),
-  password: $('password'),
-  authError: $('authError'),
-  authSubmit: $('authSubmit'),
-  switchAuth: $('switchAuth')
-};
+  let user = null;
+  let currentChatId = null;
+  let chats = [];
+  let authMode = 'login';
+  let imageModeOn = false;
+  let busy = false;
+  let adminTab = 'users';
 
-let user = null;
-let currentChatId = null;
-let chats = [];
-let authMode = 'login';
-let imageModeOn = false;
-let busy = false;
+  async function api(url, options = {}) {
+    const response = await fetch(url, {
+      credentials: 'same-origin',
+      ...options,
+      headers: {
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(options.headers || {})
+      }
+    });
 
-const api = async (url, options = {}) => {
-  const response = await fetch(url, {
-    credentials: 'same-origin',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || `Ошибка сервера: ${response.status}`);
     }
-  });
 
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(data.error || `Ошибка сервера (${response.status})`);
+    return data;
   }
 
-  return data;
-};
-
-function showStatus(message = '', error = false) {
-  els.status.textContent = message;
-  els.status.classList.toggle('show', !!message);
-  els.status.classList.toggle('error', !!error);
-}
-
-function setBusy(value) {
-  busy = value;
-  els.sendBtn.disabled = value;
-  els.prompt.disabled = value;
-  els.imageBtn.disabled = value;
-  els.newChat.disabled = value;
-}
-
-function scrollToBottom() {
-  requestAnimationFrame(() => {
-    els.chatArea.scrollTop = els.chatArea.scrollHeight;
-  });
-}
-
-function markdownToHtml(text) {
-  const source = typeof text === 'string' ? text : '';
-
-  if (window.marked && window.DOMPurify) {
-    const raw = window.marked.parse(source, {
-      gfm: true,
-      breaks: true
-    });
-
-    return window.DOMPurify.sanitize(raw, {
-      USE_PROFILES: { html: true }
-    });
+  function showStatus(text, isError = false) {
+    $('status').textContent = text || '';
+    $('status').style.color = isError ? '#ff7777' : '#999';
   }
 
-  const div = document.createElement('div');
-  div.textContent = source;
-  return div.innerHTML.replace(/\n/g, '<br>');
-}
-
-function addMessage(role, content, image = null) {
-  const row = document.createElement('article');
-  row.className = `message ${role}`;
-
-  if (role === 'assistant') {
-    const mark = document.createElement('div');
-    mark.className = 'message-mark';
-    mark.textContent = 'L';
-    mark.setAttribute('aria-hidden', 'true');
-    row.append(mark);
+  function setBusy(value) {
+    busy = value;
+    $('sendBtn').disabled = value;
+    $('imageBtn').disabled = value;
+    $('sendBtn').textContent = value ? '…' : '↑';
   }
 
-  const bubble = document.createElement('div');
-  bubble.className = 'bubble';
-
-  if (role === 'assistant') {
-    bubble.innerHTML = markdownToHtml(content);
-  } else {
-    bubble.textContent = content || '';
+  function openModal(id) {
+    $(id).classList.add('open');
   }
 
-  if (
-    image &&
-    typeof image === 'string' &&
-    /^data:image\/(png|jpeg|webp);base64,/i.test(image)
-  ) {
-    const img = document.createElement('img');
-    img.className = 'message-image';
-    img.src = image;
-    img.alt = 'Созданное изображение';
-    bubble.append(document.createElement('br'));
-    bubble.append(img);
+  function closeModal(id) {
+    $(id).classList.remove('open');
   }
 
-  row.append(bubble);
-  els.messages.append(row);
-  return row;
-}
-
-function clearMessages() {
-  els.messages.replaceChildren();
-  els.welcome.classList.remove('hidden');
-  currentChatId = null;
-
-  document.querySelectorAll('.history-item').forEach(item => {
-    item.classList.remove('active');
-  });
-}
-
-function renderHistory() {
-  els.history.replaceChildren();
-
-  if (!user) {
-    const p = document.createElement('p');
-    p.className = 'muted small';
-    p.textContent = 'Войди, чтобы сохранять чаты';
-    els.history.append(p);
-    return;
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[char]);
   }
 
-  if (!chats.length) {
-    const p = document.createElement('p');
-    p.className = 'muted small';
-    p.textContent = 'Твои чаты появятся здесь';
-    els.history.append(p);
-    return;
+  function rankHtml(role) {
+    const safeRole = ['Admin', 'Plus', 'Moder', 'Free'].includes(role) ? role : 'Free';
+    return `<span class="rank ${safeRole}">${safeRole}</span>`;
   }
 
-  chats.forEach(chat => {
-    const button = document.createElement('button');
+  function renderUser() {
+    if (!user) {
+      $('profileName').textContent = 'Гость';
+      $('profileEmail').textContent = 'Войди в аккаунт';
+      $('avatar').textContent = '?';
+      $('profileRank').textContent = 'Guest';
+      $('profileRank').className = 'rank';
+      $('loginBtn').classList.remove('hidden');
+      $('adminOpen').classList.add('hidden');
+      $('accountButton').title = 'Войти в аккаунт';
+      return;
+    }
 
-    button.className = 'history-item' +
-      (chat.id === currentChatId ? ' active' : '');
-
-    button.textContent = chat.title || 'Новый чат';
-    button.title = chat.title || 'Новый чат';
-
-    button.addEventListener('click', () => openChat(chat.id));
-    els.history.append(button);
-  });
-}
-
-async function loadChats() {
-  if (!user) {
-    chats = [];
-    renderHistory();
-    return;
+    $('profileName').textContent = user.name || user.username;
+    $('profileEmail').textContent = user.email || '';
+    $('avatar').textContent = (user.name || user.username || 'M').slice(0, 1).toUpperCase();
+    $('profileRank').textContent = user.role || 'Free';
+    $('profileRank').className = `rank ${user.role || 'Free'}`;
+    $('loginBtn').classList.add('hidden');
+    $('adminOpen').classList.toggle('hidden', user.role !== 'Admin');
+    $('accountButton').title = 'Профиль';
   }
 
-  try {
-    const data = await api('/api/chats');
-    chats = data.chats || [];
-    renderHistory();
-  } catch (error) {
-    showStatus(error.message, true);
+  function addMessage(role, content, image = null) {
+    $('welcome').classList.add('hidden');
+
+    const wrapper = document.createElement('div');
+    wrapper.className = `message ${role}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'message-avatar';
+    avatar.textContent = role === 'user'
+      ? (user?.name || 'Я').slice(0, 1).toUpperCase()
+      : 'M';
+
+    const body = document.createElement('div');
+    body.className = 'message-body';
+
+    const name = document.createElement('div');
+    name.className = 'message-name';
+    name.textContent = role === 'user'
+      ? (user?.name || 'Ты')
+      : 'Maut AI';
+
+    if (role === 'user' && user?.role) {
+      const badge = document.createElement('span');
+      badge.innerHTML = ' ' + rankHtml(user.role);
+      name.appendChild(badge);
+    }
+
+    const text = document.createElement('div');
+    text.className = 'message-content';
+    text.textContent = content || '';
+
+    if (image && typeof image === 'string' && image.startsWith('data:image/')) {
+      const img = document.createElement('img');
+      img.src = image;
+      img.alt = 'Созданное изображение';
+      text.appendChild(img);
+    }
+
+    body.append(name, text);
+    wrapper.append(avatar, body);
+    $('messages').appendChild(wrapper);
+
+    $('chatArea').scrollTop = $('chatArea').scrollHeight;
   }
-}
 
-async function createChat() {
-  if (!user) {
-    openAuth('login');
-    showStatus('Войди, чтобы сохранять историю чатов.');
-    return null;
+  function clearMessages() {
+    $('messages').innerHTML = '';
+    $('welcome').classList.remove('hidden');
   }
 
-  const data = await api('/api/chats', {
-    method: 'POST',
-    body: '{}'
-  });
+  async function refreshMe() {
+    try {
+      const data = await api('/api/auth/me');
+      user = data.user;
+    } catch {
+      user = null;
+    }
 
-  currentChatId = data.chat.id;
-  els.messages.replaceChildren();
-  els.welcome.classList.add('hidden');
+    renderUser();
 
-  await loadChats();
-  return currentChatId;
-}
+    if (user) {
+      await loadChats();
+    } else {
+      chats = [];
+      currentChatId = null;
+      renderHistory();
+    }
+  }
 
-async function openChat(id) {
-  try {
-    const data = await api('/api/chats/' + encodeURIComponent(id));
+  async function loadChats() {
+    if (!user) return;
 
+    try {
+      const data = await api('/api/chats');
+      chats = data.chats || [];
+      renderHistory();
+    } catch (error) {
+      showStatus(error.message, true);
+    }
+  }
+
+  function renderHistory() {
+    const container = $('history');
+    container.innerHTML = '';
+
+    for (const chat of chats) {
+      const item = document.createElement('div');
+      item.className = 'history-item' + (String(chat.id) === String(currentChatId) ? ' active' : '');
+
+      const title = document.createElement('span');
+      title.className = 'history-title';
+      title.textContent = chat.title || 'Новый чат';
+
+      const remove = document.createElement('button');
+      remove.className = 'icon-button';
+      remove.textContent = '×';
+      remove.title = 'Удалить чат';
+      remove.style.width = '25px';
+      remove.style.height = '25px';
+
+      item.addEventListener('click', () => openChat(chat.id));
+
+      remove.addEventListener('click', async event => {
+        event.stopPropagation();
+        if (!confirm('Удалить этот чат?')) return;
+
+        try {
+          await api(`/api/chats/${chat.id}`, { method: 'DELETE' });
+          if (String(currentChatId) === String(chat.id)) {
+            currentChatId = null;
+            clearMessages();
+          }
+          await loadChats();
+        } catch (error) {
+          showStatus(error.message, true);
+        }
+      });
+
+      item.append(title, remove);
+      container.appendChild(item);
+    }
+  }
+
+  async function createChat() {
+    if (!user) {
+      openAuth('login');
+      return null;
+    }
+
+    const data = await api('/api/chats', { method: 'POST', body: '{}' });
     currentChatId = data.chat.id;
-    els.messages.replaceChildren();
-    els.welcome.classList.add('hidden');
-
-    (data.messages || []).forEach(message => {
-      addMessage(message.role, message.content, message.image);
-    });
-
-    renderHistory();
-    els.sidebar.classList.remove('open');
-    scrollToBottom();
-    showStatus('');
-  } catch (error) {
-    showStatus(error.message, true);
+    clearMessages();
+    await loadChats();
+    return currentChatId;
   }
-}
 
-async function saveMessage(role, content, image = null) {
-  if (!user || !currentChatId) return;
+  async function openChat(id) {
+    if (!user) return;
 
-  await api(`/api/chats/${currentChatId}/messages`, {
-    method: 'POST',
-    body: JSON.stringify({ role, content, image })
-  });
-}
+    try {
+      const data = await api(`/api/chats/${id}`);
+      currentChatId = id;
+      clearMessages();
 
-async function ensureChat() {
-  if (!user) return null;
-  if (!currentChatId) return await createChat();
-  return currentChatId;
-}
+      for (const message of data.messages || []) {
+        addMessage(message.role, message.content, message.image);
+      }
 
-async function sendMessage(text) {
-  text = text.trim();
+      renderHistory();
+      $('sidebar').classList.remove('mobile-open');
+    } catch (error) {
+      showStatus(error.message, true);
+    }
+  }
 
-  if (!text || busy) return;
+  async function saveMessage(role, content, image = null) {
+    if (!currentChatId) return;
 
-  imageModeOn = false;
-  els.welcome.classList.add('hidden');
-  addMessage('user', text);
+    return api(`/api/chats/${currentChatId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ role, content, image })
+    });
+  }
 
-  els.prompt.value = '';
-  resizePrompt();
-  scrollToBottom();
-  showStatus('');
-  setBusy(true);
+  async function ensureChat() {
+    if (currentChatId) return currentChatId;
+    return createChat();
+  }
 
-  try {
-    if (user) {
-      await ensureChat();
-      await saveMessage('user', text);
+  async function sendMessage(event) {
+    event?.preventDefault();
+
+    if (busy) return;
+
+    const prompt = $('prompt').value.trim();
+    if (!prompt) return;
+
+    if (!user) {
+      openAuth('login');
+      return;
     }
 
-    const history = [...els.messages.querySelectorAll('.message')]
-      .slice(-10)
-      .map(element => {
-        const role = element.classList.contains('user')
-          ? 'user'
-          : 'assistant';
+    setBusy(true);
+    showStatus(imageModeOn ? 'Создаю изображение…' : 'Maut AI думает…');
 
-        const bubble = element.querySelector('.bubble');
-
-        return {
-          role,
-          content: bubble?.innerText || ''
-        };
-      })
-      .slice(0, -1);
-
-    const data = await api('/api/chat', {
-      method: 'POST',
-      body: JSON.stringify({
-        message: text,
-        history
-      })
-    });
-
-    const reply = data.reply || 'ИИ не вернул текстовый ответ.';
-
-    addMessage('assistant', reply);
-
-    if (user && currentChatId) {
-      await saveMessage('assistant', reply);
-    }
-
-    if (user) await loadChats();
-
-    scrollToBottom();
-  } catch (error) {
-    addMessage(
-      'assistant',
-      `**Не удалось получить ответ.**\n\n${error.message}`
-    );
-
-    showStatus(error.message, true);
-  } finally {
-    setBusy(false);
-    els.prompt.focus();
-  }
-}
-
-async function generateImage(prompt) {
-  prompt = prompt.trim();
-
-  if (!prompt || busy) return;
-
-  imageModeOn = false;
-  els.welcome.classList.add('hidden');
-  addMessage('user', 'Создай изображение: ' + prompt);
-
-  els.prompt.value = '';
-  resizePrompt();
-  scrollToBottom();
-  showStatus('Генерирую изображение…');
-  setBusy(true);
-
-  try {
-    const data = await api('/api/images', {
-      method: 'POST',
-      body: JSON.stringify({ prompt })
-    });
-
-    addMessage(
-      'assistant',
-      `### Изображение готово\n\nОписание: ${prompt}`,
-      data.image
-    );
-
-    if (user) {
+    try {
       await ensureChat();
 
-      await saveMessage('user', 'Создай изображение: ' + prompt);
+      if (imageModeOn) {
+        addMessage('user', prompt);
+        await saveMessage('user', prompt);
 
-      await saveMessage(
-        'assistant',
-        `Изображение создано по запросу: ${prompt}`,
-        data.image
+        const data = await api('/api/images', {
+          method: 'POST',
+          body: JSON.stringify({ prompt })
+        });
+
+        addMessage('assistant', 'Изображение готово.', data.image);
+        await saveMessage('assistant', 'Изображение готово.', data.image);
+      } else {
+        addMessage('user', prompt);
+        await saveMessage('user', prompt);
+
+        const history = [...$('messages').querySelectorAll('.message')]
+          .slice(-10)
+          .map(element => {
+            const isUser = element.classList.contains('user');
+            const content = element.querySelector('.message-content')?.textContent || '';
+            return {
+              role: isUser ? 'user' : 'assistant',
+              content
+            };
+          });
+
+        const data = await api('/api/chat', {
+          method: 'POST',
+          body: JSON.stringify({ message: prompt, history })
+        });
+
+        addMessage('assistant', data.reply);
+        await saveMessage('assistant', data.reply);
+      }
+
+      $('prompt').value = '';
+      resizePrompt();
+      await loadChats();
+      showStatus('');
+    } catch (error) {
+      showStatus(error.message, true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function resizePrompt() {
+    const input = $('prompt');
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 180) + 'px';
+  }
+
+  function openAuth(mode = 'login') {
+    authMode = mode;
+    $('authError').textContent = '';
+    $('modalTitle').textContent = mode === 'login' ? 'Войти в Maut AI' : 'Создать аккаунт';
+    $('modalSubtitle').textContent = mode === 'login'
+      ? 'Войди, чтобы пользоваться Maut AI.'
+      : 'Создай аккаунт Maut AI.';
+    $('nameField').classList.toggle('hidden', mode === 'login');
+    $('name').required = mode === 'register';
+    $('authSubmit').textContent = mode === 'login' ? 'Войти' : 'Зарегистрироваться';
+    $('switchText').textContent = mode === 'login' ? 'Нет аккаунта? ' : 'Уже есть аккаунт? ';
+    $('switchAuth').textContent = mode === 'login' ? 'Зарегистрироваться' : 'Войти';
+    $('password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+    openModal('authModal');
+  }
+
+  async function submitAuth(event) {
+    event.preventDefault();
+
+    const payload = {
+      email: $('email').value.trim(),
+      password: $('password').value
+    };
+
+    if (authMode === 'register') {
+      payload.name = $('name').value.trim();
+    }
+
+    $('authSubmit').disabled = true;
+    $('authError').textContent = '';
+
+    try {
+      const data = await api(
+        authMode === 'login' ? '/api/auth/login' : '/api/auth/register',
+        {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        }
       );
 
+      user = data.user;
+      closeModal('authModal');
+      $('authForm').reset();
+      renderUser();
+      clearMessages();
       await loadChats();
+      showStatus('Ты вошёл в аккаунт.');
+    } catch (error) {
+      $('authError').textContent = error.message;
+    } finally {
+      $('authSubmit').disabled = false;
+    }
+  }
+
+  async function redeemCode() {
+    const code = $('giftCode').value.trim();
+
+    if (!code) {
+      $('redeemError').textContent = 'Введи ключ.';
+      return;
     }
 
-    showStatus('Изображение создано.');
-    scrollToBottom();
-  } catch (error) {
-    addMessage(
-      'assistant',
-      `**Не удалось создать изображение.**\n\n${error.message}`
-    );
+    $('redeemButton').disabled = true;
+    $('redeemError').textContent = '';
 
-    showStatus(error.message, true);
-  } finally {
-    setBusy(false);
-    els.prompt.focus();
-  }
-}
+    try {
+      await api('/api/gift-codes/redeem', {
+        method: 'POST',
+        body: JSON.stringify({ code })
+      });
 
-function resizePrompt() {
-  els.prompt.style.height = 'auto';
+      $('redeemError').style.color = 'var(--green)';
+      $('redeemError').textContent = 'Plus активирован на 7 дней!';
+      $('giftCode').value = '';
 
-  els.prompt.style.height =
-    Math.min(els.prompt.scrollHeight, 180) + 'px';
-}
+      await refreshMe();
 
-function openAuth(mode = 'login') {
-  authMode = mode;
-  els.authError.textContent = '';
-
-  const register = mode === 'register';
-
-  els.modalTitle.textContent = register
-    ? 'Создать аккаунт'
-    : 'Войти в Maut AI';
-
-  els.modalSubtitle.textContent = register
-    ? 'Зарегистрируйся, чтобы сохранять чаты.'
-    : 'Продолжи общение с ИИ.';
-
-  els.nameLabel.classList.toggle('hidden', !register);
-  els.name.required = register;
-
-  els.authSubmit.textContent = register
-    ? 'Зарегистрироваться'
-    : 'Войти';
-
-  els.switchAuth.textContent = register
-    ? 'Уже есть аккаунт? Войти'
-    : 'Нет аккаунта? Зарегистрироваться';
-
-  els.authModal.classList.add('open');
-  els.authModal.setAttribute('aria-hidden', 'false');
-}
-
-function closeAuth() {
-  els.authModal.classList.remove('open');
-  els.authModal.setAttribute('aria-hidden', 'true');
-}
-
-function renderUser() {
-  if (user) {
-    els.profileName.textContent =
-      user.name || user.username || 'Пользователь';
-
-    els.profileEmail.textContent =
-      user.email || user.username || 'Вход выполнен';
-
-    els.avatar.textContent =
-      (user.name || user.username || 'U').trim().charAt(0).toUpperCase();
-
-    els.loginBtn.textContent = 'Выйти';
-  } else {
-    els.profileName.textContent = 'Гость';
-    els.profileEmail.textContent = 'Войди, чтобы начать';
-    els.avatar.textContent = 'G';
-    els.loginBtn.textContent = 'Войти';
-  }
-}
-
-async function refreshMe() {
-  try {
-    const data = await api('/api/auth/me');
-
-    user = data.user || null;
-    renderUser();
-    await loadChats();
-  } catch {
-    user = null;
-    renderUser();
-    renderHistory();
-  }
-}
-
-/* EVENTS */
-
-els.chatForm.addEventListener('submit', event => {
-  event.preventDefault();
-
-  const value = els.prompt.value;
-
-  if (imageModeOn) {
-    generateImage(value);
-  } else {
-    sendMessage(value);
-  }
-});
-
-els.prompt.addEventListener('input', resizePrompt);
-
-els.prompt.addEventListener('keydown', event => {
-  if (event.key === 'Enter' && !event.shiftKey) {
-    event.preventDefault();
-    els.chatForm.requestSubmit();
-  }
-});
-
-els.newChat.addEventListener('click', async () => {
-  showStatus('');
-
-  if (!user) {
-    openAuth('login');
-    return;
+      setTimeout(() => closeModal('redeemModal'), 1300);
+    } catch (error) {
+      $('redeemError').style.color = '#ff7777';
+      $('redeemError').textContent = error.message;
+    } finally {
+      $('redeemButton').disabled = false;
+    }
   }
 
-  try {
-    await createChat();
-    showStatus('');
-    els.prompt.focus();
-  } catch (error) {
-    showStatus(error.message, true);
-  }
-});
+  async function requestModer() {
+    if (!user) return openAuth('login');
 
-els.imageBtn.addEventListener('click', () => {
-  imageModeOn = !imageModeOn;
-
-  els.prompt.placeholder = imageModeOn
-    ? 'Опиши изображение, которое нужно создать'
-    : 'Напиши Maut AI';
-
-  els.imageBtn.innerHTML = imageModeOn
-    ? '✕ <span>Отменить генерацию</span>'
-    : '＋ <span>Создать изображение</span>';
-
-  els.prompt.focus();
-});
-
-els.imageMode.addEventListener('click', () => {
-  imageModeOn = true;
-  els.prompt.placeholder = 'Опиши изображение, которое нужно создать';
-  els.sidebar.classList.remove('open');
-  els.prompt.focus();
-});
-
-document.querySelectorAll('[data-prompt]').forEach(button => {
-  button.addEventListener('click', () => {
-    els.prompt.value = button.dataset.prompt;
-    resizePrompt();
-    els.prompt.focus();
-  });
-});
-
-document.querySelectorAll('[data-image]').forEach(button => {
-  button.addEventListener('click', () => {
-    imageModeOn = true;
-    els.prompt.placeholder = 'Опиши изображение, которое нужно создать';
-    els.prompt.focus();
-  });
-});
-
-els.menuBtn.addEventListener('click', () => {
-  els.sidebar.classList.toggle('open');
-});
-
-els.loginBtn.addEventListener('click', async () => {
-  if (!user) {
-    openAuth('login');
-    return;
+    try {
+      await api('/api/moderator-requests', {
+        method: 'POST',
+        body: '{}'
+      });
+      alert('Заявка отправлена. Ожидай решения Admin.');
+    } catch (error) {
+      alert(error.message);
+    }
   }
 
-  try {
-    await api('/api/auth/logout', {
-      method: 'POST',
-      body: '{}'
+  function showProfile() {
+    if (!user) return openAuth('login');
+
+    const expiry = user.plusExpiresAt
+      ? new Date(user.plusExpiresAt).toLocaleString()
+      : 'Не применяется';
+
+    $('profileDetails').innerHTML = `
+      <div class="field"><label>Имя</label><div>${escapeHtml(user.name)}</div></div>
+      <div class="field"><label>Email</label><div>${escapeHtml(user.email || '')}</div></div>
+      <div class="field"><label>Ранг</label><div>${rankHtml(user.role)}</div></div>
+      <div class="field"><label>Окончание Plus</label><div>${escapeHtml(expiry)}</div></div>
+    `;
+
+    openModal('profileModal');
+  }
+
+  async function openAdmin() {
+    if (user?.role !== 'Admin') {
+      alert('Нет доступа.');
+      return;
+    }
+
+    $('profileMenu').classList.remove('open');
+    openModal('adminModal');
+    await renderAdmin();
+  }
+
+  async function renderAdmin() {
+    const content = $('adminContent');
+    content.innerHTML = '<p class="muted">Загружаю...</p>';
+
+    document.querySelectorAll('.admin-tab').forEach(button => {
+      button.classList.toggle('active', button.dataset.tab === adminTab);
     });
+
+    try {
+      if (adminTab === 'users') {
+        const data = await api('/api/admin/users');
+
+        content.innerHTML = `
+          <h3>Пользователи</h3>
+          <p class="muted">Управление рангами и блокировками аккаунтов.</p>
+          <div id="adminUsers"></div>
+        `;
+
+        const list = $('adminUsers');
+
+        for (const person of data.users) {
+          const row = document.createElement('div');
+          row.className = 'admin-row';
+
+          const info = document.createElement('div');
+          info.className = 'admin-row-main';
+
+          const title = document.createElement('strong');
+          title.textContent = `${person.name} · ${person.username}`;
+
+          const details = document.createElement('div');
+          details.className = 'muted';
+          details.textContent = `${person.email || ''} · ${person.role}${person.banned ? ' · ЗАБАНЕН' : ''}`;
+
+          info.append(title, details);
+
+          const actions = document.createElement('div');
+          actions.className = 'admin-actions';
+
+          if (person.role !== 'Admin' && person.id !== user.id) {
+            const select = document.createElement('select');
+
+            for (const role of ['Free', 'Plus', 'Moder']) {
+              const option = document.createElement('option');
+              option.value = role;
+              option.textContent = role;
+              option.selected = person.role === role;
+              select.appendChild(option);
+            }
+
+            const save = document.createElement('button');
+            save.className = 'secondary-button';
+            save.textContent = 'Ранг';
+
+            save.addEventListener('click', async () => {
+              try {
+                await api(`/api/admin/users/${person.id}/role`, {
+                  method: 'PATCH',
+                  body: JSON.stringify({ role: select.value })
+                });
+                await renderAdmin();
+              } catch (error) {
+                alert(error.message);
+              }
+            });
+
+            const ban = document.createElement('button');
+            ban.className = person.banned ? 'secondary-button' : 'danger-button';
+            ban.textContent = person.banned ? 'Разбан' : 'Бан';
+
+            ban.addEventListener('click', async () => {
+              if (!confirm(person.banned ? 'Разблокировать аккаунт?' : 'Заблокировать аккаунт?')) return;
+
+              try {
+                await api(`/api/admin/users/${person.id}/${person.banned ? 'unban' : 'ban'}`, {
+                  method: 'POST',
+                  body: '{}'
+                });
+                await renderAdmin();
+              } catch (error) {
+                alert(error.message);
+              }
+            });
+
+            actions.append(select, save, ban);
+          }
+
+          row.append(info, actions);
+          list.appendChild(row);
+        }
+      }
+
+      if (adminTab === 'keys') {
+        content.innerHTML = `
+          <h3>Генерация Plus-ключей</h3>
+          <p class="muted">Создавай одноразовые ключи. Они показываются только один раз после создания.</p>
+          <div class="field">
+            <label for="keyCount">Количество ключей (1–100)</label>
+            <input id="keyCount" type="number" min="1" max="100" value="1">
+          </div>
+          <button class="primary-button" id="generateKeys">Создать ключи</button>
+          <div id="generatedKeys"></div>
+        `;
+
+        $('generateKeys').addEventListener('click', async () => {
+          const count = Number($('keyCount').value);
+
+          try {
+            const data = await api('/api/admin/gift-codes', {
+              method: 'POST',
+              body: JSON.stringify({ count })
+            });
+
+            const output = $('generatedKeys');
+            output.innerHTML = '';
+
+            const codeBox = document.createElement('div');
+            codeBox.className = 'code-list';
+            codeBox.textContent = data.codes.join('\n');
+
+            const copy = document.createElement('button');
+            copy.className = 'secondary-button';
+            copy.textContent = 'Скопировать все ключи';
+
+            copy.addEventListener('click', async () => {
+              await navigator.clipboard.writeText(data.codes.join('\n'));
+              copy.textContent = 'Скопировано!';
+            });
+
+            output.append(codeBox, copy);
+          } catch (error) {
+            alert(error.message);
+          }
+        });
+      }
+
+      if (adminTab === 'memory') {
+        const data = await api('/api/admin/memory');
+
+        content.innerHTML = `
+          <h3>Долгосрочная память Maut AI</h3>
+          <p class="muted">Добавляй факты, которые ИИ будет учитывать в будущих разговорах.</p>
+          <div class="field">
+            <label for="memoryFact">Новый факт</label>
+            <textarea id="memoryFact" rows="3" maxlength="2000" placeholder="Например: Den Whelan — создатель Maut AI."></textarea>
+          </div>
+          <button class="primary-button" id="addMemory">Сохранить в память</button>
+          <div id="memoryList"></div>
+        `;
+
+        $('addMemory').addEventListener('click', async () => {
+          const fact = $('memoryFact').value.trim();
+          if (!fact) return alert('Напиши факт.');
+
+          try {
+            await api('/api/admin/memory', {
+              method: 'POST',
+              body: JSON.stringify({ fact })
+            });
+            await renderAdmin();
+          } catch (error) {
+            alert(error.message);
+          }
+        });
+
+        for (const item of data.memory) {
+          const row = document.createElement('div');
+          row.className = 'admin-row';
+
+          const text = document.createElement('div');
+          text.className = 'admin-row-main';
+          text.textContent = item.fact;
+
+          const actions = document.createElement('div');
+          actions.className = 'admin-actions';
+
+          const edit = document.createElement('button');
+          edit.className = 'secondary-button';
+          edit.textContent = 'Изменить';
+          edit.addEventListener('click', async () => {
+            const fact = prompt('Измени факт:', item.fact);
+            if (fact === null || !fact.trim()) return;
+
+            try {
+              await api(`/api/admin/memory/${item.id}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ fact: fact.trim() })
+              });
+              await renderAdmin();
+            } catch (error) {
+              alert(error.message);
+            }
+          });
+
+          const remove = document.createElement('button');
+          remove.className = 'danger-button';
+          remove.textContent = 'Удалить';
+          remove.addEventListener('click', async () => {
+            if (!confirm('Удалить этот факт из памяти?')) return;
+
+            try {
+              await api(`/api/admin/memory/${item.id}`, { method: 'DELETE' });
+              await renderAdmin();
+            } catch (error) {
+              alert(error.message);
+            }
+          });
+
+          actions.append(edit, remove);
+          row.append(text, actions);
+          $('memoryList').appendChild(row);
+        }
+      }
+
+      if (adminTab === 'requests') {
+        const data = await api('/api/admin/moderator-requests');
+
+        content.innerHTML = `
+          <h3>Заявки на Moder</h3>
+          <div id="requestList"></div>
+        `;
+
+        for (const request of data.requests) {
+          const row = document.createElement('div');
+          row.className = 'admin-row';
+
+          const info = document.createElement('div');
+          info.className = 'admin-row-main';
+
+          const name = document.createElement('strong');
+          name.textContent = request.display_name || request.username;
+
+          const state = document.createElement('div');
+          state.className = 'muted';
+          state.textContent = `${request.email || ''} · ${request.status}`;
+
+          info.append(name, state);
+
+          const actions = document.createElement('div');
+          actions.className = 'admin-actions';
+
+          if (request.status === 'pending') {
+            for (const [label, approve] of [['Одобрить', true], ['Отклонить', false]]) {
+              const button = document.createElement('button');
+              button.className = approve ? 'primary-button' : 'danger-button';
+              button.textContent = label;
+
+              button.addEventListener('click', async () => {
+                try {
+                  await api(`/api/admin/moderator-requests/${request.id}`, {
+                    method: 'POST',
+                    body: JSON.stringify({ approve })
+                  });
+                  await renderAdmin();
+                } catch (error) {
+                  alert(error.message);
+                }
+              });
+
+              actions.appendChild(button);
+            }
+          }
+
+          row.append(info, actions);
+          $('requestList').appendChild(row);
+        }
+      }
+    } catch (error) {
+      content.innerHTML = `<p class="modal-error">${escapeHtml(error.message)}</p>`;
+    }
+  }
+
+  $('chatForm').addEventListener('submit', sendMessage);
+  $('authForm').addEventListener('submit', submitAuth);
+  $('prompt').addEventListener('input', resizePrompt);
+
+  $('prompt').addEventListener('keydown', event => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage(event);
+    }
+  });
+
+  $('newChat').addEventListener('click', async () => {
+    if (!user) return openAuth('login');
+
+    try {
+      await createChat();
+      $('sidebar').classList.remove('mobile-open');
+    } catch (error) {
+      showStatus(error.message, true);
+    }
+  });
+
+  $('loginBtn').addEventListener('click', () => openAuth('login'));
+  $('closeModal').addEventListener('click', () => closeModal('authModal'));
+
+  $('switchAuth').addEventListener('click', event => {
+    event.preventDefault();
+    openAuth(authMode === 'login' ? 'register' : 'login');
+  });
+
+  $('accountButton').addEventListener('click', () => {
+    if (!user) return openAuth('login');
+    $('profileMenu').classList.toggle('open');
+  });
+
+  $('profileOpen').addEventListener('click', () => {
+    $('profileMenu').classList.remove('open');
+    showProfile();
+  });
+
+  $('redeemOpen').addEventListener('click', () => {
+    $('profileMenu').classList.remove('open');
+    $('redeemError').textContent = '';
+    openModal('redeemModal');
+  });
+
+  $('profileRedeem').addEventListener('click', () => {
+    closeModal('profileModal');
+    openModal('redeemModal');
+  });
+
+  $('redeemButton').addEventListener('click', redeemCode);
+  $('moderRequest').addEventListener('click', () => {
+    $('profileMenu').classList.remove('open');
+    requestModer();
+  });
+
+  $('adminOpen').addEventListener('click', openAdmin);
+
+  $('logoutBtn').addEventListener('click', async () => {
+    try {
+      await api('/api/auth/logout', { method: 'POST', body: '{}' });
+    } catch {}
 
     user = null;
     currentChatId = null;
     chats = [];
-
-    clearMessages();
     renderUser();
     renderHistory();
+    clearMessages();
+    $('profileMenu').classList.remove('open');
     showStatus('Ты вышел из аккаунта.');
-  } catch (error) {
-    showStatus(error.message, true);
-  }
-});
+  });
 
-els.profileMenu.addEventListener('click', () => {
-  if (user) {
-    els.loginBtn.click();
-  } else {
-    openAuth('login');
-  }
-});
+  $('menuBtn').addEventListener('click', () => {
+    $('sidebar').classList.toggle('mobile-open');
+  });
 
-els.closeModal.addEventListener('click', closeAuth);
+  $('imageMode').addEventListener('click', () => {
+    imageModeOn = !imageModeOn;
+    $('imageMode').classList.toggle('active', imageModeOn);
+    $('imageBtn').classList.toggle('active', imageModeOn);
+    $('prompt').placeholder = imageModeOn
+      ? 'Опиши изображение, которое нужно создать...'
+      : 'Напиши сообщение Maut AI...';
+    $('sidebar').classList.remove('mobile-open');
+  });
 
-els.authModal.addEventListener('click', event => {
-  if (event.target === els.authModal) closeAuth();
-});
+  $('imageBtn').addEventListener('click', () => {
+    imageModeOn = !imageModeOn;
+    $('imageBtn').classList.toggle('active', imageModeOn);
+    $('imageMode').classList.toggle('active', imageModeOn);
+    $('prompt').placeholder = imageModeOn
+      ? 'Опиши изображение, которое нужно создать...'
+      : 'Напиши сообщение Maut AI...';
+  });
 
-els.switchAuth.addEventListener('click', () => {
-  openAuth(authMode === 'login' ? 'register' : 'login');
-});
+  $('clearBtn').addEventListener('click', () => {
+    if (!confirm('Очистить сообщения на экране?')) return;
+    clearMessages();
+    currentChatId = null;
+    renderHistory();
+  });
 
-els.authForm.addEventListener('submit', async event => {
-  event.preventDefault();
+  document.querySelectorAll('[data-close]').forEach(button => {
+    button.addEventListener('click', () => closeModal(button.dataset.close));
+  });
 
-  els.authError.textContent = '';
-  els.authSubmit.disabled = true;
-
-  try {
-    const body = {
-      email: els.email.value.trim(),
-      password: els.password.value
-    };
-
-    if (authMode === 'register') {
-      body.name = els.name.value.trim();
-    }
-
-    const data = await api(`/api/auth/${authMode}`, {
-      method: 'POST',
-      body: JSON.stringify(body)
+  document.querySelectorAll('.overlay').forEach(overlay => {
+    overlay.addEventListener('click', event => {
+      if (event.target === overlay) overlay.classList.remove('open');
     });
+  });
 
-    user = data.user;
+  document.querySelectorAll('.admin-tab').forEach(button => {
+    button.addEventListener('click', async () => {
+      adminTab = button.dataset.tab;
+      await renderAdmin();
+    });
+  });
 
-    renderUser();
-    closeAuth();
-    await loadChats();
+  document.addEventListener('click', event => {
+    if (!event.target.closest('.account')) {
+      $('profileMenu').classList.remove('open');
+    }
+  });
 
-    showStatus('Вход выполнен.');
-  } catch (error) {
-    els.authError.textContent = error.message;
-  } finally {
-    els.authSubmit.disabled = false;
-  }
-});
-
-document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') {
-    closeAuth();
-    els.sidebar.classList.remove('open');
-  }
-});
-
-refreshMe();
-
+  refreshMe();
 })();
 </script>
 </body>
