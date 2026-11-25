@@ -1076,29 +1076,29 @@ app.post('/api/moderation/users/:id/unban', requireModerator, (req, res) => {
 });
 
 // STATIC FILES
-const PUBLIC_DIR = path.join(__dirname, 'public');
-fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+// STATIC FILES
+const PUBLIC_CANDIDATES = [
+  path.join(__dirname, 'public', 'public'),
+  path.join(__dirname, 'public'),
+  __dirname
+];
+
+const PUBLIC_DIR = PUBLIC_CANDIDATES.find(dir =>
+  fs.existsSync(path.join(dir, 'index.html'))
+);
+
+if (!PUBLIC_DIR) {
+  throw new Error(
+    'Не найден index.html. Проверь папки public/public, public и корень проекта.'
+  );
+}
+
+console.log('Папка сайта:', PUBLIC_DIR);
 
 app.use(express.static(PUBLIC_DIR));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
-});
-
-app.use('/api', (req, res) => {
-  res.status(404).json({ error: 'API маршрут не найден.' });
-});
-
-app.use((err, req, res, next) => {
-  console.error('Server error:', err);
-
-  if (res.headersSent) return next(err);
-
-  if (err.type === 'entity.too.large') {
-    return res.status(413).json({ error: 'Запрос слишком большой.' });
-  }
-
-  res.status(500).json({ error: 'Внутренняя ошибка сервера.' });
 });
 
 // START
