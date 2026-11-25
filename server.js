@@ -290,166 +290,7 @@ function publicUser(user) {
 
 function makeRankCode() {
   return `MAUT-${crypto.randomBytes(4).toString('hex').toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-}function publicUser(row) {
-  return {
-    id: row.id,
-    username: row.username,
-    name: row.display_name || row.username,
-    email: row.email || null,
-    rank: VALID_RANKS.includes(row.rank) ? row.rank : 'FREE'
-  };
-}
-
-function createLoginSession(req, res, user, statusCode = 200) {
-  req.session.regenerate(err => {
-    if (err) {
-      console.error('Session regenerate error:', err);
-
-      return res.status(500).json({
-        error: 'Не удалось создать сессию.'
-      });
-    }
-
-    req.session.user = user;
-
-    req.session.save(saveErr => {
-      if (saveErr) {
-        console.error('Session save error:', saveErr);
-
-        return res.status(500).json({
-          error: 'Не удалось сохранить вход.'
-        });
-      }
-
-      res.status(statusCode).json({ user });
-    });
-  });
-}
-
-// Проверка авторизации
-app.get('/api/auth/me', (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.json({ user: req.session.user || null });
-});
-
-// Регистрация
-app.post('/api/auth/register', authLimiter, async (req, res) => {
-  try {
-    const name = normalizeDisplayName(
-      req.body?.name || req.body?.username
-    );
-
-    const email = normalizeEmail(req.body?.email);
-    const password = req.body?.password;
-
-    if (!name) {
-      return res.status(400).json({
-        error: 'Введи имя длиной от 1 до 60 символов.'
-      });
-    }
-
-    if (!email) {
-      return res.status(400).json({
-        error: 'Введи корректный email.'
-      });
-    }
-
-    if (
-      typeof password !== 'string' ||
-      password.length < 8 ||
-      password.length > 128
-    ) {
-      return res.status(400).json({
-        error: 'Пароль должен содержать от 8 до 128 символов.'
-      });
-    }
-
-    const existing = db.prepare(
-      'SELECT id FROM users WHERE email = ?'
-    ).get(email);
-
-    if (existing) {
-      return res.status(409).json({
-        error: 'Аккаунт с таким email уже существует. Войди в него.'
-      });
-    }
-
-    const hash = await bcrypt.hash(password, 12);
-
-    const result = db.prepare(`
-      INSERT INTO users
-        (username, password_hash, display_name, email)
-      VALUES (?, ?, ?, ?)
-    `).run(email, hash, name, email);
-
-    const user = {
-      id: Number(result.lastInsertRowid),
-      username: email,
-      name,
-      email
-    };
-
-    createLoginSession(req, res, user, 201);
-  } catch (err) {
-    console.error('Registration error:', err);
-
-    res.status(500).json({
-      error: 'Ошибка регистрации на сервере.'
-    });
-  }
-});
-
-// Вход
-app.post('/api/auth/login', authLimiter, async (req, res) => {
-  try {
-    const loginValue = typeof req.body?.email === 'string'
-      ? req.body.email.trim().toLowerCase()
-      : (
-          typeof req.body?.username === 'string'
-            ? req.body.username.trim()
-            : ''
-        );
-
-    const password = req.body?.password;
-
-    if (
-      !loginValue ||
-      loginValue.length > 254 ||
-      typeof password !== 'string' ||
-      password.length > 128
-    ) {
-      return res.status(400).json({
-        error: 'Введи email и пароль.'
-      });
-    }
-
-    const row = db.prepare(`
-      SELECT id, username, password_hash, display_name, email, rank
-      FROM users
-      WHERE email = ? OR username = ?
-      LIMIT 1
-    `).get(loginValue, loginValue);
-
-    if (!row || !(await bcrypt.compare(password, row.password_hash))) {
-      return res.status(401).json({
-        error: 'Неверный email или пароль.'
-      });
-    }
-
-    // Назначаем ADMIN только после успешной проверки пароля.
-    if (String(row.email || '').toLowerCase() === ADMIN_EMAIL) {
-      db.prepare("UPDATE users SET rank = 'ADMIN' WHERE id = ?").run(row.id);
-      row.rank = 'ADMIN';
-    }
-
-    createLoginSession(req, res, publicUser(row));
-  } catch (err) {
-    console.error('Login error:', err);
-
-    res.status(500).json({
-      error: 'Ошибка входа на сервере.'
-    });
-  }
+}  }
 });
 
 // Выход
@@ -593,17 +434,17 @@ app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
     }
 
     if (
-      image !== undefined &&
-      image !== null &&
-      typeof image !== 'string'
+      image != null &&
+      (typeof image !== 'string' || image.length > 10000000)
     ) {
       return res.status(400).json({
-        error: 'Неверный формат изображения.'
+        error: 'Изображение слишком большое.'
       });
     }
 
     const chat = db.prepare(`
-      SELECT id FROM conversations
+      SELECT id, title
+      FROM conversations
       WHERE id = ? AND user_id = ?
     `).get(chatId, req.session.user.id);
 
@@ -613,31 +454,38 @@ app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
       });
     }
 
-    const result = db.prepare(`
-      INSERT INTO messages (conversation_id, role, content, image)
+    const insert = db.prepare(`
+      INSERT INTO messages
+        (conversation_id, role, content, image)
       VALUES (?, ?, ?, ?)
     `).run(chatId, role, content, image || null);
 
-    db.prepare(`
-      UPDATE conversations
-      SET updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND user_id = ?
-    `).run(chatId, req.session.user.id);
+    let title = chat.title;
 
-    if (role === 'user') {
-      const title = content.trim().replace(/\s+/g, ' ').slice(0, 45);
+    if (role === 'user' && title === 'Новый чат') {
+      title = content.trim().replace(/\s+/g, ' ').slice(0, 60) || 'Новый чат';
 
       db.prepare(`
         UPDATE conversations
-        SET title = ?
+        SET title = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND user_id = ?
-          AND title = 'Новый чат'
-      `).run(title || 'Новый чат', chatId, req.session.user.id);
+      `).run(title, chatId, req.session.user.id);
+    } else {
+      db.prepare(`
+        UPDATE conversations
+        SET updated_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND user_id = ?
+      `).run(chatId, req.session.user.id);
     }
 
     res.status(201).json({
-      success: true,
-      messageId: Number(result.lastInsertRowid)
+      message: {
+        id: Number(insert.lastInsertRowid),
+        role,
+        content,
+        image: image || null
+      },
+      title
     });
   } catch (err) {
     console.error('Save message error:', err);
@@ -678,93 +526,234 @@ app.delete('/api/chats/:id', requireAuth, (req, res) => {
       error: 'Не удалось удалить чат.'
     });
   }
-});    const reply = data?.choices?.[0]?.message?.content;
+});
 
-    if (typeof reply === 'string' && reply.trim()) {
-      return res.json({
-        reply: reply.trim(),
-        provider: 'groq'
+// Maut AI — чат с ИИ
+app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
+  try {
+    const message = req.body?.message;
+
+    if (
+      typeof message !== 'string' ||
+      !message.trim() ||
+      message.length > MAX_MESSAGE_LENGTH
+    ) {
+      return res.status(400).json({
+        error: `Сообщение пустое или превышает лимит ${MAX_MESSAGE_LENGTH} символов.`
       });
     }
 
-    console.error('Groq returned an empty response:', data);
+    // Берём только последние сообщения и ограничиваем общий размер истории.
+    // Это позволяет избежать чрезмерно больших запросов к ИИ.
+    const rawHistory = Array.isArray(req.body?.history)
+      ? req.body.history.filter(item =>
+          item &&
+          ['user', 'assistant'].includes(item.role) &&
+          typeof item.content === 'string'
+        ).slice(-MAX_HISTORY_MESSAGES)
+      : [];
 
-    return res.status(502).json({
-      error: 'Groq вернул пустой ответ. Попробуй отправить сообщение ещё раз.'
-    });
-  }
+    const history = [];
+    let historyLength = 0;
 
-  // Ollama используется только тогда, когда GROQ_API_KEY не задан.
-  const ollamaUrl =
-    process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
+    for (let i = rawHistory.length - 1; i >= 0; i--) {
+      const item = rawHistory[i];
+      const remaining = MAX_HISTORY_TOTAL_LENGTH - historyLength;
 
-  const ollamaModel =
-    process.env.OLLAMA_MODEL || 'llama3.2';
+      if (remaining <= 0) break;
 
-  let response;
+      const content = item.content.slice(0, remaining);
 
-  try {
-    response = await fetch(
-      `${ollamaUrl.replace(/\/$/, '')}/api/chat`,
+      if (!content) continue;
+
+      history.unshift({
+        role: item.role,
+        content
+      });
+
+      historyLength += content.length;
+    }
+
+    const messages = [
       {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: ollamaModel,
-          messages,
-          stream: false
-        }),
-        signal: AbortSignal.timeout(60000)
+        role: 'system',
+        content: `Ты — Maut AI, полезный, внимательный и дружелюбный ИИ-помощник. Всегда отвечай на языке пользователя, если он не попросил другой язык.
+
+КАЧЕСТВО И СТРУКТУРА ОТВЕТА
+- Пиши естественно, грамотно и последовательно. Перед отправкой мысленно проверь, что предложения связаны друг с другом и нет случайных повторов, обрывков слов или бессмысленных символов.
+- Если нужен длинный ответ, разбивай его на понятные разделы с короткими заголовками Markdown (## и ###), абзацы разделяй пустой строкой.
+- Используй нумерованные списки для последовательности действий и маркированные списки для перечислений. Не превращай каждое предложение в отдельный пункт.
+- Для сравнения используй таблицы только тогда, когда они действительно упрощают понимание.
+- Формулы оформляй понятно; программный код помещай в fenced code blocks с указанием языка, например, с указанием языка js. Не смешивай пояснения и код в одном неразборчивом блоке.
+- Не используй Markdown без необходимости: не делай весь ответ жирным, не добавляй заголовок к каждому короткому ответу и не создавай огромную стену текста.
+- Сначала отвечай по существу. Добавляй детали, примеры и итог, если они помогают выполнить просьбу пользователя.
+- Не выдавай выдуманные сведения за факты. Если чего-то не знаешь, прямо обозначь неопределённость.
+- Если пользователь просит подробный материал, подготовь максимально полный ответ в пределах доступного лимита модели. Не повторяй одну и ту же мысль ради увеличения длины и не обрывай ответ намеренно. Если объём не помещается в один ответ, закончи на логичной границе и кратко укажи, что можно продолжить.
+- Не добавляй служебные комментарии о том, что ты следуешь этим инструкциям.
+
+СОЗДАТЕЛЬ ПРОЕКТА
+Создатель проекта Maut AI: Мухаммад Умаров Манучехрович, также известный как Den Whelan. Он является директором компании Liches maut.
+
+Если пользователь спрашивает, кто создал Maut AI, кто создатель проекта или кто руководит компанией Liches maut, ответь ясно и уважительно:
+«Проект Maut AI создал Мухаммад Умаров Манучехрович (Den Whelan), директор компании Liches maut».
+
+Не утверждай, что он создал базовую языковую модель или сторонние ИИ-сервисы, если это не подтверждено. Различай создателя проекта Maut AI и поставщиков используемых моделей.`
+      },
+      ...history,
+      { role: 'user', content: message.trim() }
+    ];
+
+    // Если задан Groq API key, используем Groq.
+    // Ошибка Groq возвращается пользователю вместо незаметного переключения
+    // на Ollama, которая может быть недоступна на облачном хостинге.
+    if (process.env.GROQ_API_KEY) {
+      let response;
+
+      try {
+        response = await fetch(
+          'https://api.groq.com/openai/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+              messages,
+              temperature: 0.5,
+              max_tokens: Number(process.env.GROQ_MAX_TOKENS) || 4096
+            }),
+            signal: AbortSignal.timeout(60000)
+          }
+        );
+      } catch (err) {
+        console.error('Groq connection error:', err);
+
+        return res.status(502).json({
+          error: 'Не удалось подключиться к Groq. Проверь интернет-соединение сервера и доступность Groq API.'
+        });
       }
-    );
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        return res.status(502).json({
+          error: 'Groq вернул ответ в неизвестном формате.'
+        });
+      }
+
+      if (!response.ok) {
+        console.error('Groq API error:', response.status, data);
+
+        const apiMessage = data?.error?.message;
+
+        if (response.status === 429) {
+          return res.status(429).json({
+            error: 'Превышен лимит запросов Groq. Подожди немного и попробуй снова.'
+          });
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          return res.status(502).json({
+            error: 'Groq отклонил API-ключ. Проверь GROQ_API_KEY в переменных окружения.'
+          });
+        }
+
+        return res.status(502).json({
+          error: apiMessage
+            ? `Ошибка Groq: ${apiMessage}`
+            : `Groq API вернул ошибку ${response.status}.`
+        });
+      }
+
+      const reply = data?.choices?.[0]?.message?.content;      if (typeof reply === 'string' && reply.trim()) {
+        return res.json({
+          reply: reply.trim(),
+          provider: 'groq'
+        });
+      }
+
+      console.error('Groq returned an empty response:', data);
+
+      return res.status(502).json({
+        error: 'Groq вернул пустой ответ. Попробуй отправить сообщение ещё раз.'
+      });
+    }
+
+    // Ollama используется только тогда, когда GROQ_API_KEY не задан.
+    const ollamaUrl =
+      process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
+
+    const ollamaModel =
+      process.env.OLLAMA_MODEL || 'llama3.2';
+
+    let response;
+
+    try {
+      response = await fetch(
+        `${ollamaUrl.replace(/\/$/, '')}/api/chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: ollamaModel,
+            messages,
+            stream: false
+          }),
+          signal: AbortSignal.timeout(60000)
+        }
+      );
+    } catch (err) {
+      console.error('Ollama connection error:', err);
+
+      return res.status(502).json({
+        error: 'Не удалось подключиться к Ollama. Настрой GROQ_API_KEY для работы через Groq или проверь OLLAMA_URL.'
+      });
+    }
+
+    let data;
+
+    try {
+      data = await response.json();
+    } catch {
+      return res.status(502).json({
+        error: 'Ollama вернула ответ в неизвестном формате.'
+      });
+    }
+
+    if (!response.ok) {
+      console.error('Ollama API error:', response.status, data);
+
+      return res.status(502).json({
+        error: data?.error ||
+          `Ollama API вернула ошибку ${response.status}.`
+      });
+    }
+
+    const reply = data?.message?.content;
+
+    if (typeof reply !== 'string' || !reply.trim()) {
+      return res.status(502).json({
+        error: 'ИИ вернул пустой ответ.'
+      });
+    }
+
+    return res.json({
+      reply: reply.trim(),
+      provider: 'ollama'
+    });
   } catch (err) {
-    console.error('Ollama connection error:', err);
+    console.error('Chat error:', err);
 
     return res.status(502).json({
-      error: 'Не удалось подключиться к Ollama. Настрой GROQ_API_KEY для работы через Groq или проверь OLLAMA_URL.'
+      error: 'Не удалось получить ответ от ИИ.'
     });
   }
-
-  let data;
-
-  try {
-    data = await response.json();
-  } catch {
-    return res.status(502).json({
-      error: 'Ollama вернула ответ в неизвестном формате.'
-    });
-  }
-
-  if (!response.ok) {
-    console.error('Ollama API error:', response.status, data);
-
-    return res.status(502).json({
-      error: data?.error ||
-        `Ollama API вернула ошибку ${response.status}.`
-    });
-  }
-
-  const reply = data?.message?.content;
-
-  if (typeof reply !== 'string' || !reply.trim()) {
-    return res.status(502).json({
-      error: 'ИИ вернул пустой ответ.'
-    });
-  }
-
-  return res.json({
-    reply: reply.trim(),
-    provider: 'ollama'
-  });
-} catch (err) {
-  console.error('Chat error:', err);
-
-  return res.status(502).json({
-    error: 'Не удалось получить ответ от ИИ.'
-  });
-}
 });
 
 // Генерация изображений через Gemini API
