@@ -290,8 +290,7 @@ function publicUser(user) {
 
 function makeRankCode() {
   return `MAUT-${crypto.randomBytes(4).toString('hex').toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-}  }
-});
+}
 
 // Выход
 app.post('/api/auth/logout', (req, res) => {
