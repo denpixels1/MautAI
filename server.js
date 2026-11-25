@@ -16,15 +16,18 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Лимиты длинных сообщений
 const MAX_MESSAGE_LENGTH = 30000;
 const MAX_HISTORY_MESSAGES = 10;
 const MAX_HISTORY_TOTAL_LENGTH = 12000;
+// Важно: прокрутка области переписки и закрепление поля ввода задаются в HTML/CSS фронтенда, не в server.js.
 
 if (isProduction) app.set('trust proxy', 1);
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '20mb' }));
 
+// Папка для базы данных
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -59,6 +62,7 @@ db.exec(`
   WHERE email IS NOT NULL AND email != ''
 `);
 
+// Таблицы истории чатов
 db.exec(`
   CREATE TABLE IF NOT EXISTS conversations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -213,11 +217,13 @@ function createLoginSession(req, res, user, statusCode = 200) {
   });
 }
 
+// Проверка авторизации
 app.get('/api/auth/me', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json({ user: req.session.user || null });
 });
 
+// Регистрация
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const name = normalizeDisplayName(
@@ -284,6 +290,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
   }
 });
 
+// Вход
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const loginValue = typeof req.body?.email === 'string'
@@ -320,8 +327,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       });
     }
 
-    createLoginSession(req, res, publicUser(row));
-  } catch (err) {
+    createLoginSession(req, res, publicUser(row));  } catch (err) {
     console.error('Login error:', err);
 
     res.status(500).json({
@@ -330,6 +336,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   }
 });
 
+// Выход
 app.post('/api/auth/logout', (req, res) => {
   req.session.destroy(err => {
     if (err) {
@@ -349,6 +356,7 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
+// Создать новый чат
 app.post('/api/chats', requireAuth, (req, res) => {
   try {
     const result = db.prepare(`
@@ -372,6 +380,7 @@ app.post('/api/chats', requireAuth, (req, res) => {
   }
 });
 
+// Получить список чатов пользователя
 app.get('/api/chats', requireAuth, (req, res) => {
   try {
     const chats = db.prepare(`
@@ -399,6 +408,7 @@ app.get('/api/chats', requireAuth, (req, res) => {
   }
 });
 
+// Открыть чат и его сообщения
 app.get('/api/chats/:id', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -439,6 +449,7 @@ app.get('/api/chats/:id', requireAuth, (req, res) => {
   }
 });
 
+// Сохранить сообщение в чате — до 30 000 символов
 app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -528,6 +539,7 @@ app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
   }
 });
 
+// Удалить чат
 app.delete('/api/chats/:id', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -559,6 +571,7 @@ app.delete('/api/chats/:id', requireAuth, (req, res) => {
   }
 });
 
+// Maut AI — чат с ИИ
 app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
     const message = req.body?.message;
@@ -573,6 +586,8 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       });
     }
 
+    // Берём только последние сообщения и ограничиваем общий размер истории.
+    // Это позволяет избежать чрезмерно больших запросов к ИИ.
     const rawHistory = Array.isArray(req.body?.history)
       ? req.body.history.filter(item =>
           item &&
@@ -612,7 +627,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
 - Если нужен длинный ответ, разбивай его на понятные разделы с короткими заголовками Markdown (## и ###), абзацы разделяй пустой строкой.
 - Используй нумерованные списки для последовательности действий и маркированные списки для перечислений. Не превращай каждое предложение в отдельный пункт.
 - Для сравнения используй таблицы только тогда, когда они действительно упрощают понимание.
-- Формулы оформляй понятно; программный код помещай в fenced code blocks с указанием языка, например js.
+- Формулы оформляй понятно; программный код помещай в fenced code blocks с указанием языка, например, с указанием языка js. Не смешивай пояснения и код в одном неразборчивом блоке.
 - Не используй Markdown без необходимости: не делай весь ответ жирным, не добавляй заголовок к каждому короткому ответу и не создавай огромную стену текста.
 - Сначала отвечай по существу. Добавляй детали, примеры и итог, если они помогают выполнить просьбу пользователя.
 - Не выдавай выдуманные сведения за факты. Если чего-то не знаешь, прямо обозначь неопределённость.
@@ -631,6 +646,9 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       { role: 'user', content: message.trim() }
     ];
 
+    // Если задан Groq API key, используем Groq.
+    // Ошибка Groq возвращается пользователю вместо незаметного переключения
+    // на Ollama, которая может быть недоступна на облачном хостинге.
     if (process.env.GROQ_API_KEY) {
       let response;
 
@@ -638,8 +656,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
         response = await fetch(
           'https://api.groq.com/openai/v1/chat/completions',
           {
-            method: 'POST',
-            headers: {
+            method: 'POST',            headers: {
               Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
               'Content-Type': 'application/json'
             },
@@ -710,6 +727,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       });
     }
 
+    // Ollama используется только тогда, когда GROQ_API_KEY не задан.
     const ollamaUrl =
       process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 
@@ -776,12 +794,13 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   } catch (err) {
     console.error('Chat error:', err);
 
-    res.status(502).json({
+    return res.status(502).json({
       error: 'Не удалось получить ответ от ИИ.'
     });
   }
 });
 
+// Генерация изображений через Gemini API
 app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
   const prompt = req.body?.prompt;
 
@@ -879,6 +898,8 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
   }
 });
 
+// Статические файлы сайта.
+// Поддерживаем обычную папку public, вложенную public/public и корень проекта.
 const PUBLIC_CANDIDATES = [
   path.join(__dirname, 'public', 'public'),
   path.join(__dirname, 'public'),
@@ -913,6 +934,7 @@ app.use((err, req, res, next) => {
 
   if (res.headersSent) return next(err);
 
+  // Ошибка возникает, например, если JSON-запрос превышает лимит тела.
   if (err.type === 'entity.too.large') {
     return res.status(413).json({
       error: 'Запрос слишком большой. Уменьши размер сообщения или изображения.'
