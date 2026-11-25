@@ -1,51 +1,34 @@
-Файлы большие, поэтому отправлю их частями, чтобы GitHub-код не обрезался при отправке. Это содержимое подготовленных файлов, не сокращённые примеры.
-
-### `index.html` — часть 1 из 2
-
-```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#212121">
-<title>Maut AI</title>
+<meta name="theme-color" content="#090d14">
+<meta name="description" content="Maut AI — персональный ИИ-ассистент от Liches maut.">
+<title>Maut AI — твой AI-ассистент</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 <style>
 :root{color-scheme:dark;--bg:#212121;--side:#171717;--panel:#2f2f2f;--panel-hover:#383838;--line:#383838;--text:#ececec;--muted:#a0a0a0;--green:#10a37f}*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden}body{background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}button,input,textarea{font:inherit}button{cursor:pointer;color:inherit}.layout{display:flex;width:100%;height:100dvh;min-height:0;overflow:hidden}.sidebar{width:260px;flex:0 0 260px;background:var(--side);padding:12px;display:flex;flex-direction:column;height:100%;min-height:0;overflow-y:auto;transition:width .2s,flex-basis .2s,padding .2s}.layout.sidebar-collapsed .sidebar{width:0;flex-basis:0;padding-left:0;padding-right:0;overflow:hidden;border:0}.brand{height:46px;display:flex;align-items:center;gap:10px;padding:0 9px;text-decoration:none;color:var(--text);font-weight:650;font-size:17px}.brand-icon{width:30px;height:30px;display:grid;place-items:center;flex:0 0 30px;border-radius:7px;background:#080808;color:#fff;font-size:20px;font-weight:800;line-height:1}.new-chat{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #414141;background:transparent;border-radius:9px;padding:11px 12px;margin:12px 0 24px}.new-chat:hover,.side-action:hover{background:#242424}.history-label{font-size:12px;color:#aaa;padding:0 10px 8px}.history{overflow:auto;min-height:0}.history-item{display:block;width:100%;padding:9px 10px;border:0;background:transparent;border-radius:8px;text-align:left;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:13px}.history-item:hover,.history-item.active{background:#292929}.muted{color:var(--muted)}.small{font-size:12px;padding:0 10px}.side-bottom{margin-top:auto}.side-action{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;border-radius:9px;text-align:left;padding:11px 10px}.profile{display:flex;align-items:center;gap:9px;border-top:1px solid #303030;margin-top:12px;padding:14px 3px 3px}.avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#6559a6;font-weight:650;flex-shrink:0}.profile-info{flex:1;min-width:0}.profile-info strong,.profile-info span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.profile-info strong{font-size:13px;font-weight:600}.profile-info span{font-size:11px;color:var(--muted)}.dots{border:0;background:transparent;font-size:20px}.main{min-width:0;flex:1;height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden}.topbar{height:60px;flex:0 0 60px;display:flex;align-items:center;padding:0 25px;gap:12px}.model-label{font-size:16px;font-weight:600}.model-label span{color:#999;margin-left:4px}.top-right{margin-left:auto}.login-button{background:transparent;border:1px solid #555;border-radius:20px;padding:7px 15px;font-size:13px}.login-button:hover{background:#333}.mobile-menu{display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex:0 0 36px;background:transparent;border:1px solid #444;border-radius:9px;font-size:18px;color:#eee}.mobile-menu:hover{background:#303030}.chat-area{width:min(790px,100%);padding:30px 24px 20px;margin:0 auto;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column}.welcome{margin:auto 0;text-align:center;padding:25px 0 40px}.welcome-icon{width:48px;height:48px;display:grid;place-items:center;margin:0 auto 18px;border-radius:10px;background:#080808;color:#fff;font-size:31px;font-weight:800;line-height:1}.welcome h1{font-size:clamp(27px,4vw,34px);font-weight:600;letter-spacing:-.8px;margin:0 0 10px}.welcome p{margin:0;color:#aaa;font-size:15px}.suggestions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:580px;margin:28px auto 0;text-align:left}.suggestion{min-height:84px;position:relative;display:grid;grid-template-columns:24px 1fr;grid-template-rows:auto auto;align-content:center;column-gap:9px;text-align:left;padding:15px;border:1px solid #454545;background:transparent;border-radius:13px}.suggestion:hover{background:#2b2b2b}.suggestion>span{grid-row:1/3;font-size:18px;color:#c2c2c2}.suggestion b{font-size:13px;font-weight:550}.suggestion small{font-size:12px;color:#999;margin-top:3px}.composer-wrap{width:min(790px,100%);flex:0 0 auto;position:relative;z-index:5;padding:0 24px max(18px,env(safe-area-inset-bottom));margin:0 auto;background:var(--bg)}.composer{background:#2f2f2f;border:1px solid #484848;border-radius:25px;padding:12px 13px 10px;box-shadow:0 5px 20px #00000012}.composer:focus-within{border-color:#666}.composer textarea{display:block;width:100%;resize:none;max-height:180px;min-height:31px;outline:0;border:0;background:transparent;color:var(--text);padding:4px 4px 12px}.composer textarea::placeholder{color:#aaa}.composer-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px}.composer-actions{display:flex;align-items:center;gap:10px;min-width:0}.tool{border:1px solid #555;background:transparent;border-radius:18px;padding:6px 11px;font-size:12px;color:#ddd}.tool:hover{background:#404040}.hint{font-size:10px;color:#858585}.send{width:34px;height:34px;border:0;border-radius:50%;background:#eee;color:#202020;font-size:22px;line-height:1;flex-shrink:0}.send:disabled{opacity:.45;cursor:wait}.fine-print{text-align:center;color:#858585;font-size:11px;margin:9px 0 0}.messages{display:flex;flex-direction:column;gap:25px;min-width:0}.message{display:flex;gap:12px;align-items:flex-start;min-width:0}.message.user{justify-content:flex-end}.bubble{max-width:88%;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.7}.message.user .bubble{background:#303030;border-radius:20px;padding:10px 15px;max-width:80%}.message.assistant .bubble{padding:2px 0;flex:1;max-width:100%;white-space:normal;line-height:1.75}.message-mark{width:28px;height:28px;flex-shrink:0;border-radius:7px;display:grid;place-items:center;background:#080808;color:#fff;font-size:18px;font-weight:800}.message-image{display:block;max-width:min(100%,520px);border-radius:12px;margin-top:12px}.download-link{display:inline-block;margin-top:8px;color:#b7d9ff}.status{display:none;margin:0 auto 10px;width:100%;font-size:13px;color:#d7d7d7}.status.show{display:block}.status.error{color:#ffaaa7}.modal-layer{position:fixed;inset:0;z-index:20;background:#0009;display:none;place-items:center;padding:20px}.modal-layer.open{display:grid}.modal{position:relative;width:min(410px,100%);max-height:90dvh;overflow:auto;background:#242424;border:1px solid #454545;border-radius:20px;padding:28px;box-shadow:0 20px 80px #0007}.modal-x{position:absolute;right:14px;top:12px;background:transparent;border:0;font-size:24px;color:#aaa}.modal-brand{width:42px;height:42px;display:grid;place-items:center;margin:0 auto 12px;border-radius:9px;background:#080808;color:#fff;font-size:28px;font-weight:800}.modal h2{text-align:center;margin:0 0 6px;font-size:22px}.modal>p{text-align:center;color:#aaa;font-size:13px;margin:0 0 22px}.modal label{display:block;font-size:12px;color:#ccc;margin:12px 0}.modal input{display:block;width:100%;margin-top:6px;padding:11px 12px;border:1px solid #4b4b4b;background:#171717;color:white;border-radius:9px;outline:0}.modal input:focus{border-color:#999}.primary{width:100%;border:0;background:#eee;color:#222;border-radius:20px;padding:10px;font-weight:600;margin-top:8px}.switch-auth{display:block;margin:15px auto 0;border:0;background:transparent;color:#ccc;font-size:12px}.form-error{color:#ff9c97;font-size:12px;margin:5px 0}.hidden{display:none!important}
 /* Markdown styling */.message.assistant .bubble h1,.message.assistant .bubble h2,.message.assistant .bubble h3,.message.assistant .bubble h4{color:var(--text);line-height:1.35;margin:24px 0 12px;font-weight:650}.message.assistant .bubble h1{font-size:26px}.message.assistant .bubble h2{font-size:22px}.message.assistant .bubble h3{font-size:18px}.message.assistant .bubble p{margin:0 0 14px}.message.assistant .bubble p:last-child{margin-bottom:0}.message.assistant .bubble ul,.message.assistant .bubble ol{padding-left:26px;margin:10px 0 18px}.message.assistant .bubble li{padding-left:4px;margin:5px 0}.message.assistant .bubble strong{font-weight:700;color:#fff}.message.assistant .bubble a{color:#9ecbff;text-decoration:underline;text-underline-offset:3px}.message.assistant .bubble blockquote{margin:16px 0;padding:10px 16px;border-left:3px solid #777;background:#292929;color:#ccc;border-radius:0 8px 8px 0}.message.assistant .bubble pre{max-width:100%;overflow-x:auto;padding:16px;margin:14px 0;border:1px solid #404040;border-radius:12px;background:#171717;line-height:1.6}.message.assistant .bubble pre code{padding:0;background:transparent;white-space:pre}.message.assistant .bubble :not(pre)>code{padding:2px 6px;border-radius:5px;background:#373737;font-family:Consolas,Monaco,monospace;font-size:.9em}.message.assistant .bubble table{display:block;width:100%;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:16px 0}.message.assistant .bubble th,.message.assistant .bubble td{border:1px solid #454545;padding:9px 12px;text-align:left}.message.assistant .bubble th{background:#303030;font-weight:650}.message.assistant .bubble tr:nth-child(even){background:#292929}.message.assistant .bubble hr{border:0;border-top:1px solid #414141;margin:22px 0}.message.assistant .bubble img{max-width:100%;height:auto;border-radius:10px}.message.assistant .bubble pre code{display:block}
-@media(max-width:760px){.layout.sidebar-collapsed .sidebar{width:260px;flex-basis:260px}.sidebar{position:fixed;z-index:15;left:0;top:0;bottom:0;width:280px;flex-basis:280px;transform:translateX(-100%);box-shadow:12px 0 40px #0005}.sidebar.open{transform:translateX(0)}.topbar{padding:0 14px}.chat-area{padding:20px 14px}.composer-wrap{padding-left:14px;padding-right:14px}.suggestions{grid-template-columns:1fr}.welcome{padding:20px 0}.hint{display:none}.admin-user{grid-template-columns:minmax(0,1fr) 90px 65px}.modal{padding:24px 18px}}
-/* Rank badges and admin UI */
-.rank-pill{display:inline-block!important;width:max-content;max-width:100%;padding:2px 7px;margin-top:3px;border:1px solid #555;border-radius:20px;font-size:10px!important;letter-spacing:.4px;color:#ddd!important}
-.rank-pill[data-rank="PLUS"]{border-color:#a78bfa;color:#c4b5fd!important}
-.rank-pill[data-rank="MODER"]{border-color:#4da3ff;color:#93c5fd!important}
-.rank-pill[data-rank="ADMIN"]{border-color:#e0b45b;color:#f4d28b!important}
-.account-tools{display:flex;flex-direction:column;gap:5px;margin:8px 0}
-.account-tools button{border:1px solid #414141;background:#222;border-radius:8px;padding:9px 10px;text-align:left;font-size:12px}
-.admin-modal{width:min(620px,100%);max-height:88dvh}
-.admin-modal h3{font-size:14px;margin:22px 0 10px}
-.admin-grid{display:grid;grid-template-columns:1fr 100px;gap:8px}
-.admin-grid select,.admin-grid input,.admin-user select{min-width:0;width:100%;padding:9px;background:#171717;color:#eee;border:1px solid #4b4b4b;border-radius:8px}
-.admin-result{white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;margin-top:10px;background:#171717;border:1px solid #444;border-radius:9px;font:12px/1.7 monospace}
-.admin-users{display:flex;flex-direction:column;gap:7px;max-height:240px;overflow:auto}
-.admin-user{display:grid;grid-template-columns:minmax(0,1fr) 105px 75px;align-items:center;gap:7px;padding:8px;border:1px solid #414141;border-radius:9px;font-size:11px}
-.admin-user>div{min-width:0;overflow-wrap:anywhere}
-.admin-user button{border:1px solid #555;background:#333;color:#eee;border-radius:8px;padding:7px;font-size:11px}
-.admin-user .ban-action{border-color:#754343;color:#ffaaa7}
-.account-popover{position:absolute;z-index:30;left:12px;bottom:82px;width:min(270px,calc(100vw - 32px));padding:8px;background:#252525;border:1px solid #444;border-radius:14px;box-shadow:0 18px 55px #0009;animation:menuIn .18s ease both}
-.account-popover button{display:block;width:100%;padding:11px 12px;text-align:left;border:0;border-radius:8px;background:transparent;color:#eee;font-size:13px}
-.account-popover button:hover{background:#383838}
-.discord-note{border-top:1px solid #414141;margin-top:6px;padding:10px 12px;color:#aaa;font-size:11px}
-.discord-note b{color:#ddd}
-.request-card{padding:12px;margin:8px 0;border:1px solid #444;border-radius:11px;background:#292929}
-.request-card strong,.request-card small{display:block}
-.request-card small{color:#aaa;margin:4px 0 9px}
-.request-actions{display:flex;gap:8px}
-.request-actions button{flex:1;border:1px solid #555;background:#363636;color:#eee;border-radius:8px;padding:8px}
-.request-actions .approve{background:#174d3d;border-color:#28765d}
-.request-actions .reject{background:#4c2929;border-color:#754343}
-@keyframes menuIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:760px){.layout.sidebar-collapsed .sidebar{width:260px;flex-basis:260px;padding:12px}.sidebar{width:260px;flex-basis:260px;position:fixed;z-index:15;left:0;top:0;bottom:0;transform:translateX(-105%);transition:transform .2s;box-shadow:15px 0 50px #0006}.sidebar.open{transform:translateX(0)}.mobile-menu{display:block}.topbar{padding:0 15px}.chat-area{padding:20px 15px}.composer-wrap{padding:8px 10px max(12px,env(safe-area-inset-bottom))}.suggestions{grid-template-columns:1fr;max-width:440px}.welcome{padding:15px 0 25px}.welcome h1{font-size:28px}.hint{display:none}.tool span{display:none}.composer{border-radius:21px}.modal{padding:24px}}
+
+.rank-pill{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:3px 8px;border:1px solid #555;border-radius:20px;font-size:10px;letter-spacing:.08em;color:#ddd;background:#292929}.rank-pill[data-rank="ADMIN"]{border-color:#b99a54;color:#f0d58b}.rank-pill[data-rank="MODER"]{border-color:#8b79c9;color:#c8baff}.rank-pill[data-rank="PLUS"]{border-color:#4d9d85;color:#8de0c1}.account-tools{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.account-tools button{border:1px solid #454545;background:#242424;color:#ddd;border-radius:8px;padding:7px 9px;font-size:11px}.account-tools button:hover{background:#333}.admin-modal{width:min(720px,100%)}.admin-users{max-height:280px;overflow:auto;margin-top:12px}.admin-user{display:grid;grid-template-columns:minmax(0,1fr) 110px 75px;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid #393939;font-size:12px}.admin-user select,.admin-modal select,.admin-modal input{width:100%;padding:9px;border:1px solid #4b4b4b;background:#171717;color:#eee;border-radius:8px}.admin-modal h3{font-size:14px;margin:20px 0 8px}.admin-result{white-space:pre-wrap;overflow-wrap:anywhere;background:#171717;border:1px solid #414141;border-radius:9px;padding:10px;font-size:12px;margin-top:10px}.admin-grid{display:grid;grid-template-columns:1fr 110px;gap:8px}
+/* MAUT AI — redesigned visual system */
+:root{color-scheme:dark;--bg:#090d14;--side:#0d131d;--panel:#121b28;--panel-hover:#192536;--line:rgba(173,196,225,.13);--text:#edf4ff;--muted:#91a0b5;--green:#62e6b4;--accent:#7c8cff;--glow:rgba(92,230,180,.16)}
+*{box-sizing:border-box}html,body{background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}body{background:radial-gradient(ellipse at 65% -15%,rgba(74,104,190,.20),transparent 38%),radial-gradient(ellipse at 8% 90%,rgba(38,172,139,.10),transparent 34%),var(--bg)}
+button{transition:background .2s,border-color .2s,transform .2s,box-shadow .2s}button:active{transform:scale(.98)}
+.layout{position:relative;background:transparent}.sidebar{position:relative;background:linear-gradient(180deg,rgba(15,23,35,.98),rgba(10,16,25,.98));border-right:1px solid var(--line);padding:18px 14px;box-shadow:12px 0 50px rgba(0,0,0,.12);transition:width .28s cubic-bezier(.2,.8,.2,1),flex-basis .28s,padding .28s}.brand{height:52px;padding:0 10px;font-size:18px;letter-spacing:-.4px}.brand-icon,.welcome-icon,.modal-brand,.message-mark{background:linear-gradient(145deg,#7b8cff,#42d9b0);color:#07121a;border:1px solid rgba(255,255,255,.2);box-shadow:0 8px 26px rgba(85,194,185,.18)}.brand-icon{border-radius:11px;font-size:18px}.new-chat{margin:18px 0 25px;padding:12px 14px;border:1px solid rgba(116,228,195,.3);background:linear-gradient(110deg,rgba(76,207,169,.13),rgba(120,139,255,.10));border-radius:12px;font-weight:600}.new-chat:hover{background:linear-gradient(110deg,rgba(76,207,169,.22),rgba(120,139,255,.18));box-shadow:0 8px 25px rgba(65,190,161,.10);transform:translateY(-1px)}.history-label{padding:0 11px 10px;color:#73849b;text-transform:uppercase;letter-spacing:1.5px;font-size:10px;font-weight:700}.history{scrollbar-width:thin;scrollbar-color:#34445a transparent}.history-item{padding:10px 12px;border:1px solid transparent;border-radius:10px;color:#c6d2e2}.history-item:hover,.history-item.active{background:rgba(128,153,190,.11);border-color:var(--line)}.side-action{border-radius:10px;color:#c8d5e7}.side-action:hover{background:rgba(128,153,190,.10)}.profile{border-color:var(--line);padding-top:16px}.avatar{background:linear-gradient(145deg,#8a8cff,#46d7b1);color:#07121a}.rank-pill{border-color:rgba(115,224,190,.35);background:rgba(76,207,169,.08)}
+.main{position:relative}.topbar{height:70px;flex-basis:70px;padding:0 clamp(16px,3vw,42px);border-bottom:1px solid rgba(173,196,225,.07);background:rgba(9,13,20,.38);backdrop-filter:blur(18px)}.model-label{font-size:15px;letter-spacing:.1px}.model-label span{color:#6fe0bd}.mobile-menu{border-color:var(--line);background:rgba(255,255,255,.035);border-radius:11px}.mobile-menu:hover{background:rgba(255,255,255,.08)}.login-button{border:1px solid rgba(113,222,190,.35);background:rgba(67,191,158,.09);border-radius:12px;padding:9px 17px;font-weight:600}.login-button:hover{background:rgba(67,191,158,.18);box-shadow:0 0 24px var(--glow)}
+.chat-area{width:min(900px,100%);padding:clamp(24px,4vh,48px) clamp(18px,4vw,42px) 24px;scrollbar-width:thin;scrollbar-color:#34445a transparent}.welcome{margin:auto 0;padding:35px 0 50px;animation:riseIn .75s cubic-bezier(.2,.8,.2,1) both}.welcome-icon{width:62px;height:62px;border-radius:18px;font-size:36px;margin-bottom:23px;animation:float 5s ease-in-out infinite}.welcome h1{font-size:clamp(32px,5vw,48px);font-weight:650;letter-spacing:-1.8px;background:linear-gradient(100deg,#f3f7ff 15%,#a7b9ff 52%,#7de8c5 90%);background-clip:text;-webkit-background-clip:text;color:transparent;margin-bottom:12px}.welcome p{color:#91a0b5;font-size:15px}.suggestions{max-width:680px;gap:12px;margin-top:34px}.suggestion{min-height:94px;padding:18px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(145deg,rgba(24,36,53,.75),rgba(15,23,35,.82));box-shadow:inset 0 1px rgba(255,255,255,.025);transition:transform .22s,border-color .22s,background .22s,box-shadow .22s}.suggestion:hover{transform:translateY(-3px);border-color:rgba(103,222,188,.38);background:linear-gradient(145deg,rgba(31,52,69,.9),rgba(19,33,47,.95));box-shadow:0 14px 35px rgba(0,0,0,.2),0 0 24px rgba(74,201,169,.06)}.suggestion>span{color:#72dfbf;font-size:21px}.suggestion b{font-size:13px;color:#e8f1ff}.suggestion small{color:#8496ad;font-size:12px}
+.composer-wrap{width:min(900px,100%);padding:0 clamp(18px,4vw,42px) max(22px,env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,rgba(9,13,20,.94) 18%)}.composer{padding:15px 16px 12px;border:1px solid rgba(158,185,220,.18);border-radius:23px;background:rgba(20,30,44,.92);box-shadow:0 18px 60px rgba(0,0,0,.25),inset 0 1px rgba(255,255,255,.035);backdrop-filter:blur(20px);transition:border-color .2s,box-shadow .2s}.composer:focus-within{border-color:rgba(103,222,188,.48);box-shadow:0 18px 60px rgba(0,0,0,.28),0 0 0 4px rgba(83,211,174,.06)}.composer textarea{color:#edf4ff;padding:5px 5px 14px;min-height:34px}.composer textarea::placeholder{color:#7f91a8}.tool{border-color:rgba(158,185,220,.2);background:rgba(255,255,255,.035);border-radius:12px;padding:8px 12px;color:#c6d5e8}.tool:hover{background:rgba(255,255,255,.08);border-color:rgba(103,222,188,.35)}.send{width:39px;height:39px;background:linear-gradient(140deg,#7f91ff,#5ce0b5);color:#07131a;font-weight:800;box-shadow:0 5px 18px rgba(81,208,174,.22)}.send:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(81,208,174,.32)}.fine-print{color:#64758b;margin-top:11px}.hint{color:#71839a}.status{color:#b7c9dc}.status.error{color:#ffaaa7}
+.message{animation:messageIn .3s ease both}.message.user .bubble{background:linear-gradient(140deg,#23364a,#1b2b3d);border:1px solid rgba(132,164,205,.15);border-radius:19px 19px 5px 19px;padding:12px 16px}.message.assistant .bubble{color:#dce7f5}.message-mark{border-radius:9px;width:30px;height:30px}.message-image{border:1px solid var(--line);box-shadow:0 14px 35px rgba(0,0,0,.25)}
+.modal-layer{background:rgba(2,7,13,.72);backdrop-filter:blur(12px);animation:fadeIn .18s ease both}.modal{background:linear-gradient(155deg,#172333,#0e1723);border:1px solid rgba(165,193,224,.18);border-radius:22px;box-shadow:0 28px 100px rgba(0,0,0,.55);animation:modalIn .28s cubic-bezier(.2,.8,.2,1) both}.modal-brand{border-radius:13px}.modal h2{letter-spacing:-.5px}.modal>p{color:#8fa1b7}.modal label{color:#bac9da}.modal input,.admin-grid select,.admin-grid input,.admin-user select{background:#0b131e;border:1px solid rgba(153,181,215,.2);border-radius:11px;color:#edf4ff;padding:12px}.modal input:focus{border-color:#65dcb8;box-shadow:0 0 0 3px rgba(101,220,184,.08)}.primary{background:linear-gradient(100deg,#8292ff,#5cdeb5);color:#07131b;border-radius:12px;padding:12px;font-weight:750;box-shadow:0 8px 25px rgba(80,206,174,.15)}.primary:hover{filter:brightness(1.08);transform:translateY(-1px)}.switch-auth{color:#9eb0c6}.modal-x{color:#8294aa}.admin-users .admin-user{background:rgba(255,255,255,.025);border-color:var(--line);border-radius:11px}.admin-user button{border-radius:9px}
+.account-popover{background:#142031;border-color:var(--line);border-radius:14px;box-shadow:0 20px 60px #0009}.account-popover button:hover{background:rgba(255,255,255,.07)}.admin-result{background:#09121d;border-color:var(--line);border-radius:12px;color:#9de7ce}
+.hidden{display:none!important}
+@keyframes riseIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}@keyframes messageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes modalIn{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@media(max-width:760px){.sidebar{background:#0b1420;border-right:1px solid var(--line)}.topbar{height:62px;flex-basis:62px}.chat-area{padding-top:22px}.welcome{padding:22px 0 30px}.welcome h1{letter-spacing:-1.2px}.suggestions{grid-template-columns:1fr;margin-top:25px}.suggestion{min-height:76px}.composer-wrap{padding-bottom:max(14px,env(safe-area-inset-bottom))}.hint{display:none}.modal{max-height:88dvh}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 </style>
 </head>
 <body>
@@ -56,128 +39,23 @@
     <div class="history-label">История</div>
     <div class="history" id="history"><div class="small muted">Войди, чтобы сохранять чаты</div></div>
     <div class="side-bottom">
-      <button class="side-action" id="authSide">♙ <span>Войти в аккаунт</span></button>
-      <div class="account-tools hidden" id="accountTools">
-        <button type="button" id="redeemOpen">Активировать код</button>
-        <button type="button" id="adminOpen" class="hidden">Панель ADMIN</button>
-      </div>
-      <div class="profile hidden" id="profile">
-        <div class="avatar" id="avatar">M</div>
-        <div class="profile-info">
-          <strong id="profileName">Пользователь</strong>
-          <span id="profileEmail">Аккаунт</span>
-          <span class="rank-pill" id="rankBadge" data-rank="FREE">FREE</span>
-        </div>
-        <button class="dots" id="accountMenuToggle" title="Меню аккаунта" aria-label="Меню аккаунта">⋯</button>
-      </div>
-    </div>
-    <div class="account-popover hidden" id="accountPopover">
-      <button type="button" id="menuPlusRequest">Получить PLUS</button>
-      <button type="button" id="menuStaffRequest">Заявка на MODER / ADMIN</button>
-      <button type="button" id="menuAdmin" class="hidden">Управление сайтом</button>
-      <button type="button" id="logout">Выйти из аккаунта</button>
-      <div class="discord-note">Discord: <b>denkrixell_26041</b></div>
+      <button class="side-action" id="authSide">♙ <span>Войти в аккаунт</span></button><div class="account-tools hidden" id="accountTools"><button type="button" id="redeemOpen">Активировать код</button><button type="button" id="adminOpen" class="hidden">Панель ADMIN</button></div>
+      <div class="profile hidden" id="profile"><div class="avatar" id="avatar">M</div><div class="profile-info"><strong id="profileName">Пользователь</strong><span id="profileEmail">Аккаунт</span><span class="rank-pill" id="rankBadge" data-rank="FREE">FREE</span></div><button class="dots" id="logout" title="Выйти">⋯</button></div>
     </div>
   </aside>
   <main class="main">
-    <header class="topbar">
-      <button class="mobile-menu" id="sidebarToggle" type="button" aria-label="Открыть или закрыть боковую панель" title="Открыть или закрыть меню">☰</button>
-      <div class="model-label">Maut AI <span>▾</span></div>
-      <div class="top-right"><button class="login-button" id="loginTop">Войти</button></div>
-    </header>
+    <header class="topbar"><button class="mobile-menu" id="sidebarToggle" type="button" aria-label="Открыть или закрыть боковую панель" title="Открыть или закрыть меню">☰</button><div class="model-label">Maut AI <span>▾</span></div><div class="top-right"><button class="login-button" id="loginTop">Войти</button></div></header>
     <section class="chat-area" id="chatArea">
-      <div class="welcome" id="welcome">
-        <div class="welcome-icon">L</div>
-        <h1>Чем могу помочь?</h1>
-        <p>Спроси что угодно — начнём.</p>
-        <div class="suggestions">
-          <button class="suggestion" data-prompt="Объясни сложную тему простыми словами"><span>✧</span><b>Объяснить тему</b><small>Просто и понятно</small></button>
-          <button class="suggestion" data-prompt="Напиши пример кода и объясни, как он работает"><span>⌘</span><b>Написать код</b><small>С примерами и пояснениями</small></button>
-          <button class="suggestion" data-prompt="Помоги придумать идею для проекта"><span>✎</span><b>Придумать идею</b><small>Для нового проекта</small></button>
-          <button class="suggestion" data-prompt="Составь пошаговый план обучения программированию"><span>↗</span><b>Составить план</b><small>Шаг за шагом</small></button>
-        </div>
-      </div>
+      <div class="welcome" id="welcome"><div class="welcome-icon">L</div><h1>Чем могу помочь?</h1><p>Спроси что угодно — начнём.</p><div class="suggestions"><button class="suggestion" data-prompt="Объясни сложную тему простыми словами"><span>✧</span><b>Объяснить тему</b><small>Просто и понятно</small></button><button class="suggestion" data-prompt="Напиши пример кода и объясни, как он работает"><span>⌘</span><b>Написать код</b><small>С примерами и пояснениями</small></button><button class="suggestion" data-prompt="Помоги придумать идею для проекта"><span>✎</span><b>Придумать идею</b><small>Для нового проекта</small></button><button class="suggestion" data-prompt="Составь пошаговый план обучения программированию"><span>↗</span><b>Составить план</b><small>Шаг за шагом</small></button></div></div>
       <div class="messages" id="messages"></div>
     </section>
-    <div class="composer-wrap">
-      <div class="status" id="status"></div>
-      <form class="composer" id="composer">
-        <textarea id="prompt" rows="1" maxlength="30000" placeholder="Напиши сообщение Maut AI..." aria-label="Сообщение"></textarea>
-        <div class="composer-bottom">
-          <div class="composer-actions">
-            <button class="tool" type="button" id="imageMode">✧ <span>Создать изображение</span></button>
-            <span class="hint">Enter — отправить · Shift+Enter — новая строка</span>
-          </div>
-          <button class="send" id="send" type="submit" aria-label="Отправить">↑</button>
-        </div>
-      </form>
-      <div class="fine-print">Maut AI может допускать ошибки. Проверяй важную информацию.</div>
-    </div>
+    <div class="composer-wrap"><div class="status" id="status"></div><form class="composer" id="composer"><textarea id="prompt" rows="1" maxlength="30000" placeholder="Напиши сообщение Maut AI..." aria-label="Сообщение"></textarea><div class="composer-bottom"><div class="composer-actions"><button class="tool" type="button" id="imageMode">✧ <span>Создать изображение</span></button><span class="hint">Enter — отправить · Shift+Enter — новая строка</span></div><button class="send" id="send" type="submit" aria-label="Отправить">↑</button></div></form><div class="fine-print">Maut AI может допускать ошибки. Проверяй важную информацию.</div></div>
   </main>
 </div>
-<div class="modal-layer" id="authModal">
-  <form class="modal" id="authForm">
-    <button class="modal-x" type="button" id="closeModal" aria-label="Закрыть">×</button>
-    <div class="modal-brand">L</div>
-    <h2 id="authTitle">Войти в Maut AI</h2>
-    <p id="authSubtitle">Рады видеть тебя снова.</p>
-    <div id="nameField" class="hidden"><label>Имя<input id="authName" autocomplete="name" maxlength="60"></label></div>
-    <label>Email<input id="authEmail" type="email" autocomplete="email" required maxlength="254"></label>
-    <label>Пароль<input id="authPassword" type="password" autocomplete="current-password" required minlength="8" maxlength="128"></label>
-    <div class="form-error" id="authError"></div>
-    <button class="primary" id="authSubmit" type="submit">Войти</button>
-    <button class="switch-auth" id="switchAuth" type="button">Нет аккаунта? Зарегистрироваться</button>
-  </form>
-</div>
-<div class="modal-layer" id="redeemModal">
-  <form class="modal" id="redeemForm">
-    <button class="modal-x" type="button" data-close="redeemModal">×</button>
-    <div class="modal-brand">L</div>
-    <h2>Активация ранга</h2>
-    <p>Введи код, полученный от администратора.</p>
-    <label>Код ранга<input id="redeemCode" autocomplete="off" placeholder="MAUT-…" required maxlength="80"></label>
-    <div class="form-error" id="redeemError"></div>
-    <button class="primary" type="submit" id="redeemSubmit">Активировать</button>
-  </form>
-</div>
-<div class="modal-layer" id="requestModal">
-  <form class="modal" id="requestForm">
-    <button class="modal-x" type="button" data-close="requestModal">×</button>
-    <div class="modal-brand">L</div>
-    <h2>Заявка на ранг</h2>
-    <p>Администратор рассмотрит твою заявку.</p>
-    <label>Желаемый ранг
-      <select id="requestRank">
-        <option value="PLUS">PLUS</option>
-        <option value="MODER">MODER</option>
-        <option value="ADMIN">ADMIN</option>
-      </select>
-    </label>
-    <label>Почему ты хочешь получить ранг?<input id="requestMessage" maxlength="500" placeholder="Коротко расскажи о себе"></label>
-    <div class="form-error" id="requestError"></div>
-    <button class="primary" type="submit" id="requestSubmit">Отправить заявку</button>
-  </form>
-</div>
-<div class="modal-layer" id="adminModal">
-  <section class="modal admin-modal">
-    <button class="modal-x" type="button" data-close="adminModal">×</button>
-    <div class="modal-brand">L</div>
-    <h2>Панель администратора</h2>
-    <p>Управление рангами Maut AI</p>
-    <h3>Создать код ранга</h3>
-    <div class="admin-grid">
-      <select id="codeRank"><option value="PLUS">PLUS</option><option value="MODER">MODER</option></select>
-      <input id="codeAmount" type="number" min="1" max="20" value="1" aria-label="Количество кодов">
-    </div>
-    <button class="primary" id="createCodes" type="button">Создать коды</button>
-    <div class="admin-result hidden" id="codeResult"></div>
-    <h3>Заявки на повышение <span id="requestCount"></span></h3>
-    <div class="admin-users" id="adminRequests">Загрузка…</div>
-    <h3>Пользователи</h3>
-    <div class="admin-users" id="adminUsers">Загрузка…</div>
-    <div class="form-error" id="adminError"></div>
-  </section>
-</div>
+<div class="modal-layer" id="authModal"><form class="modal" id="authForm"><button class="modal-x" type="button" id="closeModal" aria-label="Закрыть">×</button><div class="modal-brand">L</div><h2 id="authTitle">Войти в Maut AI</h2><p id="authSubtitle">Рады видеть тебя снова.</p><div id="nameField" class="hidden"><label>Имя<input id="authName" autocomplete="name" maxlength="60"></label></div><label>Email<input id="authEmail" type="email" autocomplete="email" required maxlength="254"></label><label>Пароль<input id="authPassword" type="password" autocomplete="current-password" required minlength="8" maxlength="128"></label><div class="form-error" id="authError"></div><button class="primary" id="authSubmit" type="submit">Войти</button><button class="switch-auth" id="switchAuth" type="button">Нет аккаунта? Зарегистрироваться</button></form></div>
+
+<div class="modal-layer" id="redeemModal"><form class="modal" id="redeemForm"><button class="modal-x" type="button" data-close="redeemModal">×</button><div class="modal-brand">L</div><h2>Активация ранга</h2><p>Введи код, полученный от администратора.</p><label>Код ранга<input id="redeemCode" autocomplete="off" placeholder="MAUT-…" required maxlength="80"></label><div class="form-error" id="redeemError"></div><button class="primary" type="submit" id="redeemSubmit">Активировать</button></form></div>
+<div class="modal-layer" id="adminModal"><section class="modal admin-modal"><button class="modal-x" type="button" data-close="adminModal">×</button><div class="modal-brand">L</div><h2>Панель администратора</h2><p>Управление рангами Maut AI</p><h3>Создать код ранга</h3><div class="admin-grid"><select id="codeRank"><option value="PLUS">PLUS</option><option value="MODER">MODER</option></select><input id="codeAmount" type="number" min="1" max="20" value="1" aria-label="Количество кодов"></div><button class="primary" id="createCodes" type="button">Создать коды</button><div class="admin-result hidden" id="codeResult"></div><h3>Пользователи</h3><div class="admin-users" id="adminUsers">Загрузка…</div><div class="form-error" id="adminError"></div></section></div>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -243,4 +121,242 @@ function resetView() {
 function setBusy(value) {
   state.busy = value;
   $('send').disabled = value;
+  $('send').textContent = value ? '…' : '↑';
+  promptEl.disabled = value;
+  $('imageMode').disabled = value;
 }
+async function api(url, options = {}) {
+  const response = await fetch(url, { credentials: 'same-origin', ...options, headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) } });
+  let data;
+  try { data = await response.json(); } catch { data = {}; }
+  if (!response.ok) throw new Error(data.error || `Ошибка сервера (${response.status})`);
+  return data;
+}
+async function loadMe() {
+  try {
+    const data = await api('/api/auth/me');
+    state.user = data.user;
+    updateProfile();
+    if (state.user) { await loadChats(); await refreshRank(); }
+  } catch (err) { console.warn('Проверка аккаунта:', err.message); }
+}
+function updateProfile() {
+  const loggedIn = Boolean(state.user);
+  $('profile').classList.toggle('hidden', !loggedIn);
+  $('authSide').classList.toggle('hidden', loggedIn);
+  $('loginTop').classList.toggle('hidden', loggedIn);
+  $('accountTools').classList.toggle('hidden', !loggedIn);
+  if (loggedIn) {
+    const name = state.user.name || state.user.username || 'Пользователь';
+    const rank = ['FREE','PLUS','MODER','ADMIN'].includes(state.user.rank) ? state.user.rank : 'FREE';
+    $('profileName').textContent = name;
+    $('profileEmail').textContent = state.user.email || state.user.username || '';
+    $('avatar').textContent = [...name][0]?.toUpperCase() || 'M';
+    $('rankBadge').textContent = rank;
+    $('rankBadge').dataset.rank = rank;
+    $('adminOpen').classList.toggle('hidden', rank !== 'ADMIN');
+  }
+}
+async function loadChats() {
+  if (!state.user) return;
+  try {
+    const data = await api('/api/chats');
+    state.chats = data.chats || [];
+    const history = $('history');
+    history.replaceChildren();
+    if (!state.chats.length) {
+      const empty = document.createElement('div');
+      empty.className = 'small muted'; empty.textContent = 'Пока нет чатов'; history.appendChild(empty); return;
+    }
+    for (const chat of state.chats) {
+      const button = document.createElement('button');
+      button.className = 'history-item' + (Number(chat.id) === Number(state.chatId) ? ' active' : '');
+      button.textContent = chat.title || 'Новый чат';
+      button.title = chat.title || 'Новый чат';
+      button.addEventListener('click', () => openChat(chat.id));
+      history.appendChild(button);
+    }
+  } catch (err) { console.warn('Загрузка истории:', err.message); }
+}
+async function createChat() {
+  if (!state.user) return null;
+  const data = await api('/api/chats', { method: 'POST', body: JSON.stringify({}) });
+  state.chatId = data.chat.id;
+  await loadChats();
+  return state.chatId;
+}
+async function openChat(id) {
+  try {
+    showStatus('Загружаю чат…');
+    const data = await api(`/api/chats/${encodeURIComponent(id)}`);
+    state.chatId = data.chat.id;
+    messagesEl.replaceChildren();
+    $('welcome').classList.add('hidden');
+    for (const message of data.messages || []) addMessage(message.role, message.content, message.image);
+    showStatus('');
+    await loadChats();
+    $('sidebar').classList.remove('open');
+    scrollToBottom();
+  } catch (err) { showStatus(err.message, true); }
+}
+async function saveMessage(role, content, image = null) {
+  if (!state.user || !state.chatId) return;
+  await api(`/api/chats/${encodeURIComponent(state.chatId)}/messages`, {
+    method: 'POST', body: JSON.stringify({ role, content, image })
+  });
+}
+async function sendMessage(text = promptEl.value) {
+  text = String(text || '').trim();
+  if (!text || state.busy) return;
+  if (text.length > 30000) { showStatus('Сообщение превышает лимит 30 000 символов.', true); return; }
+  const makeImage = state.imageMode;
+  promptEl.value = '';
+  promptEl.style.height = '31px';
+  $('welcome').classList.add('hidden');
+  showStatus('');
+  addMessage('user', text);
+  setBusy(true);
+  let pending;
+  try {
+    if (state.user && !state.chatId) await createChat();
+    if (state.user) await saveMessage('user', text);
+    if (makeImage) {
+      showStatus('Создаю изображение…');
+      pending = addMessage('assistant', 'Создаю изображение…');
+      const data = await api('/api/images', { method: 'POST', body: JSON.stringify({ prompt: text }) });
+      pending.row.remove();
+      addMessage('assistant', 'Готово! Вот твоё изображение:', data.image);
+      if (state.user) await saveMessage('assistant', 'Готово! Вот твоё изображение:', data.image);
+    } else {
+      pending = addMessage('assistant', 'Думаю…');
+      const history = [...messagesEl.querySelectorAll('.message')].slice(0, -2).map(row => ({
+        role: row.classList.contains('user') ? 'user' : 'assistant',
+        content: row.querySelector('.bubble')?.innerText || ''
+      })).filter(item => item.content).slice(-10);
+      const data = await api('/api/chat', { method: 'POST', body: JSON.stringify({ message: text, history }) });
+      pending.row.remove();
+      addMessage('assistant', data.reply || 'Не удалось получить ответ.');
+      if (state.user) await saveMessage('assistant', data.reply || 'Не удалось получить ответ.');
+    }
+    if (state.user) await loadChats();
+    showStatus('');
+  } catch (err) {
+    if (pending?.row?.isConnected) pending.row.remove();
+    addMessage('assistant', `**Ошибка:** ${err.message}`);
+    showStatus(err.message, true);
+  } finally {
+    setBusy(false);
+    state.imageMode = false;
+    $('imageMode').style.borderColor = '';
+    promptEl.focus();
+    scrollToBottom();
+  }
+}
+function showAuth(register = false) {
+  state.register = register;
+  $('authTitle').textContent = register ? 'Создать аккаунт' : 'Войти в Maut AI';
+  $('authSubtitle').textContent = register ? 'Создай аккаунт, чтобы сохранять историю чатов.' : 'Рады видеть тебя снова.';
+  $('nameField').classList.toggle('hidden', !register);
+  $('authName').required = register;
+  $('authPassword').autocomplete = register ? 'new-password' : 'current-password';
+  $('authSubmit').textContent = register ? 'Зарегистрироваться' : 'Войти';
+  $('switchAuth').textContent = register ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться';
+  $('authError').textContent = '';
+  $('authModal').classList.add('open');
+}
+function closeAuth() { $('authModal').classList.remove('open'); }
+$('authForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  $('authError').textContent = '';
+  $('authSubmit').disabled = true;
+  try {
+    const body = { email: $('authEmail').value.trim(), password: $('authPassword').value };
+    let endpoint = '/api/auth/login';
+    if (state.register) {
+      endpoint = '/api/auth/register';
+      body.name = $('authName').value.trim();
+    }
+    const data = await api(endpoint, { method: 'POST', body: JSON.stringify(body) });
+    state.user = data.user;
+    updateProfile(); closeAuth(); resetView(); await loadChats(); await refreshRank();
+    showStatus('Вход выполнен.'); setTimeout(() => showStatus(''), 2000);
+  } catch (err) { $('authError').textContent = err.message; }
+  finally { $('authSubmit').disabled = false; }
+});
+$('switchAuth').addEventListener('click', () => showAuth(!state.register));
+$('closeModal').addEventListener('click', closeAuth);
+$('authModal').addEventListener('click', e => { if (e.target === $('authModal')) closeAuth(); });
+$('loginTop').addEventListener('click', () => showAuth(false));
+$('authSide').addEventListener('click', () => showAuth(false));
+$('logout').addEventListener('click', async () => {
+  try { await api('/api/auth/logout', { method: 'POST', body: JSON.stringify({}) }); } catch (err) { showStatus(err.message, true); }
+  state.user = null; state.chats = []; updateProfile(); resetView(); await loadChats();
+});
+$('newChat').addEventListener('click', () => { resetView(); loadChats(); $('sidebar').classList.remove('open'); promptEl.focus(); });
+$('brandHome').addEventListener('click', e => { e.preventDefault(); resetView(); });
+$('sidebarToggle').addEventListener('click', () => {
+  if (window.matchMedia('(max-width: 760px)').matches) {
+    $('sidebar').classList.toggle('open');
+  } else {
+    document.querySelector('.layout').classList.toggle('sidebar-collapsed');
+  }
+});
+// При переходе с мобильного размера на большой сбрасываем мобильное выдвижное состояние.
+window.addEventListener('resize', () => {
+  if (!window.matchMedia('(max-width: 760px)').matches) $('sidebar').classList.remove('open');
+});
+$('imageMode').addEventListener('click', () => {
+  state.imageMode = !state.imageMode;
+  $('imageMode').style.borderColor = state.imageMode ? 'var(--green)' : '';
+  promptEl.placeholder = state.imageMode ? 'Опиши изображение, которое нужно создать…' : 'Напиши сообщение Maut AI…';
+  promptEl.focus();
+});
+$('composer').addEventListener('submit', e => { e.preventDefault(); sendMessage(); });
+promptEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendMessage(); }
+});
+promptEl.addEventListener('input', () => {
+  promptEl.style.height = '31px';
+  promptEl.style.height = Math.min(promptEl.scrollHeight, 180) + 'px';
+});
+document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => {
+  promptEl.value = button.dataset.prompt;
+  promptEl.dispatchEvent(new Event('input'));
+  sendMessage();
+}));
+// Ранги и административная панель
+async function refreshRank() {
+  if (!state.user) return;
+  try { const data = await api('/api/ranks/me'); state.user.rank = data.rank; updateProfile(); } catch (e) { console.warn(e); }
+}
+$('redeemOpen').addEventListener('click', () => { $('redeemError').textContent=''; $('redeemCode').value=''; $('redeemModal').classList.add('open'); });
+$('redeemForm').addEventListener('submit', async e => {
+  e.preventDefault(); $('redeemSubmit').disabled=true; $('redeemError').textContent='';
+  try { const data=await api('/api/ranks/redeem',{method:'POST',body:JSON.stringify({code:$('redeemCode').value})}); state.user.rank=data.rank; updateProfile(); $('redeemModal').classList.remove('open'); showStatus('Ранг активирован: '+data.rank); setTimeout(()=>showStatus(''),2500); }
+  catch(err){ $('redeemError').textContent=err.message; } finally {$('redeemSubmit').disabled=false;}
+});
+$('adminOpen').addEventListener('click', async()=>{ $('adminModal').classList.add('open'); await loadAdminUsers(); });
+async function loadAdminUsers(){
+  $('adminUsers').textContent='Загрузка…'; $('adminError').textContent='';
+  try { const data=await api('/api/admin/users'); const root=$('adminUsers'); root.replaceChildren();
+    for(const user of data.users||[]){
+      const row=document.createElement('div'); row.className='admin-user';
+      const info=document.createElement('div'); info.textContent=`${user.display_name||user.username} · ${user.email||''}`;
+      const select=document.createElement('select'); for(const rank of ['FREE','PLUS','MODER','ADMIN']){const opt=document.createElement('option');opt.value=rank;opt.textContent=rank;opt.selected=rank===user.rank;select.appendChild(opt);}
+      const save=document.createElement('button'); save.type='button'; save.textContent='Сохранить'; save.addEventListener('click',async()=>{try{await api(`/api/admin/users/${user.id}/rank`,{method:'POST',body:JSON.stringify({rank:select.value})});showStatus('Ранг обновлён');}catch(err){$('adminError').textContent=err.message;}});
+      row.append(info,select,save); root.appendChild(row);
+    }
+  } catch(err){$('adminUsers').textContent='Не удалось загрузить пользователей.';$('adminError').textContent=err.message;}
+}
+$('createCodes').addEventListener('click',async()=>{
+  $('codeResult').classList.add('hidden'); $('adminError').textContent='';
+  try{const data=await api('/api/admin/codes',{method:'POST',body:JSON.stringify({rank:$('codeRank').value,amount:Number($('codeAmount').value)})});$('codeResult').textContent=data.codes.join('\n');$('codeResult').classList.remove('hidden');}
+  catch(err){$('adminError').textContent=err.message;}
+});
+document.querySelectorAll('[data-close]').forEach(button=>button.addEventListener('click',()=>$(button.dataset.close).classList.remove('open')));
+$('redeemModal').addEventListener('click',e=>{if(e.target===$('redeemModal'))$('redeemModal').classList.remove('open');});
+$('adminModal').addEventListener('click',e=>{if(e.target===$('adminModal'))$('adminModal').classList.remove('open');});
+loadMe();
+</script>
+</body>
+</html>
