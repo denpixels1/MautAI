@@ -1,6 +1,3 @@
-// Maut AI — server.js
-// Полный объединённый сервер
-
 import 'dotenv/config';
 import express from 'express';
 import session from 'express-session';
@@ -26,9 +23,8 @@ const MAX_HISTORY_TOTAL_LENGTH = 12000;
 if (isProduction) app.set('trust proxy', 1);
 
 app.disable('x-powered-by');
-app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '12mb' }));
+app.use(express.json({ limit: '20mb' }));
 
-// База данных
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -56,17 +52,6 @@ if (!userColumns.includes('display_name')) {
 if (!userColumns.includes('email')) {
   db.exec('ALTER TABLE users ADD COLUMN email TEXT');
 }
-
-if (!userColumns.includes('last_login')) {
-  db.exec('ALTER TABLE users ADD COLUMN last_login TEXT');
-}
-
-// Для существующих аккаунтов сохраняем доступ и начинаем отсчёт с текущих данных.
-db.exec(`
-  UPDATE users
-  SET last_login = COALESCE(last_login, created_at, CURRENT_TIMESTAMP)
-  WHERE last_login IS NULL
-`);
 
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique
@@ -102,7 +87,6 @@ db.exec(`
   ON messages(conversation_id, id);
 `);
 
-// Сессии
 const SQLiteStore = SQLiteStoreFactory(session);
 
 const sessionStore = new SQLiteStore({
@@ -115,7 +99,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET;
 
 if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
   throw new Error(
-    'Установи SESSION_SECRET длиной минимум 32 символа в переменных окружения.'
+    'Установи SESSION_SECRET длиной минимум 32 символа в Render.'
   );
 }
 
@@ -135,7 +119,6 @@ app.use(session({
   }
 }));
 
-// Ограничение частоты запросов
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
@@ -160,52 +143,6 @@ const imageLimiter = rateLimit({
   }
 });
 
-// Защита одного экземпляра сервера от слишком большого числа одновременных AI-запросов.
-// Для нескольких экземпляров приложения понадобится общая очередь Redis/BullMQ.
-const MAX_PARALLEL_AI_REQUESTS = Math.max(1, Number(process.env.MAX_PARALLEL_AI_REQUESTS) || 4);
-const MAX_QUEUED_AI_REQUESTS = Math.max(0, Number(process.env.MAX_QUEUED_AI_REQUESTS) || 20);
-let activeAIRequests = 0;
-let queuedAIRequests = 0;
-
-function aiCapacity(req, res, next) {
-  if (activeAIRequests < MAX_PARALLEL_AI_REQUESTS) {
-    activeAIRequests++;
-    let released = false;
-    const release = () => { if (!released) { released = true; activeAIRequests = Math.max(0, activeAIRequests - 1); } };
-    res.once('finish', release);
-    res.once('close', release);
-    return next();
-  }
-  if (queuedAIRequests >= MAX_QUEUED_AI_REQUESTS) {
-    return res.status(503).json({ error: 'Сейчас Maut AI занят. Подожди немного и попробуй снова.' });
-  }
-  queuedAIRequests++;
-  const started = Date.now();
-  const poll = setInterval(() => {
-    if (res.destroyed || res.writableEnded) {
-      clearInterval(poll);
-      queuedAIRequests = Math.max(0, queuedAIRequests - 1);
-      return;
-    }
-    if (activeAIRequests < MAX_PARALLEL_AI_REQUESTS) {
-      clearInterval(poll);
-      queuedAIRequests = Math.max(0, queuedAIRequests - 1);
-      activeAIRequests++;
-      let released = false;
-      const release = () => { if (!released) { released = true; activeAIRequests = Math.max(0, activeAIRequests - 1); } };
-      res.once('finish', release);
-      res.once('close', release);
-      return next();
-    }
-    if (Date.now() - started >= 15000) {
-      clearInterval(poll);
-      queuedAIRequests = Math.max(0, queuedAIRequests - 1);
-      if (!res.headersSent) res.status(503).json({ error: 'Очередь Maut AI переполнена. Попробуй ещё раз через минуту.' });
-    }
-  }, 200);
-}
-
-// Вспомогательные функции
 function requireAuth(req, res, next) {
   if (!req.session.user) {
     return res.status(401).json({
@@ -276,13 +213,11 @@ function createLoginSession(req, res, user, statusCode = 200) {
   });
 }
 
-// Авторизация: текущий пользователь
 app.get('/api/auth/me', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.json({ user: req.session.user || null });
 });
 
-// Регистрация
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const name = normalizeDisplayName(
@@ -328,8 +263,8 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
 
     const result = db.prepare(`
       INSERT INTO users
-        (username, password_hash, display_name, email, last_login)
-      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        (username, password_hash, display_name, email)
+      VALUES (?, ?, ?, ?)
     `).run(email, hash, name, email);
 
     const user = {
@@ -349,7 +284,6 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
   }
 });
 
-// Вход
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const loginValue = typeof req.body?.email === 'string'
@@ -374,7 +308,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     }
 
     const row = db.prepare(`
-      SELECT id, username, password_hash, display_name, email, last_login
+      SELECT id, username, password_hash, display_name, email
       FROM users
       WHERE email = ? OR username = ?
       LIMIT 1
@@ -386,24 +320,6 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       });
     }
 
-    // После 30 дней без входа удаляем только чаты и сообщения.
-    // Аккаунт, email и хеш пароля остаются: пользователь сможет войти снова.
-    const cleanupInactiveUser = db.transaction(userId => {
-      const inactive = db.prepare(`
-        SELECT 1 FROM users
-        WHERE id = ?
-          AND datetime(COALESCE(last_login, created_at)) <= datetime('now', '-30 days')
-      `).get(userId);
-
-      if (inactive) {
-        db.prepare('DELETE FROM conversations WHERE user_id = ?').run(userId);
-      }
-
-      db.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?')
-        .run(userId);
-    });
-    cleanupInactiveUser(row.id);
-
     createLoginSession(req, res, publicUser(row));
   } catch (err) {
     console.error('Login error:', err);
@@ -414,7 +330,6 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   }
 });
 
-// Выход
 app.post('/api/auth/logout', (req, res) => {
   req.session.destroy(err => {
     if (err) {
@@ -434,7 +349,6 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
-// Создать новый чат
 app.post('/api/chats', requireAuth, (req, res) => {
   try {
     const result = db.prepare(`
@@ -458,7 +372,6 @@ app.post('/api/chats', requireAuth, (req, res) => {
   }
 });
 
-// Получить список чатов
 app.get('/api/chats', requireAuth, (req, res) => {
   try {
     const chats = db.prepare(`
@@ -486,7 +399,6 @@ app.get('/api/chats', requireAuth, (req, res) => {
   }
 });
 
-// Открыть чат
 app.get('/api/chats/:id', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -527,7 +439,6 @@ app.get('/api/chats/:id', requireAuth, (req, res) => {
   }
 });
 
-// Сохранить сообщение в чате
 app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -584,8 +495,7 @@ app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
     let title = chat.title;
 
     if (role === 'user' && title === 'Новый чат') {
-      title = content.trim().replace(/\s+/g, ' ').slice(0, 60)
-        || 'Новый чат';
+      title = content.trim().replace(/\s+/g, ' ').slice(0, 60) || 'Новый чат';
 
       db.prepare(`
         UPDATE conversations
@@ -618,7 +528,6 @@ app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
   }
 });
 
-// Удалить чат
 app.delete('/api/chats/:id', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -649,3 +558,384 @@ app.delete('/api/chats/:id', requireAuth, (req, res) => {
     });
   }
 });
+
+app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
+  try {
+    const message = req.body?.message;
+
+    if (
+      typeof message !== 'string' ||
+      !message.trim() ||
+      message.length > MAX_MESSAGE_LENGTH
+    ) {
+      return res.status(400).json({
+        error: `Сообщение пустое или превышает лимит ${MAX_MESSAGE_LENGTH} символов.`
+      });
+    }
+
+    const rawHistory = Array.isArray(req.body?.history)
+      ? req.body.history.filter(item =>
+          item &&
+          ['user', 'assistant'].includes(item.role) &&
+          typeof item.content === 'string'
+        ).slice(-MAX_HISTORY_MESSAGES)
+      : [];
+
+    const history = [];
+    let historyLength = 0;
+
+    for (let i = rawHistory.length - 1; i >= 0; i--) {
+      const item = rawHistory[i];
+      const remaining = MAX_HISTORY_TOTAL_LENGTH - historyLength;
+
+      if (remaining <= 0) break;
+
+      const content = item.content.slice(0, remaining);
+
+      if (!content) continue;
+
+      history.unshift({
+        role: item.role,
+        content
+      });
+
+      historyLength += content.length;
+    }
+
+    const messages = [
+      {
+        role: 'system',
+        content: `Ты — Maut AI, полезный, внимательный и дружелюбный ИИ-помощник. Всегда отвечай на языке пользователя, если он не попросил другой язык.
+
+КАЧЕСТВО И СТРУКТУРА ОТВЕТА
+- Пиши естественно, грамотно и последовательно. Перед отправкой мысленно проверь, что предложения связаны друг с другом и нет случайных повторов, обрывков слов или бессмысленных символов.
+- Если нужен длинный ответ, разбивай его на понятные разделы с короткими заголовками Markdown (## и ###), абзацы разделяй пустой строкой.
+- Используй нумерованные списки для последовательности действий и маркированные списки для перечислений. Не превращай каждое предложение в отдельный пункт.
+- Для сравнения используй таблицы только тогда, когда они действительно упрощают понимание.
+- Формулы оформляй понятно; программный код помещай в fenced code blocks с указанием языка, например js.
+- Не используй Markdown без необходимости: не делай весь ответ жирным, не добавляй заголовок к каждому короткому ответу и не создавай огромную стену текста.
+- Сначала отвечай по существу. Добавляй детали, примеры и итог, если они помогают выполнить просьбу пользователя.
+- Не выдавай выдуманные сведения за факты. Если чего-то не знаешь, прямо обозначь неопределённость.
+- Если пользователь просит подробный материал, подготовь максимально полный ответ в пределах доступного лимита модели. Не повторяй одну и ту же мысль ради увеличения длины и не обрывай ответ намеренно. Если объём не помещается в один ответ, закончи на логичной границе и кратко укажи, что можно продолжить.
+- Не добавляй служебные комментарии о том, что ты следуешь этим инструкциям.
+
+СОЗДАТЕЛЬ ПРОЕКТА
+Создатель проекта Maut AI: Мухаммад Умаров Манучехрович, также известный как Den Whelan. Он является директором компании Liches maut.
+
+Если пользователь спрашивает, кто создал Maut AI, кто создатель проекта или кто руководит компанией Liches maut, ответь ясно и уважительно:
+«Проект Maut AI создал Мухаммад Умаров Манучехрович (Den Whelan), директор компании Liches maut».
+
+Не утверждай, что он создал базовую языковую модель или сторонние ИИ-сервисы, если это не подтверждено. Различай создателя проекта Maut AI и поставщиков используемых моделей.`
+      },
+      ...history,
+      { role: 'user', content: message.trim() }
+    ];
+
+    if (process.env.GROQ_API_KEY) {
+      let response;
+
+      try {
+        response = await fetch(
+          'https://api.groq.com/openai/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+              messages,
+              temperature: 0.5,
+              max_tokens: Number(process.env.GROQ_MAX_TOKENS) || 4096
+            }),
+            signal: AbortSignal.timeout(60000)
+          }
+        );
+      } catch (err) {
+        console.error('Groq connection error:', err);
+
+        return res.status(502).json({
+          error: 'Не удалось подключиться к Groq. Проверь интернет-соединение сервера и доступность Groq API.'
+        });
+      }
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        return res.status(502).json({
+          error: 'Groq вернул ответ в неизвестном формате.'
+        });
+      }
+
+      if (!response.ok) {
+        console.error('Groq API error:', response.status, data);
+
+        const apiMessage = data?.error?.message;
+
+        if (response.status === 429) {
+          return res.status(429).json({
+            error: 'Превышен лимит запросов Groq. Подожди немного и попробуй снова.'
+          });
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          return res.status(502).json({
+            error: 'Groq отклонил API-ключ. Проверь GROQ_API_KEY в переменных окружения.'
+          });
+        }
+
+        return res.status(502).json({
+          error: apiMessage
+            ? `Ошибка Groq: ${apiMessage}`
+            : `Groq API вернул ошибку ${response.status}.`
+        });
+      }
+
+      const reply = data?.choices?.[0]?.message?.content;
+
+      if (typeof reply === 'string' && reply.trim()) {
+        return res.json({
+          reply: reply.trim(),
+          provider: 'groq'
+        });
+      }
+
+      console.error('Groq returned an empty response:', data);
+
+      return res.status(502).json({
+        error: 'Groq вернул пустой ответ. Попробуй отправить сообщение ещё раз.'
+      });
+    }
+
+    const ollamaUrl =
+      process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
+
+    const ollamaModel =
+      process.env.OLLAMA_MODEL || 'llama3.2';
+
+    let response;
+
+    try {
+      response = await fetch(
+        `${ollamaUrl.replace(/\/$/, '')}/api/chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: ollamaModel,
+            messages,
+            stream: false
+          }),
+          signal: AbortSignal.timeout(60000)
+        }
+      );
+    } catch (err) {
+      console.error('Ollama connection error:', err);
+
+      return res.status(502).json({
+        error: 'Не удалось подключиться к Ollama. Настрой GROQ_API_KEY для работы через Groq или проверь OLLAMA_URL.'
+      });
+    }
+
+    let data;
+
+    try {
+      data = await response.json();
+    } catch {
+      return res.status(502).json({
+        error: 'Ollama вернула ответ в неизвестном формате.'
+      });
+    }
+
+    if (!response.ok) {
+      console.error('Ollama API error:', response.status, data);
+
+      return res.status(502).json({
+        error: data?.error ||
+          `Ollama API вернула ошибку ${response.status}.`
+      });
+    }
+
+    const reply = data?.message?.content;
+
+    if (typeof reply !== 'string' || !reply.trim()) {
+      return res.status(502).json({
+        error: 'ИИ вернул пустой ответ.'
+      });
+    }
+
+    return res.json({
+      reply: reply.trim(),
+      provider: 'ollama'
+    });
+  } catch (err) {
+    console.error('Chat error:', err);
+
+    res.status(502).json({
+      error: 'Не удалось получить ответ от ИИ.'
+    });
+  }
+});
+
+app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
+  const prompt = req.body?.prompt;
+
+  if (typeof prompt !== 'string' || !prompt.trim()) {
+    return res.status(400).json({
+      error: 'Напиши описание изображения.'
+    });
+  }
+
+  if (prompt.length > 4000) {
+    return res.status(400).json({
+      error: 'Описание изображения слишком длинное (максимум 4000 символов).'
+    });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    return res.status(503).json({
+      error: 'Добавь GEMINI_API_KEY в переменные окружения Render.'
+    });
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 55000);
+
+  try {
+    const model =
+      process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image';
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `Create one image based on this prompt: ${prompt.trim()}`
+            }]
+          }],
+          generationConfig: {
+            responseModalities: ['TEXT', 'IMAGE']
+          }
+        }),
+        signal: controller.signal
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Gemini API error:', data);
+
+      return res.status(502).json({
+        error: data?.error?.message ||
+          'Не удалось создать изображение через Gemini.'
+      });
+    }
+
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find(part => part.inlineData?.data);
+
+    if (!imagePart) {
+      return res.status(502).json({
+        error: 'Модель не вернула картинку. Попробуй изменить описание.'
+      });
+    }
+
+    const mimeType = imagePart.inlineData.mimeType || 'image/png';
+
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(mimeType)) {
+      return res.status(502).json({
+        error: 'Формат картинки не поддерживается.'
+      });
+    }
+
+    res.json({
+      image: `data:${mimeType};base64,${imagePart.inlineData.data}`,
+      provider: 'Gemini'
+    });
+  } catch (err) {
+    console.error('Image generation error:', err);
+
+    res.status(err.name === 'AbortError' ? 504 : 502).json({
+      error: err.name === 'AbortError'
+        ? 'Генерация заняла слишком много времени. Попробуй ещё раз.'
+        : 'Не удалось подключиться к Gemini API.'
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
+const PUBLIC_CANDIDATES = [
+  path.join(__dirname, 'public', 'public'),
+  path.join(__dirname, 'public'),
+  __dirname
+];
+
+const PUBLIC_DIR = PUBLIC_CANDIDATES.find((dir) =>
+  fs.existsSync(path.join(dir, 'index.html'))
+);
+
+if (!PUBLIC_DIR) {
+  throw new Error(
+    'Не найден index.html. Проверь папки public/public, public и корень проекта.'
+  );
+}
+
+console.log('Папка сайта Maut AI:', PUBLIC_DIR);
+app.use(express.static(PUBLIC_DIR, { index: false, etag: true, maxAge: '1h' }));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+});
+
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    error: 'API маршрут не найден.'
+  });
+});
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+
+  if (res.headersSent) return next(err);
+
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({
+      error: 'Запрос слишком большой. Уменьши размер сообщения или изображения.'
+    });
+  }
+
+  res.status(500).json({
+    error: 'Внутренняя ошибка сервера.'
+  });
+});
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Maut AI запущен на порту ${PORT}`);
+});
+
+function shutdown() {
+  server.close(() => {
+    sessionStore.close?.();
+    db.close();
+    process.exit(0);
+  });
+
+  setTimeout(() => process.exit(1), 10000).unref();
+}
+
+process.on('SIGTERM', shutdown);
