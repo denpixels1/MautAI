@@ -1,3 +1,7 @@
+Файлы большие, поэтому отправлю их частями, чтобы GitHub-код не обрезался при отправке. Это содержимое подготовленных файлов, не сокращённые примеры.
+
+### `index.html` — часть 1 из 2
+
 ```html
 <!DOCTYPE html>
 <html lang="ru">
@@ -8,7 +12,41 @@
 <title>Maut AI</title>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
-<link rel="stylesheet" href="/style.css">
+<style>
+:root{color-scheme:dark;--bg:#212121;--side:#171717;--panel:#2f2f2f;--panel-hover:#383838;--line:#383838;--text:#ececec;--muted:#a0a0a0;--green:#10a37f}*{box-sizing:border-box}html,body{width:100%;height:100%;margin:0;overflow:hidden}body{background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}button,input,textarea{font:inherit}button{cursor:pointer;color:inherit}.layout{display:flex;width:100%;height:100dvh;min-height:0;overflow:hidden}.sidebar{width:260px;flex:0 0 260px;background:var(--side);padding:12px;display:flex;flex-direction:column;height:100%;min-height:0;overflow-y:auto;transition:width .2s,flex-basis .2s,padding .2s}.layout.sidebar-collapsed .sidebar{width:0;flex-basis:0;padding-left:0;padding-right:0;overflow:hidden;border:0}.brand{height:46px;display:flex;align-items:center;gap:10px;padding:0 9px;text-decoration:none;color:var(--text);font-weight:650;font-size:17px}.brand-icon{width:30px;height:30px;display:grid;place-items:center;flex:0 0 30px;border-radius:7px;background:#080808;color:#fff;font-size:20px;font-weight:800;line-height:1}.new-chat{display:flex;align-items:center;gap:10px;text-align:left;border:1px solid #414141;background:transparent;border-radius:9px;padding:11px 12px;margin:12px 0 24px}.new-chat:hover,.side-action:hover{background:#242424}.history-label{font-size:12px;color:#aaa;padding:0 10px 8px}.history{overflow:auto;min-height:0}.history-item{display:block;width:100%;padding:9px 10px;border:0;background:transparent;border-radius:8px;text-align:left;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;font-size:13px}.history-item:hover,.history-item.active{background:#292929}.muted{color:var(--muted)}.small{font-size:12px;padding:0 10px}.side-bottom{margin-top:auto}.side-action{width:100%;display:flex;align-items:center;gap:10px;border:0;background:transparent;border-radius:9px;text-align:left;padding:11px 10px}.profile{display:flex;align-items:center;gap:9px;border-top:1px solid #303030;margin-top:12px;padding:14px 3px 3px}.avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#6559a6;font-weight:650;flex-shrink:0}.profile-info{flex:1;min-width:0}.profile-info strong,.profile-info span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.profile-info strong{font-size:13px;font-weight:600}.profile-info span{font-size:11px;color:var(--muted)}.dots{border:0;background:transparent;font-size:20px}.main{min-width:0;flex:1;height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden}.topbar{height:60px;flex:0 0 60px;display:flex;align-items:center;padding:0 25px;gap:12px}.model-label{font-size:16px;font-weight:600}.model-label span{color:#999;margin-left:4px}.top-right{margin-left:auto}.login-button{background:transparent;border:1px solid #555;border-radius:20px;padding:7px 15px;font-size:13px}.login-button:hover{background:#333}.mobile-menu{display:flex;align-items:center;justify-content:center;width:36px;height:36px;flex:0 0 36px;background:transparent;border:1px solid #444;border-radius:9px;font-size:18px;color:#eee}.mobile-menu:hover{background:#303030}.chat-area{width:min(790px,100%);padding:30px 24px 20px;margin:0 auto;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column}.welcome{margin:auto 0;text-align:center;padding:25px 0 40px}.welcome-icon{width:48px;height:48px;display:grid;place-items:center;margin:0 auto 18px;border-radius:10px;background:#080808;color:#fff;font-size:31px;font-weight:800;line-height:1}.welcome h1{font-size:clamp(27px,4vw,34px);font-weight:600;letter-spacing:-.8px;margin:0 0 10px}.welcome p{margin:0;color:#aaa;font-size:15px}.suggestions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:580px;margin:28px auto 0;text-align:left}.suggestion{min-height:84px;position:relative;display:grid;grid-template-columns:24px 1fr;grid-template-rows:auto auto;align-content:center;column-gap:9px;text-align:left;padding:15px;border:1px solid #454545;background:transparent;border-radius:13px}.suggestion:hover{background:#2b2b2b}.suggestion>span{grid-row:1/3;font-size:18px;color:#c2c2c2}.suggestion b{font-size:13px;font-weight:550}.suggestion small{font-size:12px;color:#999;margin-top:3px}.composer-wrap{width:min(790px,100%);flex:0 0 auto;position:relative;z-index:5;padding:0 24px max(18px,env(safe-area-inset-bottom));margin:0 auto;background:var(--bg)}.composer{background:#2f2f2f;border:1px solid #484848;border-radius:25px;padding:12px 13px 10px;box-shadow:0 5px 20px #00000012}.composer:focus-within{border-color:#666}.composer textarea{display:block;width:100%;resize:none;max-height:180px;min-height:31px;outline:0;border:0;background:transparent;color:var(--text);padding:4px 4px 12px}.composer textarea::placeholder{color:#aaa}.composer-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px}.composer-actions{display:flex;align-items:center;gap:10px;min-width:0}.tool{border:1px solid #555;background:transparent;border-radius:18px;padding:6px 11px;font-size:12px;color:#ddd}.tool:hover{background:#404040}.hint{font-size:10px;color:#858585}.send{width:34px;height:34px;border:0;border-radius:50%;background:#eee;color:#202020;font-size:22px;line-height:1;flex-shrink:0}.send:disabled{opacity:.45;cursor:wait}.fine-print{text-align:center;color:#858585;font-size:11px;margin:9px 0 0}.messages{display:flex;flex-direction:column;gap:25px;min-width:0}.message{display:flex;gap:12px;align-items:flex-start;min-width:0}.message.user{justify-content:flex-end}.bubble{max-width:88%;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.7}.message.user .bubble{background:#303030;border-radius:20px;padding:10px 15px;max-width:80%}.message.assistant .bubble{padding:2px 0;flex:1;max-width:100%;white-space:normal;line-height:1.75}.message-mark{width:28px;height:28px;flex-shrink:0;border-radius:7px;display:grid;place-items:center;background:#080808;color:#fff;font-size:18px;font-weight:800}.message-image{display:block;max-width:min(100%,520px);border-radius:12px;margin-top:12px}.download-link{display:inline-block;margin-top:8px;color:#b7d9ff}.status{display:none;margin:0 auto 10px;width:100%;font-size:13px;color:#d7d7d7}.status.show{display:block}.status.error{color:#ffaaa7}.modal-layer{position:fixed;inset:0;z-index:20;background:#0009;display:none;place-items:center;padding:20px}.modal-layer.open{display:grid}.modal{position:relative;width:min(410px,100%);max-height:90dvh;overflow:auto;background:#242424;border:1px solid #454545;border-radius:20px;padding:28px;box-shadow:0 20px 80px #0007}.modal-x{position:absolute;right:14px;top:12px;background:transparent;border:0;font-size:24px;color:#aaa}.modal-brand{width:42px;height:42px;display:grid;place-items:center;margin:0 auto 12px;border-radius:9px;background:#080808;color:#fff;font-size:28px;font-weight:800}.modal h2{text-align:center;margin:0 0 6px;font-size:22px}.modal>p{text-align:center;color:#aaa;font-size:13px;margin:0 0 22px}.modal label{display:block;font-size:12px;color:#ccc;margin:12px 0}.modal input{display:block;width:100%;margin-top:6px;padding:11px 12px;border:1px solid #4b4b4b;background:#171717;color:white;border-radius:9px;outline:0}.modal input:focus{border-color:#999}.primary{width:100%;border:0;background:#eee;color:#222;border-radius:20px;padding:10px;font-weight:600;margin-top:8px}.switch-auth{display:block;margin:15px auto 0;border:0;background:transparent;color:#ccc;font-size:12px}.form-error{color:#ff9c97;font-size:12px;margin:5px 0}.hidden{display:none!important}
+/* Markdown styling */.message.assistant .bubble h1,.message.assistant .bubble h2,.message.assistant .bubble h3,.message.assistant .bubble h4{color:var(--text);line-height:1.35;margin:24px 0 12px;font-weight:650}.message.assistant .bubble h1{font-size:26px}.message.assistant .bubble h2{font-size:22px}.message.assistant .bubble h3{font-size:18px}.message.assistant .bubble p{margin:0 0 14px}.message.assistant .bubble p:last-child{margin-bottom:0}.message.assistant .bubble ul,.message.assistant .bubble ol{padding-left:26px;margin:10px 0 18px}.message.assistant .bubble li{padding-left:4px;margin:5px 0}.message.assistant .bubble strong{font-weight:700;color:#fff}.message.assistant .bubble a{color:#9ecbff;text-decoration:underline;text-underline-offset:3px}.message.assistant .bubble blockquote{margin:16px 0;padding:10px 16px;border-left:3px solid #777;background:#292929;color:#ccc;border-radius:0 8px 8px 0}.message.assistant .bubble pre{max-width:100%;overflow-x:auto;padding:16px;margin:14px 0;border:1px solid #404040;border-radius:12px;background:#171717;line-height:1.6}.message.assistant .bubble pre code{padding:0;background:transparent;white-space:pre}.message.assistant .bubble :not(pre)>code{padding:2px 6px;border-radius:5px;background:#373737;font-family:Consolas,Monaco,monospace;font-size:.9em}.message.assistant .bubble table{display:block;width:100%;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:16px 0}.message.assistant .bubble th,.message.assistant .bubble td{border:1px solid #454545;padding:9px 12px;text-align:left}.message.assistant .bubble th{background:#303030;font-weight:650}.message.assistant .bubble tr:nth-child(even){background:#292929}.message.assistant .bubble hr{border:0;border-top:1px solid #414141;margin:22px 0}.message.assistant .bubble img{max-width:100%;height:auto;border-radius:10px}.message.assistant .bubble pre code{display:block}
+@media(max-width:760px){.layout.sidebar-collapsed .sidebar{width:260px;flex-basis:260px}.sidebar{position:fixed;z-index:15;left:0;top:0;bottom:0;width:280px;flex-basis:280px;transform:translateX(-100%);box-shadow:12px 0 40px #0005}.sidebar.open{transform:translateX(0)}.topbar{padding:0 14px}.chat-area{padding:20px 14px}.composer-wrap{padding-left:14px;padding-right:14px}.suggestions{grid-template-columns:1fr}.welcome{padding:20px 0}.hint{display:none}.admin-user{grid-template-columns:minmax(0,1fr) 90px 65px}.modal{padding:24px 18px}}
+/* Rank badges and admin UI */
+.rank-pill{display:inline-block!important;width:max-content;max-width:100%;padding:2px 7px;margin-top:3px;border:1px solid #555;border-radius:20px;font-size:10px!important;letter-spacing:.4px;color:#ddd!important}
+.rank-pill[data-rank="PLUS"]{border-color:#a78bfa;color:#c4b5fd!important}
+.rank-pill[data-rank="MODER"]{border-color:#4da3ff;color:#93c5fd!important}
+.rank-pill[data-rank="ADMIN"]{border-color:#e0b45b;color:#f4d28b!important}
+.account-tools{display:flex;flex-direction:column;gap:5px;margin:8px 0}
+.account-tools button{border:1px solid #414141;background:#222;border-radius:8px;padding:9px 10px;text-align:left;font-size:12px}
+.admin-modal{width:min(620px,100%);max-height:88dvh}
+.admin-modal h3{font-size:14px;margin:22px 0 10px}
+.admin-grid{display:grid;grid-template-columns:1fr 100px;gap:8px}
+.admin-grid select,.admin-grid input,.admin-user select{min-width:0;width:100%;padding:9px;background:#171717;color:#eee;border:1px solid #4b4b4b;border-radius:8px}
+.admin-result{white-space:pre-wrap;overflow-wrap:anywhere;padding:10px;margin-top:10px;background:#171717;border:1px solid #444;border-radius:9px;font:12px/1.7 monospace}
+.admin-users{display:flex;flex-direction:column;gap:7px;max-height:240px;overflow:auto}
+.admin-user{display:grid;grid-template-columns:minmax(0,1fr) 105px 75px;align-items:center;gap:7px;padding:8px;border:1px solid #414141;border-radius:9px;font-size:11px}
+.admin-user>div{min-width:0;overflow-wrap:anywhere}
+.admin-user button{border:1px solid #555;background:#333;color:#eee;border-radius:8px;padding:7px;font-size:11px}
+.admin-user .ban-action{border-color:#754343;color:#ffaaa7}
+.account-popover{position:absolute;z-index:30;left:12px;bottom:82px;width:min(270px,calc(100vw - 32px));padding:8px;background:#252525;border:1px solid #444;border-radius:14px;box-shadow:0 18px 55px #0009;animation:menuIn .18s ease both}
+.account-popover button{display:block;width:100%;padding:11px 12px;text-align:left;border:0;border-radius:8px;background:transparent;color:#eee;font-size:13px}
+.account-popover button:hover{background:#383838}
+.discord-note{border-top:1px solid #414141;margin-top:6px;padding:10px 12px;color:#aaa;font-size:11px}
+.discord-note b{color:#ddd}
+.request-card{padding:12px;margin:8px 0;border:1px solid #444;border-radius:11px;background:#292929}
+.request-card strong,.request-card small{display:block}
+.request-card small{color:#aaa;margin:4px 0 9px}
+.request-actions{display:flex;gap:8px}
+.request-actions button{flex:1;border:1px solid #555;background:#363636;color:#eee;border-radius:8px;padding:8px}
+.request-actions .approve{background:#174d3d;border-color:#28765d}
+.request-actions .reject{background:#4c2929;border-color:#754343}
+@keyframes menuIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+</style>
 </head>
 <body>
 <div class="layout">
@@ -21,7 +59,7 @@
       <button class="side-action" id="authSide">♙ <span>Войти в аккаунт</span></button>
       <div class="account-tools hidden" id="accountTools">
         <button type="button" id="redeemOpen">Активировать код</button>
-        <button type="button" id="adminOpen" class="hidden">Панель управления</button>
+        <button type="button" id="adminOpen" class="hidden">Панель ADMIN</button>
       </div>
       <div class="profile hidden" id="profile">
         <div class="avatar" id="avatar">M</div>
@@ -30,8 +68,15 @@
           <span id="profileEmail">Аккаунт</span>
           <span class="rank-pill" id="rankBadge" data-rank="FREE">FREE</span>
         </div>
-        <button class="dots" id="logout" title="Выйти">⋯</button>
+        <button class="dots" id="accountMenuToggle" title="Меню аккаунта" aria-label="Меню аккаунта">⋯</button>
       </div>
+    </div>
+    <div class="account-popover hidden" id="accountPopover">
+      <button type="button" id="menuPlusRequest">Получить PLUS</button>
+      <button type="button" id="menuStaffRequest">Заявка на MODER / ADMIN</button>
+      <button type="button" id="menuAdmin" class="hidden">Управление сайтом</button>
+      <button type="button" id="logout">Выйти из аккаунта</button>
+      <div class="discord-note">Discord: <b>denkrixell_26041</b></div>
     </div>
   </aside>
   <main class="main">
@@ -95,26 +140,107 @@
     <button class="primary" type="submit" id="redeemSubmit">Активировать</button>
   </form>
 </div>
+<div class="modal-layer" id="requestModal">
+  <form class="modal" id="requestForm">
+    <button class="modal-x" type="button" data-close="requestModal">×</button>
+    <div class="modal-brand">L</div>
+    <h2>Заявка на ранг</h2>
+    <p>Администратор рассмотрит твою заявку.</p>
+    <label>Желаемый ранг
+      <select id="requestRank">
+        <option value="PLUS">PLUS</option>
+        <option value="MODER">MODER</option>
+        <option value="ADMIN">ADMIN</option>
+      </select>
+    </label>
+    <label>Почему ты хочешь получить ранг?<input id="requestMessage" maxlength="500" placeholder="Коротко расскажи о себе"></label>
+    <div class="form-error" id="requestError"></div>
+    <button class="primary" type="submit" id="requestSubmit">Отправить заявку</button>
+  </form>
+</div>
 <div class="modal-layer" id="adminModal">
   <section class="modal admin-modal">
     <button class="modal-x" type="button" data-close="adminModal">×</button>
     <div class="modal-brand">L</div>
-    <h2 id="adminTitle">Панель управления</h2>
-    <p id="adminSubtitle">Управление Maut AI</p>
-    <div id="adminCodes">
-      <h3>Создать код ранга</h3>
-      <div class="admin-grid">
-        <select id="codeRank"><option value="PLUS">PLUS</option><option value="MODER">MODER</option></select>
-        <input id="codeAmount" type="number" min="1" max="20" value="1" aria-label="Количество кодов">
-      </div>
-      <button class="primary" id="createCodes" type="button">Создать коды</button>
-      <div class="admin-result hidden" id="codeResult"></div>
+    <h2>Панель администратора</h2>
+    <p>Управление рангами Maut AI</p>
+    <h3>Создать код ранга</h3>
+    <div class="admin-grid">
+      <select id="codeRank"><option value="PLUS">PLUS</option><option value="MODER">MODER</option></select>
+      <input id="codeAmount" type="number" min="1" max="20" value="1" aria-label="Количество кодов">
     </div>
+    <button class="primary" id="createCodes" type="button">Создать коды</button>
+    <div class="admin-result hidden" id="codeResult"></div>
+    <h3>Заявки на повышение <span id="requestCount"></span></h3>
+    <div class="admin-users" id="adminRequests">Загрузка…</div>
     <h3>Пользователи</h3>
     <div class="admin-users" id="adminUsers">Загрузка…</div>
     <div class="form-error" id="adminError"></div>
   </section>
 </div>
-<script src="/app.js" defer></script>
-</body>
-</html>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const state = { user: null, chatId: null, busy: false, imageMode: false, register: false, chats: [] };
+const messagesEl = $('messages');
+const chatArea = $('chatArea');
+const promptEl = $('prompt');
+const statusEl = $('status');
+
+if (window.marked) {
+  marked.setOptions({ gfm: true, breaks: true });
+}
+function renderMarkdown(text) {
+  const source = String(text ?? '');
+  if (window.marked && window.DOMPurify) {
+    return DOMPurify.sanitize(marked.parse(source), { USE_PROFILES: { html: false } });
+  }
+  const div = document.createElement('div');
+  div.textContent = source;
+  return div.innerHTML.replace(/\n/g, '<br>');
+}
+function showStatus(text = '', error = false) {
+  statusEl.textContent = text;
+  statusEl.classList.toggle('show', Boolean(text));
+  statusEl.classList.toggle('error', Boolean(error));
+}
+function scrollToBottom() {
+  requestAnimationFrame(() => { chatArea.scrollTop = chatArea.scrollHeight; });
+}
+function addMessage(role, content, image = null, options = {}) {
+  const row = document.createElement('div');
+  row.className = `message ${role}`;
+  if (role === 'assistant') {
+    const mark = document.createElement('div');
+    mark.className = 'message-mark';
+    mark.textContent = 'L';
+    row.appendChild(mark);
+  }
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  if (role === 'assistant' && !options.loading) bubble.innerHTML = renderMarkdown(content);
+  else bubble.textContent = content || '';
+  if (image) {
+    const img = document.createElement('img');
+    img.className = 'message-image';
+    img.src = image;
+    img.alt = 'Созданное изображение';
+    img.loading = 'lazy';
+    bubble.appendChild(img);
+  }
+  row.appendChild(bubble);
+  messagesEl.appendChild(row);
+  scrollToBottom();
+  return { row, bubble };
+}
+function resetView() {
+  messagesEl.replaceChildren();
+  $('welcome').classList.remove('hidden');
+  state.chatId = null;
+  showStatus('');
+  scrollToBottom();
+}
+function setBusy(value) {
+  state.busy = value;
+  $('send').disabled = value;
+}
