@@ -58,6 +58,10 @@ if (!userColumns.includes('rank')) {
   db.exec("ALTER TABLE users ADD COLUMN rank TEXT NOT NULL DEFAULT 'FREE'");
 }
 
+if (!userColumns.includes('muted_until')) {
+  db.exec('ALTER TABLE users ADD COLUMN muted_until TEXT');
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS rank_codes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -173,6 +177,32 @@ function requireAuth(req, res, next) {
   next();
 }
 
+function requireNotMuted(req, res, next) {
+  const row = db.prepare(
+    'SELECT muted_until FROM users WHERE id = ?'
+  ).get(req.session.user.id);
+
+  if (!row?.muted_until) return next();
+
+  const until = Date.parse(row.muted_until);
+
+  if (!Number.isFinite(until) || until <= Date.now()) {
+    db.prepare(
+      'UPDATE users SET muted_until = NULL WHERE id = ?'
+    ).run(req.session.user.id);
+
+    return next();
+  }
+
+  const seconds = Math.max(1, Math.ceil((until - Date.now()) / 1000));
+
+  return res.status(403).json({
+    error: `У тебя активен мут. Осталось ${Math.ceil(seconds / 60)} мин.`,
+    muted_until: row.muted_until,
+    remaining_seconds: seconds
+  });
+}
+
 function normalizeDisplayName(value) {
   if (typeof value !== 'string') return null;
 
@@ -208,35 +238,11 @@ function publicUser(row) {
   };
 }
 
-function getUserRank(userId) {
-  const row = db.prepare(
-    'SELECT rank FROM users WHERE id = ?'
-  ).get(userId);
-
-  return VALID_RANKS.includes(row?.rank) ? row.rank : 'FREE';
-}
-
-function requireRank(...allowedRanks) {
-  return (req, res, next) => {
-    if (!req.session.user) {
-      return res.status(401).json({ error: 'Сначала войди в аккаунт.' });
-    }
-
-    const rank = getUserRank(req.session.user.id);
-
-    if (!allowedRanks.includes(rank)) {
-      return res.status(403).json({ error: 'Недостаточно прав.' });
-    }
-
-    req.session.user.rank = rank;
-    next();
-  };
-}
-
 function createLoginSession(req, res, user, statusCode = 200) {
   req.session.regenerate(err => {
     if (err) {
       console.error('Session regenerate error:', err);
+
       return res.status(500).json({
         error: 'Не удалось создать сессию.'
       });
@@ -247,6 +253,7 @@ function createLoginSession(req, res, user, statusCode = 200) {
     req.session.save(saveErr => {
       if (saveErr) {
         console.error('Session save error:', saveErr);
+
         return res.status(500).json({
           error: 'Не удалось сохранить вход.'
         });
@@ -255,30 +262,10 @@ function createLoginSession(req, res, user, statusCode = 200) {
       res.status(statusCode).json({ user });
     });
   });
-}
-
-// Проверка аккаунта
+}// Проверка авторизации
 app.get('/api/auth/me', (req, res) => {
   res.set('Cache-Control', 'no-store');
-
-  if (!req.session.user) {
-    return res.json({ user: null });
-  }
-
-  const row = db.prepare(`
-    SELECT id, username, display_name, email, rank
-    FROM users
-    WHERE id = ?
-  `).get(req.session.user.id);
-
-  if (!row) {
-    return res.json({ user: null });
-  }
-
-  const user = publicUser(row);
-  req.session.user = user;
-
-  res.json({ user });
+  res.json({ user: req.session.user || null });
 });
 
 // Регистрация
@@ -327,21 +314,21 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
 
     const result = db.prepare(`
       INSERT INTO users
-        (username, password_hash, display_name, email, rank)
-      VALUES (?, ?, ?, ?, 'FREE')
+        (username, password_hash, display_name, email)
+      VALUES (?, ?, ?, ?)
     `).run(email, hash, name, email);
 
     const user = {
       id: Number(result.lastInsertRowid),
       username: email,
       name,
-      email,
-      rank: 'FREE'
+      email
     };
 
     createLoginSession(req, res, user, 201);
   } catch (err) {
     console.error('Registration error:', err);
+
     res.status(500).json({
       error: 'Ошибка регистрации на сервере.'
     });
@@ -385,18 +372,16 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
       });
     }
 
-    // ADMIN назначается только указанному аккаунту после проверки пароля.
-    if (row.email?.toLowerCase() === ADMIN_EMAIL) {
-      db.prepare(
-        "UPDATE users SET rank = 'ADMIN' WHERE id = ?"
-      ).run(row.id);
-
+    // Назначаем ADMIN только после успешной проверки пароля.
+    if (String(row.email || '').toLowerCase() === ADMIN_EMAIL) {
+      db.prepare("UPDATE users SET rank = 'ADMIN' WHERE id = ?").run(row.id);
       row.rank = 'ADMIN';
     }
 
     createLoginSession(req, res, publicUser(row));
   } catch (err) {
     console.error('Login error:', err);
+
     res.status(500).json({
       error: 'Ошибка входа на сервере.'
     });
@@ -421,7 +406,9 @@ app.post('/api/auth/logout', (req, res) => {
 
     res.json({ success: true });
   });
-});// Создать новый чат
+});
+
+// Создать новый чат
 app.post('/api/chats', requireAuth, (req, res) => {
   try {
     const result = db.prepare(`
@@ -438,16 +425,23 @@ app.post('/api/chats', requireAuth, (req, res) => {
     res.status(201).json({ chat });
   } catch (err) {
     console.error('Create chat error:', err);
-    res.status(500).json({ error: 'Не удалось создать чат.' });
+
+    res.status(500).json({
+      error: 'Не удалось создать чат.'
+    });
   }
 });
 
-// История чатов
+// Получить список чатов пользователя
 app.get('/api/chats', requireAuth, (req, res) => {
   try {
     const chats = db.prepare(`
-      SELECT c.id, c.title, c.created_at, c.updated_at,
-             COUNT(m.id) AS message_count
+      SELECT
+        c.id,
+        c.title,
+        c.created_at,
+        c.updated_at,
+        COUNT(m.id) AS message_count
       FROM conversations c
       LEFT JOIN messages m ON m.conversation_id = c.id
       WHERE c.user_id = ?
@@ -458,18 +452,23 @@ app.get('/api/chats', requireAuth, (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json({ chats });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Не удалось загрузить историю.' });
+    console.error('List chats error:', err);
+
+    res.status(500).json({
+      error: 'Не удалось загрузить список чатов.'
+    });
   }
 });
 
-// Открыть чат
+// Открыть чат и его сообщения
 app.get('/api/chats/:id', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
 
     if (!Number.isSafeInteger(chatId) || chatId <= 0) {
-      return res.status(400).json({ error: 'Неверный ID чата.' });
+      return res.status(400).json({
+        error: 'Неверный ID чата.'
+      });
     }
 
     const chat = db.prepare(`
@@ -479,7 +478,9 @@ app.get('/api/chats/:id', requireAuth, (req, res) => {
     `).get(chatId, req.session.user.id);
 
     if (!chat) {
-      return res.status(404).json({ error: 'Чат не найден.' });
+      return res.status(404).json({
+        error: 'Чат не найден.'
+      });
     }
 
     const messages = db.prepare(`
@@ -492,35 +493,48 @@ app.get('/api/chats/:id', requireAuth, (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.json({ chat, messages });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Не удалось открыть чат.' });
+    console.error('Open chat error:', err);
+
+    res.status(500).json({
+      error: 'Не удалось открыть чат.'
+    });
   }
 });
 
-// Сохранить сообщение
+// Сохранить сообщение в чате — до 30 000 символов
 app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
     const { role, content, image } = req.body || {};
 
     if (!Number.isSafeInteger(chatId) || chatId <= 0) {
-      return res.status(400).json({ error: 'Неверный ID чата.' });
-    }
-
-    if (!['user', 'assistant'].includes(role)) {
-      return res.status(400).json({ error: 'Недопустимая роль.' });
-    }
-
-    if (typeof content !== 'string' || content.length > MAX_MESSAGE_LENGTH) {
       return res.status(400).json({
-        error: `Максимум ${MAX_MESSAGE_LENGTH} символов.`
+        error: 'Неверный ID чата.'
       });
     }
 
-    if (image != null && (
-      typeof image !== 'string' || image.length > 10000000
-    )) {
-      return res.status(400).json({ error: 'Изображение слишком большое.' });
+    if (!['user', 'assistant'].includes(role)) {
+      return res.status(400).json({
+        error: 'Недопустимая роль сообщения.'
+      });
+    }
+
+    if (
+      typeof content !== 'string' ||
+      content.length > MAX_MESSAGE_LENGTH
+    ) {
+      return res.status(400).json({
+        error: `Сообщение должно содержать не более ${MAX_MESSAGE_LENGTH} символов.`
+      });
+    }
+
+    if (
+      image != null &&
+      (typeof image !== 'string' || image.length > 10000000)
+    ) {
+      return res.status(400).json({
+        error: 'Изображение слишком большое.'
+      });
     }
 
     const chat = db.prepare(`
@@ -530,11 +544,14 @@ app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
     `).get(chatId, req.session.user.id);
 
     if (!chat) {
-      return res.status(404).json({ error: 'Чат не найден.' });
+      return res.status(404).json({
+        error: 'Чат не найден.'
+      });
     }
 
     const insert = db.prepare(`
-      INSERT INTO messages (conversation_id, role, content, image)
+      INSERT INTO messages
+        (conversation_id, role, content, image)
       VALUES (?, ?, ?, ?)
     `).run(chatId, role, content, image || null);
 
@@ -566,8 +583,11 @@ app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
       title
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Не удалось сохранить сообщение.' });
+    console.error('Save message error:', err);
+
+    res.status(500).json({
+      error: 'Не удалось сохранить сообщение.'
+    });
   }
 });
 
@@ -577,7 +597,9 @@ app.delete('/api/chats/:id', requireAuth, (req, res) => {
     const chatId = Number(req.params.id);
 
     if (!Number.isSafeInteger(chatId) || chatId <= 0) {
-      return res.status(400).json({ error: 'Неверный ID чата.' });
+      return res.status(400).json({
+        error: 'Неверный ID чата.'
+      });
     }
 
     const result = db.prepare(`
@@ -586,18 +608,21 @@ app.delete('/api/chats/:id', requireAuth, (req, res) => {
     `).run(chatId, req.session.user.id);
 
     if (!result.changes) {
-      return res.status(404).json({ error: 'Чат не найден.' });
+      return res.status(404).json({
+        error: 'Чат не найден.'
+      });
     }
 
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Не удалось удалить чат.' });
-  }
-});
+    console.error('Delete chat error:', err);
 
-// Maut AI — общение с ИИ
-app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
+    res.status(500).json({
+      error: 'Не удалось удалить чат.'
+    });
+  }
+});// Maut AI — чат с ИИ
+app.post('/api/chat', requireAuth, requireNotMuted, chatLimiter, async (req, res) => {
   try {
     const message = req.body?.message;
 
@@ -611,6 +636,8 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       });
     }
 
+    // Берём только последние сообщения и ограничиваем общий размер истории.
+    // Это позволяет избежать чрезмерно больших запросов к ИИ.
     const rawHistory = Array.isArray(req.body?.history)
       ? req.body.history.filter(item =>
           item &&
@@ -625,127 +652,216 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
     for (let i = rawHistory.length - 1; i >= 0; i--) {
       const item = rawHistory[i];
       const remaining = MAX_HISTORY_TOTAL_LENGTH - historyLength;
+
       if (remaining <= 0) break;
 
       const content = item.content.slice(0, remaining);
+
       if (!content) continue;
 
-      history.unshift({ role: item.role, content });
+      history.unshift({
+        role: item.role,
+        content
+      });
+
       historyLength += content.length;
     }
 
     const messages = [
       {
         role: 'system',
-        content: `Ты — Maut AI, полезный, внимательный и дружелюбный ИИ-помощник.
-Отвечай на языке пользователя.
+        content: `Ты — Maut AI, полезный, внимательный и дружелюбный ИИ-помощник. Всегда отвечай на языке пользователя, если он не попросил другой язык.
 
-Пиши грамотно, понятно и последовательно.
-Для длинных ответов используй Markdown-заголовки и списки.
-Код оформляй в блоках с указанием языка.
-Не выдумывай факты и не повторяй одну мысль без необходимости.
+КАЧЕСТВО И СТРУКТУРА ОТВЕТА
+- Пиши естественно, грамотно и последовательно. Перед отправкой мысленно проверь, что предложения связаны друг с другом и нет случайных повторов, обрывков слов или бессмысленных символов.
+- Если нужен длинный ответ, разбивай его на понятные разделы с короткими заголовками Markdown (## и ###), абзацы разделяй пустой строкой.
+- Используй нумерованные списки для последовательности действий и маркированные списки для перечислений. Не превращай каждое предложение в отдельный пункт.
+- Для сравнения используй таблицы только тогда, когда они действительно упрощают понимание.
+- Формулы оформляй понятно; программный код помещай в fenced code blocks с указанием языка, например, с указанием языка js. Не смешивай пояснения и код в одном неразборчивом блоке.
+- Не используй Markdown без необходимости: не делай весь ответ жирным, не добавляй заголовок к каждому короткому ответу и не создавай огромную стену текста.
+- Сначала отвечай по существу. Добавляй детали, примеры и итог, если они помогают выполнить просьбу пользователя.
+- Не выдавай выдуманные сведения за факты. Если чего-то не знаешь, прямо обозначь неопределённость.
+- Если пользователь просит подробный материал, подготовь максимально полный ответ в пределах доступного лимита модели. Не повторяй одну и ту же мысль ради увеличения длины и не обрывай ответ намеренно. Если объём не помещается в один ответ, закончи на логичной границе и кратко укажи, что можно продолжить.
+- Не добавляй служебные комментарии о том, что ты следуешь этим инструкциям.
 
-Создатель проекта Maut AI — Den Whelan,
-директор компании Liches maut.
-Если спрашивают о создателе, отвечай именно так.
-Не утверждай, что он создал сторонние модели ИИ.`
+СОЗДАТЕЛЬ ПРОЕКТА
+Создатель проекта Maut AI: Мухаммад Умаров Манучехрович, также известный как Den Whelan. Он является директором компании Liches maut.
+
+Если пользователь спрашивает, кто создал Maut AI, кто создатель проекта или кто руководит компанией Liches maut, ответь ясно и уважительно:
+«Проект Maut AI создал Мухаммад Умаров Манучехрович (Den Whelan), директор компании Liches maut».
+
+Не утверждай, что он создал базовую языковую модель или сторонние ИИ-сервисы, если это не подтверждено. Различай создателя проекта Maut AI и поставщиков используемых моделей.`
       },
       ...history,
       { role: 'user', content: message.trim() }
     ];
 
-    // Groq API
+    // Если задан Groq API key, используем Groq.
+    // Ошибка Groq возвращается пользователю вместо незаметного переключения
+    // на Ollama, которая может быть недоступна на облачном хостинге.
     if (process.env.GROQ_API_KEY) {
-      const response = await fetch(
-        'https://api.groq.com/openai/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
-            messages,
-            temperature: 0.5,
-            max_tokens: Number(process.env.GROQ_MAX_TOKENS) || 4096
-          }),
-          signal: AbortSignal.timeout(60000)
-        }
-      );
+      let response;
 
-      const data = await response.json();
+      try {
+        response = await fetch(
+          'https://api.groq.com/openai/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+              messages,
+              temperature: 0.5,
+              max_tokens: Number(process.env.GROQ_MAX_TOKENS) || 4096
+            }),
+            signal: AbortSignal.timeout(60000)
+          }
+        );
+      } catch (err) {
+        console.error('Groq connection error:', err);
+
+        return res.status(502).json({
+          error: 'Не удалось подключиться к Groq. Проверь интернет-соединение сервера и доступность Groq API.'
+        });
+      }
+
+      let data;
+
+      try {
+        data = await response.json();
+      } catch {
+        return res.status(502).json({
+          error: 'Groq вернул ответ в неизвестном формате.'
+        });
+      }
 
       if (!response.ok) {
-        console.error('Groq error:', response.status, data);
+        console.error('Groq API error:', response.status, data);
 
-        return res.status(response.status === 429 ? 429 : 502).json({
-          error: data?.error?.message || 'Ошибка Groq API.'
+        const apiMessage = data?.error?.message;
+
+        if (response.status === 429) {
+          return res.status(429).json({
+            error: 'Превышен лимит запросов Groq. Подожди немного и попробуй снова.'
+          });
+        }
+
+        if (response.status === 401 || response.status === 403) {
+          return res.status(502).json({
+            error: 'Groq отклонил API-ключ. Проверь GROQ_API_KEY в переменных окружения.'
+          });
+        }
+
+        return res.status(502).json({
+          error: apiMessage
+            ? `Ошибка Groq: ${apiMessage}`
+            : `Groq API вернул ошибку ${response.status}.`
         });
       }
 
       const reply = data?.choices?.[0]?.message?.content;
 
-      if (typeof reply !== 'string' || !reply.trim()) {
-        return res.status(502).json({ error: 'ИИ вернул пустой ответ.' });
+      if (typeof reply === 'string' && reply.trim()) {
+        return res.json({
+          reply: reply.trim(),
+          provider: 'groq'
+        });
       }
 
-      return res.json({ reply: reply.trim(), provider: 'groq' });
+      console.error('Groq returned an empty response:', data);
+
+      return res.status(502).json({
+        error: 'Groq вернул пустой ответ. Попробуй отправить сообщение ещё раз.'
+      });
     }
 
-    // Ollama — если Groq не настроен
+    // Ollama используется только тогда, когда GROQ_API_KEY не задан.
     const ollamaUrl =
       process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 
     const ollamaModel =
       process.env.OLLAMA_MODEL || 'llama3.2';
 
-    const response = await fetch(
-      `${ollamaUrl.replace(/\/$/, '')}/api/chat`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: ollamaModel,
-          messages,
-          stream: false
-        }),
-        signal: AbortSignal.timeout(60000)
-      }
-    );
+    let response;
 
-    const data = await response.json();
+    try {
+      response = await fetch(
+        `${ollamaUrl.replace(/\/$/, '')}/api/chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: ollamaModel,
+            messages,
+            stream: false
+          }),
+          signal: AbortSignal.timeout(60000)
+        }
+      );
+    } catch (err) {
+      console.error('Ollama connection error:', err);
+
+      return res.status(502).json({
+        error: 'Не удалось подключиться к Ollama. Настрой GROQ_API_KEY для работы через Groq или проверь OLLAMA_URL.'
+      });
+    }
+
+    let data;
+
+    try {
+      data = await response.json();
+    } catch {
+      return res.status(502).json({
+        error: 'Ollama вернула ответ в неизвестном формате.'
+      });
+    }
 
     if (!response.ok) {
+      console.error('Ollama API error:', response.status, data);
+
       return res.status(502).json({
-        error: data?.error || `Ошибка Ollama: ${response.status}`
+        error: data?.error ||
+          `Ollama API вернула ошибку ${response.status}.`
       });
     }
 
     const reply = data?.message?.content;
 
     if (typeof reply !== 'string' || !reply.trim()) {
-      return res.status(502).json({ error: 'ИИ вернул пустой ответ.' });
+      return res.status(502).json({
+        error: 'ИИ вернул пустой ответ.'
+      });
     }
 
-    return res.json({ reply: reply.trim(), provider: 'ollama' });
+    return res.json({
+      reply: reply.trim(),
+      provider: 'ollama'
+    });
   } catch (err) {
     console.error('Chat error:', err);
-    res.status(502).json({
-      error: 'Не удалось получить ответ от ИИ. Проверь настройки модели.'
+
+    return res.status(502).json({
+      error: 'Не удалось получить ответ от ИИ.'
     });
   }
-});// Генерация изображений через Gemini
-app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
+});// Генерация изображений через Gemini API
+app.post('/api/images', requireAuth, requireNotMuted, imageLimiter, async (req, res) => {
   const prompt = req.body?.prompt;
 
   if (typeof prompt !== 'string' || !prompt.trim()) {
-    return res.status(400).json({ error: 'Напиши описание изображения.' });
+    return res.status(400).json({
+      error: 'Напиши описание изображения.'
+    });
   }
 
   if (prompt.length > 4000) {
     return res.status(400).json({
-      error: 'Описание изображения слишком длинное.'
+      error: 'Описание изображения слишком длинное (максимум 4000 символов).'
     });
   }
 
@@ -753,7 +869,7 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
 
   if (!apiKey) {
     return res.status(503).json({
-      error: 'Добавь GEMINI_API_KEY в переменные окружения.'
+      error: 'Добавь GEMINI_API_KEY в переменные окружения Render.'
     });
   }
 
@@ -789,8 +905,11 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
     const data = await response.json();
 
     if (!response.ok) {
+      console.error('Gemini API error:', data);
+
       return res.status(502).json({
-        error: data?.error?.message || 'Ошибка Gemini API.'
+        error: data?.error?.message ||
+          'Не удалось создать изображение через Gemini.'
       });
     }
 
@@ -799,14 +918,16 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
 
     if (!imagePart) {
       return res.status(502).json({
-        error: 'Модель не вернула изображение.'
+        error: 'Модель не вернула картинку. Попробуй изменить описание.'
       });
     }
 
     const mimeType = imagePart.inlineData.mimeType || 'image/png';
 
     if (!['image/png', 'image/jpeg', 'image/webp'].includes(mimeType)) {
-      return res.status(502).json({ error: 'Формат изображения не поддерживается.' });
+      return res.status(502).json({
+        error: 'Формат картинки не поддерживается.'
+      });
     }
 
     res.json({
@@ -818,7 +939,7 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
 
     res.status(err.name === 'AbortError' ? 504 : 502).json({
       error: err.name === 'AbortError'
-        ? 'Генерация заняла слишком много времени.'
+        ? 'Генерация заняла слишком много времени. Попробуй ещё раз.'
         : 'Не удалось подключиться к Gemini API.'
     });
   } finally {
@@ -826,21 +947,55 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
   }
 });
 
-// Получить свой ранг
-app.get('/api/ranks/me', requireAuth, (req, res) => {
-  const rank = getUserRank(req.session.user.id);
-  req.session.user.rank = rank;
+// ===== MAUT AI RANKS / ADMIN API =====
+function currentRank(req) {
+  const row = db.prepare(
+    'SELECT rank, email FROM users WHERE id = ?'
+  ).get(req.session.user.id);
 
+  if (!row) return 'FREE';
+
+  if (String(row.email || '').toLowerCase() === ADMIN_EMAIL) {
+    return 'ADMIN';
+  }
+
+  return VALID_RANKS.includes(row.rank) ? row.rank : 'FREE';
+}
+
+function requireRank(...allowed) {
+  return (req, res, next) => {
+    if (!req.session.user) {
+      return res.status(401).json({
+        error: 'Сначала войди в аккаунт.'
+      });
+    }
+
+    const rank = currentRank(req);
+
+    if (!allowed.includes(rank)) {
+      return res.status(403).json({
+        error: 'Недостаточно прав.'
+      });
+    }
+
+    next();
+  };
+}
+
+app.get('/api/ranks/me', requireAuth, (req, res) => {
+  const rank = currentRank(req);
+  req.session.user.rank = rank;
   res.set('Cache-Control', 'no-store');
   res.json({ rank });
 });
 
-// Активировать код
 app.post('/api/ranks/redeem', requireAuth, (req, res) => {
   const code = String(req.body?.code || '').trim().toUpperCase();
 
   if (!code || code.length > 80) {
-    return res.status(400).json({ error: 'Введи корректный код.' });
+    return res.status(400).json({
+      error: 'Введи корректный код.'
+    });
   }
 
   try {
@@ -853,18 +1008,21 @@ app.post('/api/ranks/redeem', requireAuth, (req, res) => {
 
       if (!item) return null;
 
-      const result = db.prepare(`
+      db.prepare(`
         UPDATE rank_codes
         SET used_by = ?, used_at = CURRENT_TIMESTAMP
         WHERE id = ? AND used_by IS NULL
       `).run(req.session.user.id, item.id);
 
-      if (!result.changes) return null;
+      const changed = db.prepare(
+        'SELECT changes() AS n'
+      ).get().n;
 
-      db.prepare(`
-        UPDATE users SET rank = ?
-        WHERE id = ?
-      `).run(item.rank, req.session.user.id);
+      if (!changed) return null;
+
+      db.prepare(
+        'UPDATE users SET rank = ? WHERE id = ?'
+      ).run(item.rank, req.session.user.id);
 
       return item.rank;
     });
@@ -880,118 +1038,233 @@ app.post('/api/ranks/redeem', requireAuth, (req, res) => {
     req.session.user.rank = rank;
     res.json({ success: true, rank });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Не удалось активировать код.' });
+    console.error('Redeem code error:', err);
+
+    res.status(500).json({
+      error: 'Не удалось активировать код.'
+    });
   }
 });
 
-// Список пользователей для администратора
-app.get('/api/admin/users', requireAuth, requireRank('ADMIN'), (req, res) => {
-  const users = db.prepare(`
-    SELECT id, username, email, display_name, rank, created_at
-    FROM users
-    ORDER BY id DESC
-  `).all();
+// ADMIN и MODER могут видеть список пользователей.
+app.get(
+  '/api/admin/users',
+  requireAuth,
+  requireRank('ADMIN', 'MODER'),
+  (req, res) => {
+    const users = db.prepare(`
+      SELECT
+        id,
+        username,
+        email,
+        display_name,
+        rank,
+        created_at,
+        muted_until
+      FROM users
+      ORDER BY id DESC
+    `).all()
+      .map(user => ({
+        ...user,
+        is_muted: Boolean(
+          user.muted_until &&
+          Date.parse(user.muted_until) > Date.now()
+        )
+      }));
 
-  res.json({ users });
-});
-
-// Изменить ранг пользователя
-app.post('/api/admin/users/:id/rank', requireAuth, requireRank('ADMIN'), (req, res) => {
-  const id = Number(req.params.id);
-  const rank = String(req.body?.rank || '').toUpperCase();
-
-  if (!Number.isSafeInteger(id) || id < 1) {
-    return res.status(400).json({ error: 'Неверный ID пользователя.' });
-  }
-
-  if (!VALID_RANKS.includes(rank)) {
-    return res.status(400).json({ error: 'Неизвестный ранг.' });
-  }
-
-  const target = db.prepare(
-    'SELECT id, email FROM users WHERE id = ?'
-  ).get(id);
-
-  if (!target) {
-    return res.status(404).json({ error: 'Пользователь не найден.' });
-  }
-
-  if (
-    String(target.email || '').toLowerCase() === ADMIN_EMAIL &&
-    rank !== 'ADMIN'
-  ) {
-    return res.status(403).json({
-      error: 'Нельзя изменить ранг владельца.'
+    res.json({
+      users,
+      viewer_rank: currentRank(req)
     });
   }
+);
 
-  // Нельзя назначить другого ADMIN через эту панель.
-  if (rank === 'ADMIN' && id !== req.session.user.id) {
-    return res.status(403).json({
-      error: 'Нельзя назначить дополнительного администратора.'
-    });
-  }
+// MODER может мутить только FREE и PLUS.
+// Длительность мута фиксирована на сервере: 7 минут.
+app.post(
+  '/api/admin/users/:id/mute',
+  requireAuth,
+  requireRank('ADMIN', 'MODER'),
+  (req, res) => {
+    const id = Number(req.params.id);
 
-  db.prepare('UPDATE users SET rank = ? WHERE id = ?').run(rank, id);
-  res.json({ success: true, rank });
-});
-
-// Создать коды PLUS или MODER
-app.post('/api/admin/codes', requireAuth, requireRank('ADMIN'), (req, res) => {
-  const rank = String(req.body?.rank || '').toUpperCase();
-  const amount = Math.min(20, Math.max(1, Number(req.body?.amount) || 1));
-
-  if (!['PLUS', 'MODER'].includes(rank)) {
-    return res.status(400).json({
-      error: 'Коды доступны для PLUS и MODER.'
-    });
-  }
-
-  const create = db.transaction(() => {
-    const codes = [];
-
-    for (let i = 0; i < amount; i++) {
-      const code = `MAUT-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
-
-      db.prepare(`
-        INSERT INTO rank_codes (code, rank, created_by)
-        VALUES (?, ?, ?)
-      `).run(code, rank, req.session.user.id);
-
-      codes.push(code);
+    if (!Number.isSafeInteger(id) || id < 1) {
+      return res.status(400).json({
+        error: 'Неверный ID пользователя.'
+      });
     }
 
-    return codes;
-  });
+    if (id === Number(req.session.user.id)) {
+      return res.status(403).json({
+        error: 'Нельзя выдать мут самому себе.'
+      });
+    }
 
-  res.status(201).json({
-    success: true,
-    rank,
-    codes: create()
-  });
-});
+    const target = db.prepare(
+      'SELECT id, email, rank FROM users WHERE id = ?'
+    ).get(id);
 
-// Список созданных кодов
-app.get('/api/admin/codes', requireAuth, requireRank('ADMIN'), (req, res) => {
-  const codes = db.prepare(`
-    SELECT code, rank, created_at, used_at, used_by
-    FROM rank_codes
-    ORDER BY id DESC
-    LIMIT 100
-  `).all();
+    if (!target) {
+      return res.status(404).json({
+        error: 'Пользователь не найден.'
+      });
+    }
 
-  res.json({ codes });
-});
+    const actorRank = currentRank(req);
+    const targetRank = String(target.rank || 'FREE').toUpperCase();
 
-// Статические файлы сайта
+    if (
+      String(target.email || '').toLowerCase() === ADMIN_EMAIL ||
+      targetRank === 'ADMIN'
+    ) {
+      return res.status(403).json({
+        error: 'Нельзя выдать мут администратору.'
+      });
+    }
+
+    if (
+      actorRank === 'MODER' &&
+      !['FREE', 'PLUS'].includes(targetRank)
+    ) {
+      return res.status(403).json({
+        error: 'MODER может мутить только пользователей FREE и PLUS.'
+      });
+    }
+
+    const mutedUntil = new Date(
+      Date.now() + 7 * 60 * 1000
+    ).toISOString();
+
+    db.prepare(
+      'UPDATE users SET muted_until = ? WHERE id = ?'
+    ).run(mutedUntil, id);
+
+    res.json({
+      success: true,
+      muted_until: mutedUntil,
+      duration_minutes: 7
+    });
+  }
+);
+
+// Менять ранги может только ADMIN.
+app.post(
+  '/api/admin/users/:id/rank',
+  requireAuth,
+  requireRank('ADMIN'),
+  (req, res) => {
+    const id = Number(req.params.id);
+    const rank = String(req.body?.rank || '').toUpperCase();
+
+    if (!Number.isSafeInteger(id) || id < 1) {
+      return res.status(400).json({
+        error: 'Неверный ID пользователя.'
+      });
+    }
+
+    if (!VALID_RANKS.includes(rank)) {
+      return res.status(400).json({
+        error: 'Неизвестный ранг.'
+      });
+    }
+
+    const target = db.prepare(
+      'SELECT id, email FROM users WHERE id = ?'
+    ).get(id);
+
+    if (!target) {
+      return res.status(404).json({
+        error: 'Пользователь не найден.'
+      });
+    }
+
+    if (
+      String(target.email || '').toLowerCase() === ADMIN_EMAIL &&
+      rank !== 'ADMIN'
+    ) {
+      return res.status(403).json({
+        error: 'Нельзя изменить ранг владельца.'
+      });
+    }
+
+    db.prepare(
+      'UPDATE users SET rank = ? WHERE id = ?'
+    ).run(rank, id);
+
+    res.json({ success: true, rank });
+  }
+);
+
+// Создавать коды может только ADMIN.
+app.post(
+  '/api/admin/codes',
+  requireAuth,
+  requireRank('ADMIN'),
+  (req, res) => {
+    const rank = String(req.body?.rank || '').toUpperCase();
+    const amount = Math.min(
+      20,
+      Math.max(1, Number(req.body?.amount) || 1)
+    );
+
+    if (!['PLUS', 'MODER'].includes(rank)) {
+      return res.status(400).json({
+        error: 'Коды доступны для PLUS и MODER.'
+      });
+    }
+
+    const create = db.transaction(() => {
+      const codes = [];
+
+      for (let i = 0; i < amount; i++) {
+        const code = `MAUT-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
+
+        db.prepare(`
+          INSERT INTO rank_codes (code, rank, created_by)
+          VALUES (?, ?, ?)
+        `).run(code, rank, req.session.user.id);
+
+        codes.push(code);
+      }
+
+      return codes;
+    });
+
+    res.status(201).json({
+      success: true,
+      rank,
+      codes: create()
+    });
+  }
+);
+
+app.get(
+  '/api/admin/codes',
+  requireAuth,
+  requireRank('ADMIN'),
+  (req, res) => {
+    const codes = db.prepare(`
+      SELECT code, rank, created_at, used_at, used_by
+      FROM rank_codes
+      ORDER BY id DESC
+      LIMIT 100
+    `).all();
+
+    res.json({ codes });
+  }
+);
+
+// ===== END MAUT AI RANKS / ADMIN API =====
+
+// Статические файлы сайта.
+// Поддерживаем обычную папку public, вложенную public/public и корень проекта.
 const PUBLIC_CANDIDATES = [
   path.join(__dirname, 'public', 'public'),
   path.join(__dirname, 'public'),
   __dirname
 ];
 
-const PUBLIC_DIR = PUBLIC_CANDIDATES.find(dir =>
+const PUBLIC_DIR = PUBLIC_CANDIDATES.find((dir) =>
   fs.existsSync(path.join(dir, 'index.html'))
 );
 
@@ -1001,13 +1274,38 @@ if (!PUBLIC_DIR) {
   );
 }
 
+console.log('Папка сайта Maut AI:', PUBLIC_DIR);
+
 app.use(express.static(PUBLIC_DIR, {
-  extensions: ['html'],
-  maxAge: isProduction ? '1h' : 0
+  index: false,
+  etag: true,
+  maxAge: '1h'
 }));
 
-app.get('*', (req, res) => {
+app.get('/', (req, res) => {
   res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+});
+
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    error: 'API маршрут не найден.'
+  });
+});
+
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+
+  if (res.headersSent) return next(err);
+
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({
+      error: 'Запрос слишком большой. Уменьши размер сообщения или изображения.'
+    });
+  }
+
+  res.status(500).json({
+    error: 'Внутренняя ошибка сервера.'
+  });
 });
 
 const server = app.listen(PORT, '0.0.0.0', () => {
@@ -1015,18 +1313,13 @@ const server = app.listen(PORT, '0.0.0.0', () => {
 });
 
 function shutdown() {
-  console.log('Остановка Maut AI...');
-
   server.close(() => {
-    try {
-      sessionStore.close?.();
-      db.close();
-    } catch (err) {
-      console.error(err);
-    }
-
+    sessionStore.close?.();
+    db.close();
     process.exit(0);
   });
+
+  setTimeout(() => process.exit(1), 10000).unref();
 }
 
 process.on('SIGTERM', shutdown);
