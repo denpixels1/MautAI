@@ -1351,7 +1351,7 @@ app.get('/api/admin/requests', requireAuth, requireRank('admin'), (req, res) => 
       rr.id,
       rr.user_id,
       rr.requested_rank,
-      rr.reason,
+      rr.message,
       rr.status,
       rr.created_at,
       u.email,
