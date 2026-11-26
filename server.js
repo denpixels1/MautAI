@@ -298,8 +298,7 @@ function requireAuth(req, res, next) {
   req.user = user;
   next();
 }
-
-function requireRank(...allowedRanks) {
+    function requireRank(...allowedRanks) {
   return (req, res, next) => {
     if (!req.session?.user?.id) {
       return res.status(401).json({
@@ -307,9 +306,13 @@ function requireRank(...allowedRanks) {
       });
     }
 
-    const rank = getRank(req.session.user.id);
+    const rank = String(getRank(req.session.user.id) || 'FREE').toUpperCase();
 
-    if (!allowedRanks.includes(rank)) {
+    const allowed = allowedRanks.map(r =>
+      String(r).toUpperCase()
+    );
+
+    if (!allowed.includes(rank)) {
       return res.status(403).json({
         error: 'Недостаточно прав.'
       });
