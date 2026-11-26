@@ -1603,11 +1603,12 @@ app.get('/api/admin/codes', requireAuth, requireRank('admin'), (req, res) => {
 // ===============================
 
 const possiblePublicDirs = [
+  path.join(__dirname, 'public', 'public'),
   path.join(__dirname, 'public'),
   path.join(__dirname, 'frontend'),
   path.join(__dirname, 'client'),
   path.join(__dirname, 'dist')
-];
+]; 
 
 const frontendDir = possiblePublicDirs.find(dir =>
   fs.existsSync(path.join(dir, 'index.html'))
