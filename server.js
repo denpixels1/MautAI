@@ -12,25 +12,27 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+// =====================================================
+// MAUT AI — SERVER
+// =====================================================
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
 const ADMIN_EMAIL = 'denpixels1@gmail.com';
+
+const VALID_RANKS = ['FREE', 'PLUS', 'MODER', 'ADMIN'];
+const CODE_RANKS = ['PLUS', 'MODER'];
+const REQUEST_RANKS = ['PLUS', 'MODER', 'ADMIN'];
 
 const MAX_MESSAGE_LENGTH = 30000;
 const MAX_HISTORY_MESSAGES = 12;
 const MAX_HISTORY_LENGTH = 16000;
-const VALID_RANKS = ['FREE', 'PLUS', 'MODER', 'ADMIN'];
 
-function normalizeRank(value) {
-  const rank = String(value || '').trim().toUpperCase();
-  return VALID_RANKS.includes(rank) ? rank : null;
-}
-// Срок cookie — 10 лет.
-// Сессии продлеваются при активности благодаря rolling: true.
 const SESSION_MAX_AGE = 10 * 365 * 24 * 60 * 60 * 1000;
 const SESSION_TTL_SECONDS = Math.floor(SESSION_MAX_AGE / 1000);
 
@@ -41,9 +43,13 @@ if (IS_PRODUCTION) {
 app.disable('x-powered-by');
 app.use(express.json({ limit: '20mb' }));
 
-// ВАЖНО: DATA_DIR должен указывать на постоянный диск Render.
-// Не меняй его, пока не перенесёшь старые базы данных.
-const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
+// =====================================================
+// DATABASE
+// =====================================================
+
+const DATA_DIR =
+  process.env.DATA_DIR || path.join(__dirname, 'data');
+
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const DATABASE_PATH = path.join(DATA_DIR, 'maut.db');
@@ -54,6 +60,18 @@ db.pragma('foreign_keys = ON');
 db.pragma('synchronous = FULL');
 db.pragma('busy_timeout = 10000');
 
+function ensureColumn(table, column, definition) {
+  const columns = db.prepare(
+    `PRAGMA table_info(${table})`
+  ).all();
+
+  if (!columns.some(item => item.name === column)) {
+    db.exec(
+      `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`
+    );
+  }
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,14 +80,6 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 `);
-
-function ensureColumn(table, column, definition) {
-  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
-
-  if (!columns.some(item => item.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-  }
-}
 
 ensureColumn('users', 'display_name', 'TEXT');
 ensureColumn('users', 'email', 'TEXT');
@@ -127,6 +137,8 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     code TEXT NOT NULL UNIQUE,
     rank TEXT NOT NULL CHECK(rank IN ('PLUS', 'MODER')),
+    used INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT,
     created_by INTEGER,
     used_by INTEGER,
     used_at TEXT,
@@ -134,17 +146,29 @@ db.exec(`
   );
 `);
 
-// Проверка секретного ключа сессий
+// Migrations for existing databases.
+ensureColumn('rank_requests', 'message', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('rank_requests', 'reviewed_at', 'TEXT');
+ensureColumn('rank_requests', 'reviewed_by', 'INTEGER');
+
+ensureColumn('rank_codes', 'used', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('rank_codes', 'expires_at', 'TEXT');
+ensureColumn('rank_codes', 'created_by', 'INTEGER');
+ensureColumn('rank_codes', 'used_by', 'INTEGER');
+ensureColumn('rank_codes', 'used_at', 'TEXT');
+
+// =====================================================
+// SESSION
+// =====================================================
+
 const SESSION_SECRET = process.env.SESSION_SECRET;
 
 if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
   throw new Error(
-    'SESSION_SECRET должен быть задан и содержать минимум 32 символа.'
+    'SESSION_SECRET должен содержать минимум 32 символа.'
   );
 }
 
-// Постоянное SQLite-хранилище сессий.
-// TTL задаётся в секундах, а cookie maxAge — в миллисекундах.
 const SQLiteStore = SQLiteStoreFactory(session);
 
 const sessionStore = new SQLiteStore({
@@ -171,6 +195,10 @@ app.use(session({
   }
 }));
 
+// =====================================================
+// RATE LIMITS
+// =====================================================
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
@@ -194,6 +222,18 @@ const imageLimiter = rateLimit({
     error: 'Слишком много генераций. Подожди минуту.'
   }
 });
+
+// =====================================================
+// NORMALIZATION
+// =====================================================
+
+function normalizeRank(value) {
+  if (typeof value !== 'string') return null;
+
+  const rank = value.trim().toUpperCase();
+
+  return VALID_RANKS.includes(rank) ? rank : null;
+}
 
 function normalizeEmail(value) {
   if (typeof value !== 'string') return null;
@@ -232,10 +272,23 @@ function normalizeDisplayName(value) {
   return name;
 }
 
+// =====================================================
+// USERS AND RANKS
+// =====================================================
+
 function getUserById(id) {
   return db.prepare(`
-    SELECT id, username, display_name, email, rank, banned, ban_reason,
-           created_at, password_hash
+    SELECT
+      id,
+      username,
+      display_name,
+      email,
+      rank,
+      banned,
+      ban_reason,
+      created_at,
+      password_hash,
+      last_login
     FROM users
     WHERE id = ?
   `).get(id);
@@ -243,26 +296,34 @@ function getUserById(id) {
 
 function getRank(userId) {
   const user = db.prepare(`
-    SELECT email, rank
+    SELECT id, email, rank
     FROM users
     WHERE id = ?
   `).get(userId);
 
   if (!user) return 'FREE';
 
-  if (String(user.email || '').toLowerCase() === ADMIN_EMAIL) {
+  // Главный аккаунт администратора.
+  if (
+    String(user.email || '').toLowerCase() === ADMIN_EMAIL
+  ) {
     if (user.rank !== 'ADMIN') {
-      db.prepare('UPDATE users SET rank = ? WHERE id = ?')
-        .run('ADMIN', userId);
+      db.prepare(`
+        UPDATE users
+        SET rank = 'ADMIN'
+        WHERE id = ?
+      `).run(user.id);
     }
 
     return 'ADMIN';
   }
 
-  return VALID_RANKS.includes(user.rank) ? user.rank : 'FREE';
+  return normalizeRank(user.rank) || 'FREE';
 }
 
 function publicUser(user) {
+  if (!user) return null;
+
   return {
     id: user.id,
     username: user.username,
@@ -272,49 +333,56 @@ function publicUser(user) {
   };
 }
 
-function requireAuth(req, res, next) {
-  const sessionUser = req.session?.user;
+// =====================================================
+// AUTHORIZATION
+// =====================================================
 
-  if (!sessionUser?.id) {
+function requireAuth(req, res, next) {
+  const userId = req.session?.user?.id;
+
+  if (!userId) {
     return res.status(401).json({
       error: 'Сначала войди в аккаунт.'
     });
   }
 
-  const user = getUserById(sessionUser.id);
+  const user = getUserById(userId);
 
   if (!user) {
-    req.session.destroy(() => {});
-    return res.status(401).json({
-      error: 'Аккаунт не найден. Войди снова.'
+    return req.session.destroy(() => {
+      res.status(401).json({
+        error: 'Аккаунт не найден. Войди снова.'
+      });
     });
   }
 
   if (user.banned) {
-    req.session.destroy(() => {});
-    return res.status(403).json({
-      error: user.ban_reason
-        ? `Аккаунт заблокирован: ${user.ban_reason}`
-        : 'Аккаунт заблокирован администратором.'
+    return req.session.destroy(() => {
+      res.status(403).json({
+        error: user.ban_reason
+          ? `Аккаунт заблокирован: ${user.ban_reason}`
+          : 'Аккаунт заблокирован администратором.'
+      });
     });
   }
 
   req.user = user;
   next();
 }
-    function requireRank(...allowedRanks) {
+
+function requireRank(...allowedRanks) {
+  const allowed = allowedRanks
+    .map(normalizeRank)
+    .filter(Boolean);
+
   return (req, res, next) => {
-    if (!req.session?.user?.id) {
+    if (!req.user) {
       return res.status(401).json({
         error: 'Сначала войди в аккаунт.'
       });
     }
 
-    const rank = String(getRank(req.session.user.id) || 'FREE').toUpperCase();
-
-    const allowed = allowedRanks.map(r =>
-      String(r).toUpperCase()
-    );
+    const rank = getRank(req.user.id);
 
     if (!allowed.includes(rank)) {
       return res.status(403).json({
@@ -326,15 +394,21 @@ function requireAuth(req, res, next) {
   };
 }
 
+// =====================================================
+// SESSION CREATION
+// =====================================================
+
 function createSession(req, user, res) {
   req.session.regenerate(err => {
     if (err) {
       console.error('Session error:', err);
+
       return res.status(500).json({
         error: 'Не удалось создать сессию.'
       });
     }
 
+    // Везде используется один формат: req.session.user.id
     req.session.user = {
       id: user.id
     };
@@ -344,6 +418,7 @@ function createSession(req, user, res) {
     req.session.save(saveError => {
       if (saveError) {
         console.error('Session save error:', saveError);
+
         return res.status(500).json({
           error: 'Не удалось сохранить сессию.'
         });
@@ -351,7 +426,7 @@ function createSession(req, user, res) {
 
       const freshUser = getUserById(user.id);
 
-      res.json({
+      return res.json({
         success: true,
         user: publicUser(freshUser)
       });
@@ -360,7 +435,9 @@ function createSession(req, user, res) {
 }
 
 function makeRankCode() {
-  return `MAUT-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
+  return `MAUT-${crypto.randomBytes(8)
+    .toString('hex')
+    .toUpperCase()}`;
 }
 
 function getOwnedChat(chatId, userId) {
@@ -371,6 +448,10 @@ function getOwnedChat(chatId, userId) {
   `).get(chatId, userId);
 }
 
+// =====================================================
+// HEALTH
+// =====================================================
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -379,12 +460,17 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// =====================================================
+// REGISTER
+// =====================================================
+
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const body = req.body || {};
 
     const email = normalizeEmail(body.email);
     const password = body.password;
+
     const displayName = normalizeDisplayName(
       body.name || body.displayName || body.username
     );
@@ -403,7 +489,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
 
     if (!username) {
       return res.status(400).json({
-        error: 'Имя пользователя должно содержать 3–30 символов: латинские буквы, цифры, точку, дефис или _.'
+        error: 'Имя пользователя должно содержать 3–30 символов.'
       });
     }
 
@@ -431,11 +517,13 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
 
     if (existing) {
       return res.status(409).json({
-        error: 'Аккаунт с таким email или именем пользователя уже существует.'
+        error: 'Аккаунт с таким email или именем уже существует.'
       });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
+
+    const rank = email === ADMIN_EMAIL ? 'ADMIN' : 'FREE';
 
     const result = db.prepare(`
       INSERT INTO users
@@ -446,7 +534,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
       passwordHash,
       displayName,
       email,
-      email === ADMIN_EMAIL ? 'ADMIN' : 'FREE'
+      rank
     );
 
     const user = getUserById(Number(result.lastInsertRowid));
@@ -473,9 +561,14 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
   }
 });
 
+// =====================================================
+// LOGIN
+// =====================================================
+
 app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const body = req.body || {};
+
     const login = String(
       body.login || body.email || body.username || ''
     ).trim().toLowerCase();
@@ -535,16 +628,23 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   }
 });
 
+// =====================================================
+// CURRENT USER
+// =====================================================
+
 app.get('/api/auth/me', (req, res) => {
-  if (!req.session?.user?.id) {
+  const userId = req.session?.user?.id;
+
+  if (!userId) {
     return res.json({ user: null });
   }
 
-  const user = getUserById(req.session.user.id);
+  const user = getUserById(userId);
 
   if (!user || user.banned) {
-    req.session.destroy(() => {});
-    return res.json({ user: null });
+    return req.session.destroy(() => {
+      res.json({ user: null });
+    });
   }
 
   res.set('Cache-Control', 'no-store');
@@ -553,6 +653,10 @@ app.get('/api/auth/me', (req, res) => {
     user: publicUser(user)
   });
 });
+
+// =====================================================
+// LOGOUT
+// =====================================================
 
 app.post('/api/auth/logout', (req, res) => {
   req.session.destroy(err => {
@@ -573,7 +677,10 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
-// СОЗДАНИЕ ЧАТА
+// =====================================================
+// CHATS
+// =====================================================
+
 app.post('/api/chats', requireAuth, (req, res) => {
   try {
     const result = db.prepare(`
@@ -596,7 +703,6 @@ app.post('/api/chats', requireAuth, (req, res) => {
   }
 });
 
-// СПИСОК ЧАТОВ
 app.get('/api/chats', requireAuth, (req, res) => {
   try {
     const chats = db.prepare(`
@@ -624,7 +730,6 @@ app.get('/api/chats', requireAuth, (req, res) => {
   }
 });
 
-// ОТКРЫТИЕ ЧАТА И ЕГО ИСТОРИИ
 app.get('/api/chats/:id', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -661,7 +766,6 @@ app.get('/api/chats/:id', requireAuth, (req, res) => {
   }
 });
 
-// СОХРАНЕНИЕ СООБЩЕНИЯ
 app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -741,7 +845,6 @@ app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
   }
 });
 
-// УДАЛЕНИЕ ЧАТА
 app.delete('/api/chats/:id', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -773,7 +876,13 @@ app.delete('/api/chats/:id', requireAuth, (req, res) => {
   }
 });
 
-const SYSTEM_PROMPT = `Ты — Maut AI, полезный, внимательный и дружелюбный ИИ-помощник. Отвечай на языке пользователя, если он не попросил другой язык.
+// =====================================================
+// AI SYSTEM PROMPT
+// =====================================================
+
+const SYSTEM_PROMPT = `Ты — Maut AI, полезный, внимательный и дружелюбный ИИ-помощник.
+
+Отвечай на языке пользователя, если он не попросил другой язык.
 
 Пиши естественно, грамотно и понятно. Сначала отвечай по существу. Не выдумывай факты. Если не знаешь ответа, честно скажи об этом. Используй Markdown, когда он помогает сделать ответ понятнее. Код оформляй в блоках с указанием языка.
 
@@ -781,25 +890,14 @@ const SYSTEM_PROMPT = `Ты — Maut AI, полезный, внимательн�
 
 При решении математических задач показывай понятные вычисления и проверяй результат. Не выдумывай результаты вычислений.`;
 
-// Безопасный математический вычислитель.
-// Разрешены только числа, арифметические операторы,
-// скобки и перечисленные математические функции.
+// =====================================================
+// MATH ENGINE
+// =====================================================
+
 const ALLOWED_MATH_FUNCTIONS = new Set([
-  'sqrt',
-  'abs',
-  'sin',
-  'cos',
-  'tan',
-  'asin',
-  'acos',
-  'atan',
-  'log',
-  'log10',
-  'exp',
-  'ceil',
-  'floor',
-  'round',
-  'factorial'
+  'sqrt', 'abs', 'sin', 'cos', 'tan',
+  'asin', 'acos', 'atan', 'log', 'log10',
+  'exp', 'ceil', 'floor', 'round', 'factorial'
 ]);
 
 const ALLOWED_MATH_SYMBOLS = new Set([
@@ -866,7 +964,7 @@ function calculateMathExpression(expression) {
   });
 
   if (typeof result !== 'number' || !Number.isFinite(result)) {
-    throw new Error('Не удалось получить конечный числовой результат.');
+    throw new Error('Не удалось получить числовой результат.');
   }
 
   return result;
@@ -880,8 +978,6 @@ function formatMathResult(value) {
   return Number(value.toPrecision(12)).toString();
 }
 
-// Определяем простые запросы на вычисление.
-// Сложные уравнения и задачи остаются ИИ-помощнику.
 function extractMathExpression(message) {
   const text = message.trim();
 
@@ -922,6 +1018,10 @@ function tryCalculateMath(message) {
   }
 }
 
+// =====================================================
+// AI CHAT
+// =====================================================
+
 app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
     const message = req.body?.message;
@@ -936,7 +1036,6 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       });
     }
 
-    // Сначала проверяем, можно ли решить пример самостоятельно.
     const mathResult = tryCalculateMath(message);
 
     if (mathResult) {
@@ -1010,15 +1109,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
         });
       }
 
-      let data;
-
-      try {
-        data = await response.json();
-      } catch {
-        return res.status(502).json({
-          error: 'Groq вернул ответ в неизвестном формате.'
-        });
-      }
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         console.error('Groq API error:', response.status, data);
@@ -1084,15 +1175,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       });
     }
 
-    let data;
-
-    try {
-      data = await response.json();
-    } catch {
-      return res.status(502).json({
-        error: 'Ollama вернула ответ в неизвестном формате.'
-      });
-    }
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
       return res.status(502).json({
@@ -1120,20 +1203,25 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
     });
   }
 });
-// ===============================
+
+// =====================================================
 // IMAGE GENERATION
-// ===============================
+// =====================================================
 
 app.post('/api/images', requireAuth, imageLimiter, async (req, res, next) => {
   try {
     const prompt = String(req.body?.prompt || '').trim();
 
     if (!prompt) {
-      return res.status(400).json({ error: 'Введите описание изображения.' });
+      return res.status(400).json({
+        error: 'Введите описание изображения.'
+      });
     }
 
     if (prompt.length > 4000) {
-      return res.status(400).json({ error: 'Описание слишком длинное. Максимум 4000 символов.' });
+      return res.status(400).json({
+        error: 'Описание слишком длинное. Максимум 4000 символов.'
+      });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -1161,12 +1249,10 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res, next) => {
           },
           signal: controller.signal,
           body: JSON.stringify({
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: prompt }]
-              }
-            ],
+            contents: [{
+              role: 'user',
+              parts: [{ text: prompt }]
+            }],
             generationConfig: {
               responseModalities: ['TEXT', 'IMAGE']
             }
@@ -1178,8 +1264,10 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res, next) => {
 
       if (!response.ok) {
         console.error('Gemini image error:', data);
+
         return res.status(502).json({
-          error: data?.error?.message || 'Не удалось создать изображение.'
+          error: data?.error?.message ||
+            'Не удалось создать изображение.'
         });
       }
 
@@ -1218,31 +1306,41 @@ app.post('/api/images', requireAuth, imageLimiter, async (req, res, next) => {
   }
 });
 
-
-// ===============================
+// =====================================================
 // USER RANKS
-// ===============================
+// =====================================================
 
 app.get('/api/ranks/me', requireAuth, (req, res) => {
-  const user = getUserById(req.session.userId);
+  const user = getUserById(req.user.id);
 
   if (!user) {
-    return res.status(401).json({ error: 'Аккаунт не найден.' });
+    return res.status(401).json({
+      error: 'Аккаунт не найден.'
+    });
   }
 
+  const rank = getRank(user.id);
+
   return res.json({
-    rank: getRank(user.rank),
+    rank,
     user: publicUser(user)
   });
 });
 
+// =====================================================
+// REDEEM RANK CODE
+// =====================================================
 
-app.post('/api/ranks/redeem', requireAuth, async (req, res, next) => {
+app.post('/api/ranks/redeem', requireAuth, (req, res, next) => {
   try {
-    const code = String(req.body?.code || '').trim().toUpperCase();
+    const code = String(req.body?.code || '')
+      .trim()
+      .toUpperCase();
 
     if (!code || code.length > 100) {
-      return res.status(400).json({ error: 'Введите действительный код.' });
+      return res.status(400).json({
+        error: 'Введите действительный код.'
+      });
     }
 
     const redeem = db.transaction(() => {
@@ -1253,34 +1351,56 @@ app.post('/api/ranks/redeem', requireAuth, async (req, res, next) => {
       `).get(code);
 
       if (!rankCode) {
-        return { error: 'Код не найден.', status: 404 };
+        return {
+          error: 'Код не найден.',
+          status: 404
+        };
       }
 
       if (rankCode.used) {
-        return { error: 'Этот код уже использован.', status: 409 };
+        return {
+          error: 'Этот код уже использован.',
+          status: 409
+        };
       }
 
-      if (rankCode.expires_at && Date.parse(rankCode.expires_at) < Date.now()) {
-        return { error: 'Срок действия кода истёк.', status: 410 };
+      if (
+        rankCode.expires_at &&
+        Date.parse(rankCode.expires_at) < Date.now()
+      ) {
+        return {
+          error: 'Срок действия кода истёк.',
+          status: 410
+        };
       }
 
-      const rank = getRank(rankCode.rank);
+      const rank = normalizeRank(rankCode.rank);
 
-      if (!VALID_RANKS.includes(rank)) {
-        return { error: 'У кода некорректный ранг.', status: 400 };
+      if (!rank || !CODE_RANKS.includes(rank)) {
+        return {
+          error: 'У кода некорректный ранг.',
+          status: 400
+        };
       }
 
-      db.prepare(`
+      const useResult = db.prepare(`
         UPDATE rank_codes
         SET used = 1, used_by = ?, used_at = CURRENT_TIMESTAMP
         WHERE id = ? AND used = 0
-      `).run(req.session.userId, rankCode.id);
+      `).run(req.user.id, rankCode.id);
+
+      if (!useResult.changes) {
+        return {
+          error: 'Этот код уже использован.',
+          status: 409
+        };
+      }
 
       const update = db.prepare(`
         UPDATE users
         SET rank = ?
         WHERE id = ?
-      `).run(rank, req.session.userId);
+      `).run(rank, req.user.id);
 
       if (!update.changes) {
         throw new Error('Не удалось обновить ранг пользователя.');
@@ -1292,10 +1412,12 @@ app.post('/api/ranks/redeem', requireAuth, async (req, res, next) => {
     const result = redeem();
 
     if (result.error) {
-      return res.status(result.status).json({ error: result.error });
+      return res.status(result.status).json({
+        error: result.error
+      });
     }
 
-    const user = getUserById(req.session.userId);
+    const user = getUserById(req.user.id);
 
     return res.json({
       success: true,
@@ -1307,25 +1429,35 @@ app.post('/api/ranks/redeem', requireAuth, async (req, res, next) => {
   }
 });
 
+// =====================================================
+// REQUEST RANK
+// =====================================================
 
 app.post('/api/ranks/request', requireAuth, (req, res) => {
-  const requestedRank = String(req.body?.rank || '').trim().toLowerCase();
-  const reason = String(req.body?.reason || '').trim();
+  const requestedRank = normalizeRank(req.body?.rank);
+  const message = String(req.body?.reason || '').trim();
 
-  if (!VALID_RANKS.includes(requestedRank)) {
-    return res.status(400).json({ error: 'Такого ранга не существует.' });
+  if (
+    !requestedRank ||
+    !REQUEST_RANKS.includes(requestedRank)
+  ) {
+    return res.status(400).json({
+      error: 'Такого ранга не существует.'
+    });
   }
 
-  if (reason.length > 1000) {
-    return res.status(400).json({ error: 'Причина слишком длинная.' });
+  if (message.length > 1000) {
+    return res.status(400).json({
+      error: 'Причина слишком длинная.'
+    });
   }
 
   const pending = db.prepare(`
     SELECT id
     FROM rank_requests
-    WHERE user_id = ? AND status = 'pending'
+    WHERE user_id = ? AND status = 'PENDING'
     LIMIT 1
-  `).get(req.session.userId);
+  `).get(req.user.id);
 
   if (pending) {
     return res.status(409).json({
@@ -1334,9 +1466,10 @@ app.post('/api/ranks/request', requireAuth, (req, res) => {
   }
 
   const result = db.prepare(`
-    INSERT INTO rank_requests (user_id, requested_rank, reason, status)
-    VALUES (?, ?, ?, 'pending')
-  `).run(req.session.userId, requestedRank, reason);
+    INSERT INTO rank_requests
+      (user_id, requested_rank, message, status)
+    VALUES (?, ?, ?, 'PENDING')
+  `).run(req.user.id, requestedRank, message);
 
   return res.status(201).json({
     success: true,
@@ -1344,270 +1477,407 @@ app.post('/api/ranks/request', requireAuth, (req, res) => {
   });
 });
 
-
-// ===============================
+// =====================================================
 // ADMIN: RANK REQUESTS
-// ===============================
+// =====================================================
 
-app.get('/api/admin/requests', requireAuth, requireRank('admin'), (req, res) => {
-  const requests = db.prepare(`
-    SELECT
-      rr.id,
-      rr.user_id,
-      rr.requested_rank,
-      rr.message,
-      rr.status,
-      rr.created_at,
-      u.email,
-      u.display_name,
-      u.rank AS current_rank
-    FROM rank_requests rr
-    JOIN users u ON u.id = rr.user_id
-    ORDER BY rr.created_at DESC
-  `).all();
+app.get(
+  '/api/admin/requests',
+  requireAuth,
+  requireRank('ADMIN'),
+  (req, res) => {
+    const requests = db.prepare(`
+      SELECT
+        rr.id,
+        rr.user_id,
+        rr.requested_rank,
+        rr.message,
+        rr.status,
+        rr.created_at,
+        u.email,
+        u.display_name,
+        u.username,
+        u.rank AS current_rank
+      FROM rank_requests rr
+      JOIN users u ON u.id = rr.user_id
+      ORDER BY rr.created_at DESC
+    `).all();
 
-  return res.json({ requests });
-});
-
-
-app.post('/api/admin/requests/:id/review', requireAuth, requireRank('admin'), (req, res) => {
-  const requestId = Number(req.params.id);
-  const decision = String(req.body?.decision || '').trim().toLowerCase();
-
-  if (!Number.isSafeInteger(requestId) || requestId <= 0) {
-    return res.status(400).json({ error: 'Некорректный ID заявки.' });
+    return res.json({ requests });
   }
+);
 
-  if (!['approved', 'rejected'].includes(decision)) {
-    return res.status(400).json({ error: 'Решение должно быть approved или rejected.' });
-  }
+app.post(
+  '/api/admin/requests/:id/review',
+  requireAuth,
+  requireRank('ADMIN'),
+  (req, res) => {
+    const requestId = Number(req.params.id);
+    const decision = String(req.body?.decision || '')
+      .trim()
+      .toUpperCase();
 
-  const review = db.transaction(() => {
-    const request = db.prepare(`
-      SELECT *
-      FROM rank_requests
-      WHERE id = ?
-    `).get(requestId);
-
-    if (!request) {
-      return { error: 'Заявка не найдена.', status: 404 };
+    if (!Number.isSafeInteger(requestId) || requestId <= 0) {
+      return res.status(400).json({
+        error: 'Некорректный ID заявки.'
+      });
     }
 
-    if (request.status !== 'pending') {
-      return { error: 'Эта заявка уже рассмотрена.', status: 409 };
+    if (!['APPROVED', 'REJECTED'].includes(decision)) {
+      return res.status(400).json({
+        error: 'Решение должно быть approved или rejected.'
+      });
     }
 
-    if (decision === 'approved') {
-      db.prepare(`
-        UPDATE users
-        SET rank = ?
+    const review = db.transaction(() => {
+      const request = db.prepare(`
+        SELECT *
+        FROM rank_requests
         WHERE id = ?
-      `).run(request.requested_rank, request.user_id);
-    }
+      `).get(requestId);
 
-    db.prepare(`
-      UPDATE rank_requests
-      SET status = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?
-      WHERE id = ?
-    `).run(decision, req.session.userId, requestId);
+      if (!request) {
+        return {
+          error: 'Заявка не найдена.',
+          status: 404
+        };
+      }
 
-    return { success: true };
-  });
+      if (request.status !== 'PENDING') {
+        return {
+          error: 'Эта заявка уже рассмотрена.',
+          status: 409
+        };
+      }
 
-  const result = review();
+      if (decision === 'APPROVED') {
+        const rank = normalizeRank(request.requested_rank);
 
-  if (result.error) {
-    return res.status(result.status).json({ error: result.error });
-  }
+        if (!rank || !REQUEST_RANKS.includes(rank)) {
+          return {
+            error: 'В заявке указан неправильный ранг.',
+            status: 400
+          };
+        }
 
-  return res.json({ success: true });
-});
-
-
-// ===============================
-// ADMIN: USERS
-// ===============================
-
-app.get('/api/admin/users', requireAuth, requireRank('admin'), (req, res) => {
-  const users = db.prepare(`
-    SELECT
-      id,
-      email,
-      display_name,
-      rank,
-      banned,
-      ban_reason,
-      created_at,
-      last_login
-    FROM users
-    ORDER BY id DESC
-    LIMIT 500
-  `).all();
-
-  return res.json({ users });
-});
-
-
-app.post('/api/admin/users/:id/rank', requireAuth, requireRank('ADMIN'), (req, res) => {
-  const userId = Number(req.params.id);
-  const rank = normalizeRank(req.body?.rank);
-
-  if (!Number.isSafeInteger(userId) || userId <= 0) {
-    return res.status(400).json({ error: 'Некорректный ID пользователя.' });
-  }
-
-  if (!rank) {
-    return res.status(400).json({ error: 'Недопустимый ранг.' });
-  }
-
-  const result = db.prepare(`
-    UPDATE users
-    SET rank = ?
-    WHERE id = ?
-  `).run(rank, userId);
-
-  if (!result.changes) {
-    return res.status(404).json({ error: 'Пользователь не найден.' });
-  }
-
-  return res.json({ success: true });
-});
-
-
-app.post('/api/admin/users/:id/ban', requireAuth, requireRank('admin'), (req, res) => {
-  const userId = Number(req.params.id);
-  const reason = String(req.body?.reason || '').trim().slice(0, 500);
-
-  if (!Number.isSafeInteger(userId) || userId <= 0) {
-    return res.status(400).json({ error: 'Некорректный ID пользователя.' });
-  }
-
-  if (userId === req.session.userId) {
-    return res.status(400).json({ error: 'Нельзя заблокировать самого себя.' });
-  }
-
-  const result = db.prepare(`
-    UPDATE users
-    SET banned = 1, ban_reason = ?
-    WHERE id = ?
-  `).run(reason, userId);
-
-  if (!result.changes) {
-    return res.status(404).json({ error: 'Пользователь не найден.' });
-  }
-
-  return res.json({ success: true });
-});
-
-
-app.post('/api/admin/users/:id/unban', requireAuth, requireRank('admin'), (req, res) => {
-  const userId = Number(req.params.id);
-
-  if (!Number.isSafeInteger(userId) || userId <= 0) {
-    return res.status(400).json({ error: 'Некорректный ID пользователя.' });
-  }
-
-  const result = db.prepare(`
-    UPDATE users
-    SET banned = 0, ban_reason = NULL
-    WHERE id = ?
-  `).run(userId);
-
-  if (!result.changes) {
-    return res.status(404).json({ error: 'Пользователь не найден.' });
-  }
-
-  return res.json({ success: true });
-});
-
-
-// ===============================
-// ADMIN: RANK CODES
-// ===============================
-
-app.post('/api/admin/codes', requireAuth, requireRank('admin'), (req, res) => {
-  const rank = String(req.body?.rank || '').trim().toLowerCase();
-  const expiresInDays = Number(req.body?.expiresInDays || 0);
-  const amount = Math.min(50, Math.max(1, Number(req.body?.amount || 1)));
-
-  if (!VALID_RANKS.includes(rank)) {
-    return res.status(400).json({ error: 'Недопустимый ранг.' });
-  }
-
-  if (!Number.isInteger(amount)) {
-    return res.status(400).json({ error: 'Некорректное количество кодов.' });
-  }
-
-  if (!Number.isFinite(expiresInDays) || expiresInDays < 0 || expiresInDays > 3650) {
-    return res.status(400).json({ error: 'Некорректный срок действия.' });
-  }
-
-  const expiresAt = expiresInDays > 0
-    ? new Date(Date.now() + expiresInDays * 86400000).toISOString()
-    : null;
-
-  const createCodes = db.transaction(() => {
-    const created = [];
-
-    for (let i = 0; i < amount; i++) {
-      let code;
-      let attempts = 0;
-
-      do {
-        code = makeRankCode();
-        attempts++;
-      } while (
-        db.prepare('SELECT id FROM rank_codes WHERE code = ?').get(code) &&
-        attempts < 10
-      );
-
-      if (attempts >= 10) {
-        throw new Error('Не удалось создать уникальный код.');
+        db.prepare(`
+          UPDATE users
+          SET rank = ?
+          WHERE id = ?
+        `).run(rank, request.user_id);
       }
 
       db.prepare(`
-        INSERT INTO rank_codes (code, rank, used, expires_at, created_by)
-        VALUES (?, ?, 0, ?, ?)
-      `).run(code, rank, expiresAt, req.session.userId);
+        UPDATE rank_requests
+        SET status = ?,
+            reviewed_at = CURRENT_TIMESTAMP,
+            reviewed_by = ?
+        WHERE id = ?
+      `).run(decision, req.user.id, requestId);
 
-      created.push(code);
+      return { success: true };
+    });
+
+    const result = review();
+
+    if (result.error) {
+      return res.status(result.status).json({
+        error: result.error
+      });
     }
 
-    return created;
-  });
+    return res.json({ success: true });
+  }
+);
 
-  const codes = createCodes();
+// =====================================================
+// ADMIN: USERS
+// =====================================================
 
-  return res.status(201).json({
-    success: true,
-    codes
-  });
-});
+app.get(
+  '/api/admin/users',
+  requireAuth,
+  requireRank('ADMIN'),
+  (req, res) => {
+    const users = db.prepare(`
+      SELECT
+        id,
+        email,
+        username,
+        display_name,
+        rank,
+        banned,
+        ban_reason,
+        created_at,
+        last_login
+      FROM users
+      ORDER BY id DESC
+      LIMIT 500
+    `).all();
 
+    return res.json({ users });
+  }
+);
 
-app.get('/api/admin/codes', requireAuth, requireRank('admin'), (req, res) => {
-  const codes = db.prepare(`
-    SELECT
-      id,
-      code,
-      rank,
-      used,
-      expires_at,
-      created_at,
-      used_at,
-      used_by
-    FROM rank_codes
-    ORDER BY id DESC
-    LIMIT 500
-  `).all();
+app.post(
+  '/api/admin/users/:id/rank',
+  requireAuth,
+  requireRank('ADMIN'),
+  (req, res) => {
+    const userId = Number(req.params.id);
+    const rank = normalizeRank(req.body?.rank);
 
-  return res.json({ codes });
-});
+    if (!Number.isSafeInteger(userId) || userId <= 0) {
+      return res.status(400).json({
+        error: 'Некорректный ID пользователя.'
+      });
+    }
 
+    if (!rank) {
+      return res.status(400).json({
+        error: 'Недопустимый ранг.'
+      });
+    }
 
-// ===============================
-// FRONTEND STATIC FILES
-// ===============================
+    const target = getUserById(userId);
+
+    if (!target) {
+      return res.status(404).json({
+        error: 'Пользователь не найден.'
+      });
+    }
+
+    // Главный администратор не может потерять ADMIN.
+    if (
+      String(target.email || '').toLowerCase() === ADMIN_EMAIL &&
+      rank !== 'ADMIN'
+    ) {
+      return res.status(403).json({
+        error: 'Нельзя изменить ранг главного администратора.'
+      });
+    }
+
+    db.prepare(`
+      UPDATE users
+      SET rank = ?
+      WHERE id = ?
+    `).run(rank, userId);
+
+    return res.json({
+      success: true,
+      user: publicUser(getUserById(userId))
+    });
+  }
+);
+
+// =====================================================
+// ADMIN: BAN USER
+// =====================================================
+
+app.post(
+  '/api/admin/users/:id/ban',
+  requireAuth,
+  requireRank('ADMIN'),
+  (req, res) => {
+    const userId = Number(req.params.id);
+    const reason = String(req.body?.reason || '')
+      .trim()
+      .slice(0, 500);
+
+    if (!Number.isSafeInteger(userId) || userId <= 0) {
+      return res.status(400).json({
+        error: 'Некорректный ID пользователя.'
+      });
+    }
+
+    if (userId === req.user.id) {
+      return res.status(400).json({
+        error: 'Нельзя заблокировать самого себя.'
+      });
+    }
+
+    const target = getUserById(userId);
+
+    if (!target) {
+      return res.status(404).json({
+        error: 'Пользователь не найден.'
+      });
+    }
+
+    if (
+      String(target.email || '').toLowerCase() === ADMIN_EMAIL
+    ) {
+      return res.status(403).json({
+        error: 'Нельзя заблокировать главного администратора.'
+      });
+    }
+
+    db.prepare(`
+      UPDATE users
+      SET banned = 1, ban_reason = ?
+      WHERE id = ?
+    `).run(reason, userId);
+
+    return res.json({ success: true });
+  }
+);
+
+// =====================================================
+// ADMIN: UNBAN USER
+// =====================================================
+
+app.post(
+  '/api/admin/users/:id/unban',
+  requireAuth,
+  requireRank('ADMIN'),
+  (req, res) => {
+    const userId = Number(req.params.id);
+
+    if (!Number.isSafeInteger(userId) || userId <= 0) {
+      return res.status(400).json({
+        error: 'Некорректный ID пользователя.'
+      });
+    }
+
+    const result = db.prepare(`
+      UPDATE users
+      SET banned = 0, ban_reason = NULL
+      WHERE id = ?
+    `).run(userId);
+
+    if (!result.changes) {
+      return res.status(404).json({
+        error: 'Пользователь не найден.'
+      });
+    }
+
+    return res.json({ success: true });
+  }
+);
+
+// =====================================================
+// ADMIN: CREATE RANK CODES
+// =====================================================
+
+app.post(
+  '/api/admin/codes',
+  requireAuth,
+  requireRank('ADMIN'),
+  (req, res) => {
+    const rank = normalizeRank(req.body?.rank);
+    const expiresInDays = Number(req.body?.expiresInDays ?? 0);
+    const amount = Number(req.body?.amount ?? 1);
+
+    if (!rank || !CODE_RANKS.includes(rank)) {
+      return res.status(400).json({
+        error: 'Для кодов разрешены ранги PLUS и MODER.'
+      });
+    }
+
+    if (
+      !Number.isInteger(amount) ||
+      amount < 1 ||
+      amount > 50
+    ) {
+      return res.status(400).json({
+        error: 'Количество кодов должно быть от 1 до 50.'
+      });
+    }
+
+    if (
+      !Number.isFinite(expiresInDays) ||
+      expiresInDays < 0 ||
+      expiresInDays > 3650
+    ) {
+      return res.status(400).json({
+        error: 'Некорректный срок действия.'
+      });
+    }
+
+    const expiresAt = expiresInDays > 0
+      ? new Date(
+          Date.now() + expiresInDays * 86400000
+        ).toISOString()
+      : null;
+
+    const createCodes = db.transaction(() => {
+      const created = [];
+
+      for (let i = 0; i < amount; i++) {
+        let code;
+        let attempts = 0;
+
+        do {
+          code = makeRankCode();
+          attempts++;
+        } while (
+          db.prepare(
+            'SELECT id FROM rank_codes WHERE code = ?'
+          ).get(code) &&
+          attempts < 10
+        );
+
+        if (attempts >= 10) {
+          throw new Error('Не удалось создать уникальный код.');
+        }
+
+        db.prepare(`
+          INSERT INTO rank_codes
+            (code, rank, used, expires_at, created_by)
+          VALUES (?, ?, 0, ?, ?)
+        `).run(
+          code,
+          rank,
+          expiresAt,
+          req.user.id
+        );
+
+        created.push(code);
+      }
+
+      return created;
+    });
+
+    const codes = createCodes();
+
+    return res.status(201).json({
+      success: true,
+      codes
+    });
+  }
+);
+
+// =====================================================
+// ADMIN: LIST RANK CODES
+// =====================================================
+
+app.get(
+  '/api/admin/codes',
+  requireAuth,
+  requireRank('ADMIN'),
+  (req, res) => {
+    const codes = db.prepare(`
+      SELECT
+        id,
+        code,
+        rank,
+        used,
+        expires_at,
+        created_at,
+        used_at,
+        used_by
+      FROM rank_codes
+      ORDER BY id DESC
+      LIMIT 500
+    `).all();
+
+    return res.json({ codes });
+  }
+);
+
+// =====================================================
+// FRONTEND
+// =====================================================
 
 const possiblePublicDirs = [
   path.join(__dirname, 'public', 'public'),
@@ -1615,7 +1885,7 @@ const possiblePublicDirs = [
   path.join(__dirname, 'frontend'),
   path.join(__dirname, 'client'),
   path.join(__dirname, 'dist')
-]; 
+];
 
 const frontendDir = possiblePublicDirs.find(dir =>
   fs.existsSync(path.join(dir, 'index.html'))
@@ -1629,16 +1899,19 @@ if (frontendDir) {
       return next();
     }
 
-    return res.sendFile(path.join(frontendDir, 'index.html'));
+    return res.sendFile(
+      path.join(frontendDir, 'index.html')
+    );
   });
 } else {
-  console.warn('Frontend index.html was not found. API routes are still available.');
+  console.warn(
+    'Frontend index.html was not found. API routes are still available.'
+  );
 }
 
-
-// ===============================
-// NOT FOUND + ERROR HANDLING
-// ===============================
+// =====================================================
+// 404
+// =====================================================
 
 app.use((req, res) => {
   res.status(404).json({
@@ -1646,6 +1919,9 @@ app.use((req, res) => {
   });
 });
 
+// =====================================================
+// ERROR HANDLING
+// =====================================================
 
 app.use((error, req, res, next) => {
   console.error('Server error:', error);
@@ -1654,38 +1930,45 @@ app.use((error, req, res, next) => {
     return next(error);
   }
 
-  const status = Number(error.status || error.statusCode || 500);
+  const status = Number(
+    error.status || error.statusCode || 500
+  );
 
-  return res.status(status >= 400 && status < 600 ? status : 500).json({
+  return res.status(
+    status >= 400 && status < 600 ? status : 500
+  ).json({
     error: status >= 500
       ? 'Внутренняя ошибка сервера.'
       : error.message || 'Произошла ошибка.'
   });
 });
 
-
-// ===============================
+// =====================================================
 // START SERVER
-// ===============================
+// =====================================================
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Maut AI is running on port ${PORT}`);
-  console.log(`Environment: ${IS_PRODUCTION ? 'production' : 'development'}`);
+  console.log(
+    `Environment: ${IS_PRODUCTION ? 'production' : 'development'}`
+  );
   console.log(`Database directory: ${DATA_DIR}`);
 });
 
-
-// ===============================
+// =====================================================
 // GRACEFUL SHUTDOWN
-// ===============================
+// =====================================================
 
 let isShuttingDown = false;
 
 function shutdown(signal) {
   if (isShuttingDown) return;
+
   isShuttingDown = true;
 
-  console.log(`${signal} received. Shutting down Maut AI...`);
+  console.log(
+    `${signal} received. Shutting down Maut AI...`
+  );
 
   server.close(() => {
     try {
