@@ -831,35 +831,26 @@ async function contactForPlus() {
 }
 
 function openAuth(mode = 'login') {
+  // Закрываем окно аккаунта
+  closeModal('accountModal');
+
+  // Закрываем другие окна на всякий случай
+  closeModal('imageModal');
+  closeModal('adminModal');
+
+  // Открываем окно авторизации
   authMode = mode;
   updateAuthModal();
-  showModal('authModal');
   $('authError').textContent = '';
+
+  showModal('authModal');
+
+  // Фокус на поле логина
+  setTimeout(() => {
+    $('authLogin').focus();
+  }, 100);
 }
-
-function updateAuthModal() {
-  const register = authMode === 'register';
-
-  $('authTitle').textContent = register
-    ? 'Создать аккаунт'
-    : 'Вход в Maut AI';
-
-  $('authDescription').textContent = register
-    ? 'Зарегистрируйся, чтобы пользоваться Maut AI.'
-    : 'Войди в аккаунт, чтобы продолжить.';
-
-  $('registerNameField').classList.toggle('hidden', !register);
-  $('authSubmit').textContent = register ? 'Зарегистрироваться' : 'Войти';
-
-  $('authSwitch').textContent = register
-    ? 'Уже есть аккаунт? Войти'
-    : 'Нет аккаунта? Зарегистрироваться';
-
-  $('authPassword').autocomplete = register
-    ? 'new-password'
-    : 'current-password';
-}
-
+  
 function toggleAuthMode() {
   authMode = authMode === 'login' ? 'register' : 'login';
   updateAuthModal();
