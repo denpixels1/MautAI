@@ -25,6 +25,10 @@ const MAX_HISTORY_MESSAGES = 12;
 const MAX_HISTORY_LENGTH = 16000;
 const VALID_RANKS = ['FREE', 'PLUS', 'MODER', 'ADMIN'];
 
+function normalizeRank(value) {
+  const rank = String(value || '').trim().toUpperCase();
+  return VALID_RANKS.includes(rank) ? rank : null;
+}
 // Срок cookie — 10 лет.
 // Сессии продлеваются при активности благодаря rolling: true.
 const SESSION_MAX_AGE = 10 * 365 * 24 * 60 * 60 * 1000;
@@ -1444,15 +1448,15 @@ app.get('/api/admin/users', requireAuth, requireRank('admin'), (req, res) => {
 });
 
 
-app.post('/api/admin/users/:id/rank', requireAuth, requireRank('admin'), (req, res) => {
+app.post('/api/admin/users/:id/rank', requireAuth, requireRank('ADMIN'), (req, res) => {
   const userId = Number(req.params.id);
-  const rank = String(req.body?.rank || '').trim().toLowerCase();
+  const rank = normalizeRank(req.body?.rank);
 
   if (!Number.isSafeInteger(userId) || userId <= 0) {
     return res.status(400).json({ error: 'Некорректный ID пользователя.' });
   }
 
-  if (!VALID_RANKS.includes(rank)) {
+  if (!rank) {
     return res.status(400).json({ error: 'Недопустимый ранг.' });
   }
 
