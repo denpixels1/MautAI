@@ -850,6 +850,32 @@ function toggleAuthMode() {
   $('authError').textContent = '';
 }
 
+function updateAuthModal() {
+  const isRegister = authMode === 'register';
+
+  $('authTitle').textContent = isRegister
+    ? 'Регистрация в Maut AI'
+    : 'Вход в Maut AI';
+
+  $('authDescription').textContent = isRegister
+    ? 'Создай аккаунт, чтобы пользоваться Maut AI.'
+    : 'Войди в аккаунт, чтобы продолжить.';
+
+  $('registerNameField').classList.toggle('hidden', !isRegister);
+
+  $('authSubmit').textContent = isRegister
+    ? 'Зарегистрироваться'
+    : 'Войти';
+
+  $('authSwitch').textContent = isRegister
+    ? 'Уже есть аккаунт? Войти'
+    : 'Нет аккаунта? Зарегистрироваться';
+
+  $('authPassword').autocomplete = isRegister
+    ? 'new-password'
+    : 'current-password';
+}
+  
 async function submitAuth() {
   const login = $('authLogin').value.trim();
   const password = $('authPassword').value;
