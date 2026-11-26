@@ -1,3 +1,4 @@
+
 import 'dotenv/config';
 import crypto from 'node:crypto';
 import express from 'express';
@@ -6,6 +7,7 @@ import SQLiteStoreFactory from 'connect-sqlite3';
 import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
 import rateLimit from 'express-rate-limit';
+import { evaluate, parse } from 'mathjs';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -23,6 +25,11 @@ const MAX_HISTORY_MESSAGES = 12;
 const MAX_HISTORY_LENGTH = 16000;
 const VALID_RANKS = ['FREE', 'PLUS', 'MODER', 'ADMIN'];
 
+// Срок cookie — 10 лет.
+// Сессии продлеваются при активности благодаря rolling: true.
+const SESSION_MAX_AGE = 10 * 365 * 24 * 60 * 60 * 1000;
+const SESSION_TTL_SECONDS = Math.floor(SESSION_MAX_AGE / 1000);
+
 if (IS_PRODUCTION) {
   app.set('trust proxy', 1);
 }
@@ -30,13 +37,18 @@ if (IS_PRODUCTION) {
 app.disable('x-powered-by');
 app.use(express.json({ limit: '20mb' }));
 
+// ВАЖНО: DATA_DIR должен указывать на постоянный диск Render.
+// Не меняй его, пока не перенесёшь старые базы данных.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const db = new Database(path.join(DATA_DIR, 'maut.db'));
+const DATABASE_PATH = path.join(DATA_DIR, 'maut.db');
+const db = new Database(DATABASE_PATH);
 
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+db.pragma('synchronous = FULL');
+db.pragma('busy_timeout = 10000');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
@@ -49,6 +61,7 @@ db.exec(`
 
 function ensureColumn(table, column, definition) {
   const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+
   if (!columns.some(item => item.name === column)) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
@@ -117,6 +130,7 @@ db.exec(`
   );
 `);
 
+// Проверка секретного ключа сессий
 const SESSION_SECRET = process.env.SESSION_SECRET;
 
 if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
@@ -125,12 +139,15 @@ if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
   );
 }
 
+// Постоянное SQLite-хранилище сессий.
+// TTL задаётся в секундах, а cookie maxAge — в миллисекундах.
 const SQLiteStore = SQLiteStoreFactory(session);
 
 const sessionStore = new SQLiteStore({
   db: 'sessions.db',
   dir: DATA_DIR,
-  table: 'sessions'
+  table: 'sessions',
+  ttl: SESSION_TTL_SECONDS
 });
 
 app.use(session({
@@ -145,7 +162,8 @@ app.use(session({
     httpOnly: true,
     secure: IS_PRODUCTION,
     sameSite: 'lax',
-    maxAge: 365 * 24 * 60 * 60 * 1000
+    maxAge: SESSION_MAX_AGE,
+    path: '/'
   }
 }));
 
@@ -314,6 +332,8 @@ function createSession(req, user, res) {
       id: user.id
     };
 
+    req.session.cookie.maxAge = SESSION_MAX_AGE;
+
     req.session.save(saveError => {
       if (saveError) {
         console.error('Session save error:', saveError);
@@ -323,6 +343,7 @@ function createSession(req, user, res) {
       }
 
       const freshUser = getUserById(user.id);
+
       res.json({
         success: true,
         user: publicUser(freshUser)
@@ -520,6 +541,7 @@ app.get('/api/auth/me', (req, res) => {
   }
 
   res.set('Cache-Control', 'no-store');
+
   res.json({
     user: publicUser(user)
   });
@@ -544,6 +566,7 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
+// СОЗДАНИЕ ЧАТА
 app.post('/api/chats', requireAuth, (req, res) => {
   try {
     const result = db.prepare(`
@@ -559,12 +582,14 @@ app.post('/api/chats', requireAuth, (req, res) => {
     res.status(201).json({ chat });
   } catch (err) {
     console.error('Create chat error:', err);
+
     res.status(500).json({
       error: 'Не удалось создать чат.'
     });
   }
 });
 
+// СПИСОК ЧАТОВ
 app.get('/api/chats', requireAuth, (req, res) => {
   try {
     const chats = db.prepare(`
@@ -585,12 +610,14 @@ app.get('/api/chats', requireAuth, (req, res) => {
     res.json({ chats });
   } catch (err) {
     console.error('Get chats error:', err);
+
     res.status(500).json({
       error: 'Не удалось загрузить чаты.'
     });
   }
 });
 
+// ОТКРЫТИЕ ЧАТА И ЕГО ИСТОРИИ
 app.get('/api/chats/:id', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -620,12 +647,14 @@ app.get('/api/chats/:id', requireAuth, (req, res) => {
     res.json({ chat, messages });
   } catch (err) {
     console.error('Open chat error:', err);
+
     res.status(500).json({
       error: 'Не удалось открыть чат.'
     });
   }
 });
 
+// СОХРАНЕНИЕ СООБЩЕНИЯ
 app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -698,12 +727,14 @@ app.post('/api/chats/:id/messages', requireAuth, (req, res) => {
     });
   } catch (err) {
     console.error('Save message error:', err);
+
     res.status(500).json({
       error: 'Не удалось сохранить сообщение.'
     });
   }
 });
 
+// УДАЛЕНИЕ ЧАТА
 app.delete('/api/chats/:id', requireAuth, (req, res) => {
   try {
     const chatId = Number(req.params.id);
@@ -728,6 +759,7 @@ app.delete('/api/chats/:id', requireAuth, (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Delete chat error:', err);
+
     res.status(500).json({
       error: 'Не удалось удалить чат.'
     });
@@ -738,7 +770,150 @@ const SYSTEM_PROMPT = `Ты — Maut AI, полезный, внимательн�
 
 Пиши естественно, грамотно и понятно. Сначала отвечай по существу. Не выдумывай факты. Если не знаешь ответа, честно скажи об этом. Используй Markdown, когда он помогает сделать ответ понятнее. Код оформляй в блоках с указанием языка.
 
-Создатель проекта Maut AI — Мухаммад Умаров Манучехрович, также известный как Den Whelan, директор компании Liches maut. Если спрашивают о создателе Maut AI, сообщай именно это. Не утверждай, что он создал базовые языковые модели или сторонние ИИ-сервисы.`;
+Создатель проекта Maut AI — Мухаммад Умаров Манучехрович, также известный как Den Whelan, директор компании Liches maut. Если спрашивают о создателе Maut AI, сообщай именно это. Не утверждай, что он создал базовые языковые модели или сторонние ИИ-сервисы.
+
+При решении математических задач показывай понятные вычисления и проверяй результат. Не выдумывай результаты вычислений.`;
+
+// Безопасный математический вычислитель.
+// Разрешены только числа, арифметические операторы,
+// скобки и перечисленные математические функции.
+const ALLOWED_MATH_FUNCTIONS = new Set([
+  'sqrt',
+  'abs',
+  'sin',
+  'cos',
+  'tan',
+  'asin',
+  'acos',
+  'atan',
+  'log',
+  'log10',
+  'exp',
+  'ceil',
+  'floor',
+  'round',
+  'factorial'
+]);
+
+const ALLOWED_MATH_SYMBOLS = new Set([
+  'pi',
+  'e',
+  ...ALLOWED_MATH_FUNCTIONS
+]);
+
+function validateMathNode(node) {
+  if (node.isConstantNode) {
+    return typeof node.value === 'number' &&
+      Number.isFinite(node.value);
+  }
+
+  if (node.isParenthesisNode) {
+    return validateMathNode(node.content);
+  }
+
+  if (node.isOperatorNode) {
+    const allowedOperators = new Set([
+      '+', '-', '*', '/', '^', '%'
+    ]);
+
+    return allowedOperators.has(node.op) &&
+      node.args.every(validateMathNode);
+  }
+
+  if (node.isSymbolNode) {
+    return ALLOWED_MATH_SYMBOLS.has(node.name);
+  }
+
+  if (node.isFunctionNode) {
+    const fn = node.fn;
+
+    if (!fn?.isSymbolNode) return false;
+    if (!ALLOWED_MATH_FUNCTIONS.has(fn.name)) return false;
+
+    return node.args.every(validateMathNode);
+  }
+
+  return false;
+}
+
+function calculateMathExpression(expression) {
+  if (typeof expression !== 'string') {
+    throw new Error('Неверное выражение.');
+  }
+
+  const input = expression.trim();
+
+  if (!input || input.length > 300) {
+    throw new Error('Выражение пустое или слишком длинное.');
+  }
+
+  const tree = parse(input);
+
+  if (!validateMathNode(tree)) {
+    throw new Error('Выражение содержит неподдерживаемые операции.');
+  }
+
+  const result = evaluate(input, {
+    pi: Math.PI,
+    e: Math.E
+  });
+
+  if (typeof result !== 'number' || !Number.isFinite(result)) {
+    throw new Error('Не удалось получить конечный числовой результат.');
+  }
+
+  return result;
+}
+
+function formatMathResult(value) {
+  if (Number.isInteger(value)) {
+    return String(value);
+  }
+
+  return Number(value.toPrecision(12)).toString();
+}
+
+// Определяем простые запросы на вычисление.
+// Сложные уравнения и задачи остаются ИИ-помощнику.
+function extractMathExpression(message) {
+  const text = message.trim();
+
+  const patterns = [
+    /^(?:сколько будет|посчитай|вычисли|реши пример|calculate|compute)\s+(.+?)\??$/i,
+    /^([0-9\s.,()+\-*/%^]+)\??$/
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+
+    if (match?.[1]) {
+      return match[1]
+        .replace(/,/g, '.')
+        .replace(/[?=]\s*$/, '')
+        .trim();
+    }
+  }
+
+  return null;
+}
+
+function tryCalculateMath(message) {
+  const expression = extractMathExpression(message);
+
+  if (!expression) return null;
+
+  try {
+    const result = calculateMathExpression(expression);
+
+    return {
+      reply: `**Результат:** ${formatMathResult(result)}\n\nВычисление выполнено математическим движком Maut AI.`,
+      provider: 'mathjs'
+    };
+  } catch (err) {
+    console.warn('Math calculation skipped:', err.message);
+    return null;
+  }
+}
 
 app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
   try {
@@ -752,6 +927,13 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       return res.status(400).json({
         error: `Сообщение пустое или превышает лимит ${MAX_MESSAGE_LENGTH} символов.`
       });
+    }
+
+    // Сначала проверяем, можно ли решить пример самостоятельно.
+    const mathResult = tryCalculateMath(message);
+
+    if (mathResult) {
+      return res.json(mathResult);
     }
 
     const rawHistory = Array.isArray(req.body?.history)
@@ -791,6 +973,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       { role: 'user', content: message.trim() }
     ];
 
+    // GROQ
     if (process.env.GROQ_API_KEY) {
       let response;
 
@@ -814,6 +997,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
         );
       } catch (err) {
         console.error('Groq connection error:', err);
+
         return res.status(502).json({
           error: 'Не удалось подключиться к Groq API.'
         });
@@ -863,6 +1047,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       });
     }
 
+    // OLLAMA
     const ollamaUrl = (
       process.env.OLLAMA_URL || 'http://127.0.0.1:11434'
     ).replace(/\/$/, '');
@@ -886,6 +1071,7 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
       });
     } catch (err) {
       console.error('Ollama connection error:', err);
+
       return res.status(502).json({
         error: 'Не удалось подключиться к Ollama. Настрой GROQ_API_KEY или проверь OLLAMA_URL.'
       });
@@ -921,597 +1107,595 @@ app.post('/api/chat', requireAuth, chatLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error('Chat error:', err);
+
     res.status(500).json({
       error: 'Не удалось обработать сообщение.'
     });
   }
 });
+// ===============================
+// IMAGE GENERATION
+// ===============================
 
-app.post('/api/images', requireAuth, imageLimiter, async (req, res) => {
-  const prompt = req.body?.prompt;
-
-  if (typeof prompt !== 'string' || !prompt.trim()) {
-    return res.status(400).json({
-      error: 'Напиши описание изображения.'
-    });
-  }
-
-  if (prompt.length > 4000) {
-    return res.status(400).json({
-      error: 'Описание изображения слишком длинное. Максимум 4000 символов.'
-    });
-  }
-
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (!apiKey) {
-    return res.status(503).json({
-      error: 'Для генерации изображений добавь GEMINI_API_KEY в переменные окружения.'
-    });
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 55000);
-
+app.post('/api/images', requireAuth, imageLimiter, async (req, res, next) => {
   try {
-    const model = process.env.GEMINI_IMAGE_MODEL
-      || 'gemini-2.0-flash-preview-image-generation';
+    const prompt = String(req.body?.prompt || '').trim();
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `Create one image based on this prompt: ${prompt.trim()}`
-            }]
-          }],
-          generationConfig: {
-            responseModalities: ['TEXT', 'IMAGE']
-          }
-        }),
-        signal: controller.signal
+    if (!prompt) {
+      return res.status(400).json({ error: 'Введите описание изображения.' });
+    }
+
+    if (prompt.length > 4000) {
+      return res.status(400).json({ error: 'Описание слишком длинное. Максимум 4000 символов.' });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return res.status(503).json({
+        error: 'Генерация изображений временно недоступна: GEMINI_API_KEY не настроен.'
+      });
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 55000);
+
+    try {
+      const model =
+        process.env.GEMINI_IMAGE_MODEL ||
+        'gemini-2.0-flash-preview-image-generation';
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: prompt }]
+              }
+            ],
+            generationConfig: {
+              responseModalities: ['TEXT', 'IMAGE']
+            }
+          })
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        console.error('Gemini image error:', data);
+        return res.status(502).json({
+          error: data?.error?.message || 'Не удалось создать изображение.'
+        });
       }
-    );
 
-    const data = await response.json();
+      const parts = data?.candidates?.[0]?.content?.parts || [];
+      const imagePart = parts.find(part => part.inlineData?.data);
 
-    if (!response.ok) {
-      console.error('Gemini API error:', data);
-      return res.status(502).json({
-        error: data?.error?.message || 'Не удалось создать изображение через Gemini.'
+      if (!imagePart) {
+        return res.status(502).json({
+          error: 'Модель не вернула изображение. Попробуйте другое описание.'
+        });
+      }
+
+      const mimeType = imagePart.inlineData.mimeType || 'image/png';
+
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(mimeType)) {
+        return res.status(502).json({
+          error: 'Получен неподдерживаемый формат изображения.'
+        });
+      }
+
+      return res.json({
+        image: `data:${mimeType};base64,${imagePart.inlineData.data}`,
+        mimeType
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      return res.status(504).json({
+        error: 'Генерация заняла слишком много времени. Попробуйте ещё раз.'
       });
     }
 
-    const parts = data?.candidates?.[0]?.content?.parts || [];
-    const imagePart = parts.find(part => part.inlineData?.data);
-
-    if (!imagePart) {
-      return res.status(502).json({
-        error: 'Модель не вернула изображение. Попробуй изменить описание.'
-      });
-    }
-
-    const mimeType = imagePart.inlineData.mimeType || 'image/png';
-
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(mimeType)) {
-      return res.status(502).json({
-        error: 'Формат изображения не поддерживается.'
-      });
-    }
-
-    res.json({
-      image: `data:${mimeType};base64,${imagePart.inlineData.data}`,
-      provider: 'Gemini'
-    });
-  } catch (err) {
-    console.error('Image generation error:', err);
-
-    res.status(err.name === 'AbortError' ? 504 : 502).json({
-      error: err.name === 'AbortError'
-        ? 'Генерация заняла слишком много времени. Попробуй ещё раз.'
-        : 'Не удалось подключиться к Gemini.'
-    });
-  } finally {
-    clearTimeout(timeout);
+    next(error);
   }
 });
 
+
+// ===============================
+// USER RANKS
+// ===============================
+
 app.get('/api/ranks/me', requireAuth, (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.json({
-    rank: getRank(req.user.id)
+  const user = getUserById(req.session.userId);
+
+  if (!user) {
+    return res.status(401).json({ error: 'Аккаунт не найден.' });
+  }
+
+  return res.json({
+    rank: getRank(user.rank),
+    user: publicUser(user)
   });
 });
 
-app.post('/api/ranks/redeem', requireAuth, (req, res) => {
-  const code = String(req.body?.code || '').trim().toUpperCase();
 
-  if (!code || code.length > 80) {
-    return res.status(400).json({
-      error: 'Введи корректный код.'
-    });
-  }
-
+app.post('/api/ranks/redeem', requireAuth, async (req, res, next) => {
   try {
+    const code = String(req.body?.code || '').trim().toUpperCase();
+
+    if (!code || code.length > 100) {
+      return res.status(400).json({ error: 'Введите действительный код.' });
+    }
+
     const redeem = db.transaction(() => {
-      const item = db.prepare(`
-        SELECT id, rank
+      const rankCode = db.prepare(`
+        SELECT id, code, rank, used, expires_at
         FROM rank_codes
-        WHERE code = ? AND used_by IS NULL
+        WHERE code = ?
       `).get(code);
 
-      if (!item) return null;
+      if (!rankCode) {
+        return { error: 'Код не найден.', status: 404 };
+      }
 
-      const update = db.prepare(`
-        UPDATE rank_codes
-        SET used_by = ?, used_at = CURRENT_TIMESTAMP
-        WHERE id = ? AND used_by IS NULL
-      `).run(req.user.id, item.id);
+      if (rankCode.used) {
+        return { error: 'Этот код уже использован.', status: 409 };
+      }
 
-      if (!update.changes) return null;
+      if (rankCode.expires_at && Date.parse(rankCode.expires_at) < Date.now()) {
+        return { error: 'Срок действия кода истёк.', status: 410 };
+      }
+
+      const rank = getRank(rankCode.rank);
+
+      if (!VALID_RANKS.includes(rank)) {
+        return { error: 'У кода некорректный ранг.', status: 400 };
+      }
 
       db.prepare(`
+        UPDATE rank_codes
+        SET used = 1, used_by = ?, used_at = CURRENT_TIMESTAMP
+        WHERE id = ? AND used = 0
+      `).run(req.session.userId, rankCode.id);
+
+      const update = db.prepare(`
         UPDATE users
         SET rank = ?
         WHERE id = ?
-      `).run(item.rank, req.user.id);
+      `).run(rank, req.session.userId);
 
-      return item.rank;
+      if (!update.changes) {
+        throw new Error('Не удалось обновить ранг пользователя.');
+      }
+
+      return { rank };
     });
 
-    const rank = redeem();
+    const result = redeem();
 
-    if (!rank) {
-      return res.status(400).json({
-        error: 'Код не найден или уже использован.'
-      });
+    if (result.error) {
+      return res.status(result.status).json({ error: result.error });
     }
 
-    res.json({
+    const user = getUserById(req.session.userId);
+
+    return res.json({
       success: true,
-      rank
+      rank: result.rank,
+      user: publicUser(user)
     });
-  } catch (err) {
-    console.error('Redeem code error:', err);
-    res.status(500).json({
-      error: 'Не удалось активировать код.'
-    });
+  } catch (error) {
+    next(error);
   }
 });
 
-app.post('/api/ranks/request', requireAuth, (req, res) => {
-  const rank = String(req.body?.rank || '').toUpperCase();
-  const message = String(req.body?.message || '').trim().slice(0, 500);
-  const current = getRank(req.user.id);
 
-  if (!['PLUS', 'MODER', 'ADMIN'].includes(rank)) {
-    return res.status(400).json({
-      error: 'Неверный ранг.'
-    });
+app.post('/api/ranks/request', requireAuth, (req, res) => {
+  const requestedRank = String(req.body?.rank || '').trim().toLowerCase();
+  const reason = String(req.body?.reason || '').trim();
+
+  if (!VALID_RANKS.includes(requestedRank)) {
+    return res.status(400).json({ error: 'Такого ранга не существует.' });
   }
 
-  if (
-    current === 'ADMIN' ||
-    (current === 'MODER' && rank !== 'ADMIN') ||
-    (current === 'PLUS' && rank === 'PLUS')
-  ) {
-    return res.status(400).json({
-      error: 'У тебя уже есть этот или более высокий ранг.'
-    });
+  if (reason.length > 1000) {
+    return res.status(400).json({ error: 'Причина слишком длинная.' });
   }
 
   const pending = db.prepare(`
     SELECT id
     FROM rank_requests
-    WHERE user_id = ? AND status = 'PENDING'
-  `).get(req.user.id);
+    WHERE user_id = ? AND status = 'pending'
+    LIMIT 1
+  `).get(req.session.userId);
 
   if (pending) {
     return res.status(409).json({
-      error: 'У тебя уже есть ожидающая заявка.'
+      error: 'У вас уже есть заявка, ожидающая рассмотрения.'
     });
   }
 
   const result = db.prepare(`
-    INSERT INTO rank_requests (user_id, requested_rank, message)
-    VALUES (?, ?, ?)
-  `).run(req.user.id, rank, message);
+    INSERT INTO rank_requests (user_id, requested_rank, reason, status)
+    VALUES (?, ?, ?, 'pending')
+  `).run(req.session.userId, requestedRank, reason);
 
-  res.status(201).json({
+  return res.status(201).json({
     success: true,
-    id: Number(result.lastInsertRowid)
+    requestId: Number(result.lastInsertRowid)
   });
 });
 
-app.get(
-  '/api/admin/requests',
-  requireAuth,
-  requireRank('ADMIN'),
-  (req, res) => {
-    const requests = db.prepare(`
-      SELECT
-        r.id,
-        r.requested_rank,
-        r.message,
-        r.created_at,
-        u.id AS user_id,
-        u.display_name,
-        u.username,
-        u.email,
-        u.rank AS current_rank
-      FROM rank_requests r
-      JOIN users u ON u.id = r.user_id
-      WHERE r.status = 'PENDING'
-      ORDER BY r.id DESC
-    `).all();
 
-    res.set('Cache-Control', 'no-store');
-    res.json({ requests });
+// ===============================
+// ADMIN: RANK REQUESTS
+// ===============================
+
+app.get('/api/admin/requests', requireAuth, requireRank('admin'), (req, res) => {
+  const requests = db.prepare(`
+    SELECT
+      rr.id,
+      rr.user_id,
+      rr.requested_rank,
+      rr.reason,
+      rr.status,
+      rr.created_at,
+      u.email,
+      u.display_name,
+      u.rank AS current_rank
+    FROM rank_requests rr
+    JOIN users u ON u.id = rr.user_id
+    ORDER BY rr.created_at DESC
+  `).all();
+
+  return res.json({ requests });
+});
+
+
+app.post('/api/admin/requests/:id/review', requireAuth, requireRank('admin'), (req, res) => {
+  const requestId = Number(req.params.id);
+  const decision = String(req.body?.decision || '').trim().toLowerCase();
+
+  if (!Number.isSafeInteger(requestId) || requestId <= 0) {
+    return res.status(400).json({ error: 'Некорректный ID заявки.' });
   }
-);
 
-app.post(
-  '/api/admin/requests/:id/review',
-  requireAuth,
-  requireRank('ADMIN'),
-  (req, res) => {
-    const id = Number(req.params.id);
-    const decision = String(req.body?.decision || '').toUpperCase();
+  if (!['approved', 'rejected'].includes(decision)) {
+    return res.status(400).json({ error: 'Решение должно быть approved или rejected.' });
+  }
 
-    if (
-      !Number.isSafeInteger(id) ||
-      id < 1 ||
-      !['APPROVE', 'REJECT'].includes(decision)
-    ) {
-      return res.status(400).json({
-        error: 'Некорректный запрос.'
-      });
+  const review = db.transaction(() => {
+    const request = db.prepare(`
+      SELECT *
+      FROM rank_requests
+      WHERE id = ?
+    `).get(requestId);
+
+    if (!request) {
+      return { error: 'Заявка не найдена.', status: 404 };
     }
 
-    const review = db.transaction(() => {
-      const item = db.prepare(`
-        SELECT id, user_id, requested_rank
-        FROM rank_requests
-        WHERE id = ? AND status = 'PENDING'
-      `).get(id);
+    if (request.status !== 'pending') {
+      return { error: 'Эта заявка уже рассмотрена.', status: 409 };
+    }
 
-      if (!item) return null;
+    if (decision === 'approved') {
+      db.prepare(`
+        UPDATE users
+        SET rank = ?
+        WHERE id = ?
+      `).run(request.requested_rank, request.user_id);
+    }
 
-      if (decision === 'APPROVE') {
-        db.prepare(`
-          UPDATE users
-          SET rank = ?
-          WHERE id = ?
-        `).run(item.requested_rank, item.user_id);
+    db.prepare(`
+      UPDATE rank_requests
+      SET status = ?, reviewed_at = CURRENT_TIMESTAMP, reviewed_by = ?
+      WHERE id = ?
+    `).run(decision, req.session.userId, requestId);
+
+    return { success: true };
+  });
+
+  const result = review();
+
+  if (result.error) {
+    return res.status(result.status).json({ error: result.error });
+  }
+
+  return res.json({ success: true });
+});
+
+
+// ===============================
+// ADMIN: USERS
+// ===============================
+
+app.get('/api/admin/users', requireAuth, requireRank('admin'), (req, res) => {
+  const users = db.prepare(`
+    SELECT
+      id,
+      email,
+      display_name,
+      rank,
+      banned,
+      ban_reason,
+      created_at,
+      last_login
+    FROM users
+    ORDER BY id DESC
+    LIMIT 500
+  `).all();
+
+  return res.json({ users });
+});
+
+
+app.post('/api/admin/users/:id/rank', requireAuth, requireRank('admin'), (req, res) => {
+  const userId = Number(req.params.id);
+  const rank = String(req.body?.rank || '').trim().toLowerCase();
+
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'Некорректный ID пользователя.' });
+  }
+
+  if (!VALID_RANKS.includes(rank)) {
+    return res.status(400).json({ error: 'Недопустимый ранг.' });
+  }
+
+  const result = db.prepare(`
+    UPDATE users
+    SET rank = ?
+    WHERE id = ?
+  `).run(rank, userId);
+
+  if (!result.changes) {
+    return res.status(404).json({ error: 'Пользователь не найден.' });
+  }
+
+  return res.json({ success: true });
+});
+
+
+app.post('/api/admin/users/:id/ban', requireAuth, requireRank('admin'), (req, res) => {
+  const userId = Number(req.params.id);
+  const reason = String(req.body?.reason || '').trim().slice(0, 500);
+
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'Некорректный ID пользователя.' });
+  }
+
+  if (userId === req.session.userId) {
+    return res.status(400).json({ error: 'Нельзя заблокировать самого себя.' });
+  }
+
+  const result = db.prepare(`
+    UPDATE users
+    SET banned = 1, ban_reason = ?
+    WHERE id = ?
+  `).run(reason, userId);
+
+  if (!result.changes) {
+    return res.status(404).json({ error: 'Пользователь не найден.' });
+  }
+
+  return res.json({ success: true });
+});
+
+
+app.post('/api/admin/users/:id/unban', requireAuth, requireRank('admin'), (req, res) => {
+  const userId = Number(req.params.id);
+
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: 'Некорректный ID пользователя.' });
+  }
+
+  const result = db.prepare(`
+    UPDATE users
+    SET banned = 0, ban_reason = NULL
+    WHERE id = ?
+  `).run(userId);
+
+  if (!result.changes) {
+    return res.status(404).json({ error: 'Пользователь не найден.' });
+  }
+
+  return res.json({ success: true });
+});
+
+
+// ===============================
+// ADMIN: RANK CODES
+// ===============================
+
+app.post('/api/admin/codes', requireAuth, requireRank('admin'), (req, res) => {
+  const rank = String(req.body?.rank || '').trim().toLowerCase();
+  const expiresInDays = Number(req.body?.expiresInDays || 0);
+  const amount = Math.min(50, Math.max(1, Number(req.body?.amount || 1)));
+
+  if (!VALID_RANKS.includes(rank)) {
+    return res.status(400).json({ error: 'Недопустимый ранг.' });
+  }
+
+  if (!Number.isInteger(amount)) {
+    return res.status(400).json({ error: 'Некорректное количество кодов.' });
+  }
+
+  if (!Number.isFinite(expiresInDays) || expiresInDays < 0 || expiresInDays > 3650) {
+    return res.status(400).json({ error: 'Некорректный срок действия.' });
+  }
+
+  const expiresAt = expiresInDays > 0
+    ? new Date(Date.now() + expiresInDays * 86400000).toISOString()
+    : null;
+
+  const createCodes = db.transaction(() => {
+    const created = [];
+
+    for (let i = 0; i < amount; i++) {
+      let code;
+      let attempts = 0;
+
+      do {
+        code = makeRankCode();
+        attempts++;
+      } while (
+        db.prepare('SELECT id FROM rank_codes WHERE code = ?').get(code) &&
+        attempts < 10
+      );
+
+      if (attempts >= 10) {
+        throw new Error('Не удалось создать уникальный код.');
       }
 
       db.prepare(`
-        UPDATE rank_requests
-        SET status = ?,
-            reviewed_at = CURRENT_TIMESTAMP,
-            reviewed_by = ?
-        WHERE id = ?
-      `).run(
-        decision === 'APPROVE' ? 'APPROVED' : 'REJECTED',
-        req.user.id,
-        id
-      );
+        INSERT INTO rank_codes (code, rank, used, expires_at, created_by)
+        VALUES (?, ?, 0, ?, ?)
+      `).run(code, rank, expiresAt, req.session.userId);
 
-      return item;
-    });
-
-    const result = review();
-
-    if (!result) {
-      return res.status(404).json({
-        error: 'Заявка уже обработана или не найдена.'
-      });
+      created.push(code);
     }
 
-    res.json({ success: true });
-  }
-);
+    return created;
+  });
 
-app.get(
-  '/api/admin/users',
-  requireAuth,
-  requireRank('ADMIN'),
-  (req, res) => {
-    const users = db.prepare(`
-      SELECT
-        id,
-        username,
-        email,
-        display_name,
-        rank,
-        banned,
-        ban_reason,
-        created_at,
-        last_login
-      FROM users
-      ORDER BY id DESC
-    `).all();
+  const codes = createCodes();
 
-    res.set('Cache-Control', 'no-store');
-    res.json({ users });
-  }
-);
-
-app.post(
-  '/api/admin/users/:id/rank',
-  requireAuth,
-  requireRank('ADMIN'),
-  (req, res) => {
-    const id = Number(req.params.id);
-    const rank = String(req.body?.rank || '').toUpperCase();
-
-    if (!Number.isSafeInteger(id) || id < 1) {
-      return res.status(400).json({
-        error: 'Неверный ID пользователя.'
-      });
-    }
-
-    if (!VALID_RANKS.includes(rank)) {
-      return res.status(400).json({
-        error: 'Неизвестный ранг.'
-      });
-    }
-
-    const target = db.prepare(`
-      SELECT id, email
-      FROM users
-      WHERE id = ?
-    `).get(id);
-
-    if (!target) {
-      return res.status(404).json({
-        error: 'Пользователь не найден.'
-      });
-    }
-
-    if (
-      String(target.email || '').toLowerCase() === ADMIN_EMAIL &&
-      rank !== 'ADMIN'
-    ) {
-      return res.status(403).json({
-        error: 'Нельзя изменить ранг владельца.'
-      });
-    }
-
-    db.prepare(`
-      UPDATE users
-      SET rank = ?
-      WHERE id = ?
-    `).run(rank, id);
-
-    res.json({
-      success: true,
-      rank
-    });
-  }
-);
-
-app.post(
-  '/api/admin/users/:id/ban',
-  requireAuth,
-  requireRank('ADMIN'),
-  (req, res) => {
-    const id = Number(req.params.id);
-    const reason = String(
-      req.body?.reason || 'Нарушение правил'
-    ).trim().slice(0, 300);
-
-    if (!Number.isSafeInteger(id) || id < 1) {
-      return res.status(400).json({
-        error: 'Неверный ID пользователя.'
-      });
-    }
-
-    const target = db.prepare(`
-      SELECT id, email
-      FROM users
-      WHERE id = ?
-    `).get(id);
-
-    if (!target) {
-      return res.status(404).json({
-        error: 'Пользователь не найден.'
-      });
-    }
-
-    if (
-      id === req.user.id ||
-      String(target.email || '').toLowerCase() === ADMIN_EMAIL
-    ) {
-      return res.status(403).json({
-        error: 'Нельзя заблокировать владельца.'
-      });
-    }
-
-    db.prepare(`
-      UPDATE users
-      SET banned = 1, ban_reason = ?
-      WHERE id = ?
-    `).run(reason, id);
-
-    res.json({ success: true });
-  }
-);
-
-app.post(
-  '/api/admin/users/:id/unban',
-  requireAuth,
-  requireRank('ADMIN'),
-  (req, res) => {
-    const id = Number(req.params.id);
-
-    if (!Number.isSafeInteger(id) || id < 1) {
-      return res.status(400).json({
-        error: 'Неверный ID пользователя.'
-      });
-    }
-
-    const result = db.prepare(`
-      UPDATE users
-      SET banned = 0, ban_reason = NULL
-      WHERE id = ?
-    `).run(id);
-
-    if (!result.changes) {
-      return res.status(404).json({
-        error: 'Пользователь не найден.'
-      });
-    }
-
-    res.json({ success: true });
-  }
-);
-
-app.post(
-  '/api/admin/codes',
-  requireAuth,
-  requireRank('ADMIN'),
-  (req, res) => {
-    const rank = String(req.body?.rank || '').toUpperCase();
-    const amount = Math.min(
-      20,
-      Math.max(1, Math.floor(Number(req.body?.amount) || 1))
-    );
-
-    if (!['PLUS', 'MODER'].includes(rank)) {
-      return res.status(400).json({
-        error: 'Коды доступны только для PLUS и MODER.'
-      });
-    }
-
-    try {
-      const createCodes = db.transaction(() => {
-        const codes = [];
-
-        for (let i = 0; i < amount; i++) {
-          const code = makeRankCode();
-
-          db.prepare(`
-            INSERT INTO rank_codes (code, rank, created_by)
-            VALUES (?, ?, ?)
-          `).run(code, rank, req.user.id);
-
-          codes.push(code);
-        }
-
-        return codes;
-      });
-
-      res.status(201).json({
-        success: true,
-        rank,
-        codes: createCodes()
-      });
-    } catch (err) {
-      console.error('Create codes error:', err);
-      res.status(500).json({
-        error: 'Не удалось создать коды.'
-      });
-    }
-  }
-);
-
-app.get(
-  '/api/admin/codes',
-  requireAuth,
-  requireRank('ADMIN'),
-  (req, res) => {
-    const codes = db.prepare(`
-      SELECT
-        id,
-        code,
-        rank,
-        used_by,
-        used_at,
-        created_at
-      FROM rank_codes
-      ORDER BY id DESC
-      LIMIT 500
-    `).all();
-
-    res.json({ codes });
-  }
-);
-
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({
-      error: 'API-маршрут не найден.'
-    });
-  }
-
-  next();
+  return res.status(201).json({
+    success: true,
+    codes
+  });
 });
 
-const publicDirectories = [
+
+app.get('/api/admin/codes', requireAuth, requireRank('admin'), (req, res) => {
+  const codes = db.prepare(`
+    SELECT
+      id,
+      code,
+      rank,
+      used,
+      expires_at,
+      created_at,
+      used_at,
+      used_by
+    FROM rank_codes
+    ORDER BY id DESC
+    LIMIT 500
+  `).all();
+
+  return res.json({ codes });
+});
+
+
+// ===============================
+// FRONTEND STATIC FILES
+// ===============================
+
+const possiblePublicDirs = [
   path.join(__dirname, 'public'),
-  path.join(__dirname, 'public', 'public'),
-  __dirname
+  path.join(__dirname, 'frontend'),
+  path.join(__dirname, 'client'),
+  path.join(__dirname, 'dist')
 ];
 
-let frontendDirectory = publicDirectories.find(directory =>
-  fs.existsSync(path.join(directory, 'index.html'))
+const frontendDir = possiblePublicDirs.find(dir =>
+  fs.existsSync(path.join(dir, 'index.html'))
 );
 
-if (frontendDirectory) {
-  app.use(express.static(frontendDirectory));
+if (frontendDir) {
+  app.use(express.static(frontendDir));
 
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendDirectory, 'index.html'));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+      return next();
+    }
+
+    return res.sendFile(path.join(frontendDir, 'index.html'));
   });
 } else {
-  app.get('/', (req, res) => {
-    res.status(200).send(
-      'Maut AI server is running. Put index.html in the public folder.'
-    );
-  });
+  console.warn('Frontend index.html was not found. API routes are still available.');
 }
 
-app.use((err, req, res, next) => {
-  console.error('Unhandled server error:', err);
 
-  if (res.headersSent) {
-    return next(err);
-  }
+// ===============================
+// NOT FOUND + ERROR HANDLING
+// ===============================
 
-  res.status(500).json({
-    error: 'Внутренняя ошибка сервера.'
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Маршрут не найден.'
   });
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Maut AI запущен на порту ${PORT}`);
-  console.log(`Режим: ${IS_PRODUCTION ? 'production' : 'development'}`);
-  console.log(`База данных: ${path.join(DATA_DIR, 'maut.db')}`);
+
+app.use((error, req, res, next) => {
+  console.error('Server error:', error);
+
+  if (res.headersSent) {
+    return next(error);
+  }
+
+  const status = Number(error.status || error.statusCode || 500);
+
+  return res.status(status >= 400 && status < 600 ? status : 500).json({
+    error: status >= 500
+      ? 'Внутренняя ошибка сервера.'
+      : error.message || 'Произошла ошибка.'
+  });
 });
 
-function shutdown() {
-  console.log('Остановка Maut AI...');
+
+// ===============================
+// START SERVER
+// ===============================
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Maut AI is running on port ${PORT}`);
+  console.log(`Environment: ${IS_PRODUCTION ? 'production' : 'development'}`);
+  console.log(`Database directory: ${DATA_DIR}`);
+});
+
+
+// ===============================
+// GRACEFUL SHUTDOWN
+// ===============================
+
+let isShuttingDown = false;
+
+function shutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  console.log(`${signal} received. Shutting down Maut AI...`);
 
   server.close(() => {
     try {
-      sessionStore.close?.();
+      db.pragma('wal_checkpoint(TRUNCATE)');
       db.close();
-    } catch (err) {
-      console.error('Shutdown error:', err);
+      console.log('Database closed.');
+      process.exit(0);
+    } catch (error) {
+      console.error('Shutdown error:', error);
+      process.exit(1);
     }
-
-    process.exit(0);
   });
 
-  setTimeout(() => process.exit(1), 10000).unref();
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout.');
+    process.exit(1);
+  }, 10000).unref();
 }
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
