@@ -831,24 +831,17 @@ async function contactForPlus() {
 }
 
 function openAuth(mode = 'login') {
-  // Закрываем окно аккаунта
+  authMode = mode;
+
+  // Сначала закрываем окно аккаунта
   closeModal('accountModal');
 
-  // Закрываем другие окна на всякий случай
-  closeModal('imageModal');
-  closeModal('adminModal');
-
-  // Открываем окно авторизации
-  authMode = mode;
-  updateAuthModal();
-  $('authError').textContent = '';
-
-  showModal('authModal');
-
-  // Фокус на поле логина
-  setTimeout(() => {
-    $('authLogin').focus();
-  }, 100);
+  // Затем открываем авторизацию после закрытия
+  requestAnimationFrame(() => {
+    updateAuthModal();
+    $('authError').textContent = '';
+    showModal('authModal');
+  });
 }
   
 function toggleAuthMode() {
